@@ -27,6 +27,9 @@ Thumbs.db
 # IDE configuration
 .idea/
 .vscode/
+.agents/
+.claude/
+.windsurf/
 *.suo
 *.ntvs*
 *.njsproj
@@ -50,3 +53,7 @@ Thumbs.db
 .pub/
 /build/
 *.lock
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
