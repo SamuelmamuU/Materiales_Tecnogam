@@ -9,6 +9,106 @@ datasource db {
   provider = "sqlite"
 }
 
+enum Rol {
+  administrador
+  supervisor
+  trabajador
+  cliente
+}
+
+enum HitoEstatus {
+  pendiente
+  completado
+  atrasado
+}
+
+enum DeclaracionEstado {
+  declarado_cliente
+  declarado_cotizado
+  real_recibido
+}
+
+enum AvanceItemTipo {
+  planeado
+  no_planeado
+}
+
+enum AvanceItemSubtipo {
+  retrabajo
+  extra
+  modificacion
+}
+
+enum IncidenteEstatus {
+  abierto
+  resuelto
+}
+
+model Usuario {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  nombre    String
+  rol       Rol
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  proyectos MemberProyecto[]
+  avances   Avance[]
+
+  @@map("usuarios")
+}
+
+model Proyecto {
+  id                String   @id @default(uuid())
+  nombre            String
+  cliente           String
+  fechaInicio       DateTime @map("fecha_inicio")
+  fechaFinEstimada  DateTime @map("fecha_fin_estimada")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  miembros             MemberProyecto[]
+  hitos                Hito[]
+  materialesCotizados  MaterialCotizado[]
+  materialesCapturados MaterialCapturado[]
+  materialesExtras     MaterialExtra[]
+  declaraciones        DeclaracionMaterial[]
+  avances              Avance[]
+  incidentes           Incidente[]
+  tiemposMuertos       TiempoMuerto[]
+
+  @@map("proyectos")
+}
+
+model MemberProyecto {
+  id         String   @id @default(uuid())
+  usuarioId  String   @map("usuario_id")
+  proyectoId String   @map("proyecto_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  usuario  Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, proyectoId])
+  @@map("miembros_proyecto")
+}
+
+model Hito {
+  id            String      @id @default(uuid())
+  nombre        String
+  fechaObjetivo DateTime    @map("fecha_objetivo")
+  estatus       HitoEstatus @default(pendiente)
+  proyectoId    String      @map("proyecto_id")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@map("hitos")
+}
+
 model Material {
   id          String   @id @default(uuid())
   codigo      String   @unique
@@ -19,5 +119,147 @@ model Material {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  cotizaciones MaterialCotizado[]
+  capturas     MaterialCapturado[]
+  declarados   DeclaracionMaterial[]
+  avanceItems  AvanceItem[]
+
   @@map("materiales")
+}
+
+model MaterialCotizado {
+  id         String   @id @default(uuid())
+  proyectoId String   @map("proyecto_id")
+  materialId String   @map("material_id")
+  cantidad   Float
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id])
+
+  @@unique([proyectoId, materialId])
+  @@map("materiales_cotizados")
+}
+
+model MaterialCapturado {
+  id             String   @id @default(uuid())
+  proyectoId     String   @map("proyecto_id")
+  materialId     String?  @map("material_id")
+  materialManual String?  @map("material_manual")
+  cantidad       Float
+  fecha          DateTime
+  latitud        Float?
+  longitud       Float?
+  evidenciaUrl   String?  @map("evidencia_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  proyecto Proyecto  @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  material Material? @relation(fields: [materialId], references: [id])
+
+  @@map("materiales_capturados")
+}
+
+model MaterialExtra {
+  id             String   @id @default(uuid())
+  proyectoId     String   @map("proyecto_id")
+  materialManual String   @map("material_manual")
+  cantidad       Float
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@map("materiales_extras")
+}
+
+model DeclaracionMaterial {
+  id         String            @id @default(uuid())
+  proyectoId String            @map("proyecto_id")
+  materialId String            @map("material_id")
+  estado     DeclaracionEstado
+  cantidad   Float
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id])
+
+  @@map("declaraciones_materiales")
+}
+
+model Avance {
+  id           String   @id @default(uuid())
+  proyectoId   String   @map("proyecto_id")
+  fecha        DateTime
+  frente       String
+  autorId      String   @map("autor_id")
+  latitud      Float?
+  longitud     Float?
+  evidenciaUrl String?  @map("evidencia_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  proyecto Proyecto     @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  autor    Usuario      @relation(fields: [autorId], references: [id])
+  items    AvanceItem[]
+
+  @@map("avances")
+}
+
+model AvanceItem {
+  id             String             @id @default(uuid())
+  avanceId       String             @map("avance_id")
+  tipo           AvanceItemTipo
+  subtipo        AvanceItemSubtipo?
+  materialId     String?            @map("material_id")
+  materialManual String?            @map("material_manual")
+  cantidad       Float
+
+  avance   Avance    @relation(fields: [avanceId], references: [id], onDelete: Cascade)
+  material Material? @relation(fields: [materialId], references: [id])
+
+  @@map("avance_items")
+}
+
+model Incidente {
+  id           String           @id @default(uuid())
+  proyectoId   String           @map("proyecto_id")
+  categoria    String
+  descripcion  String
+  fecha        DateTime
+  latitud      Float?
+  longitud     Float?
+  evidenciaUrl String?          @map("evidencia_url")
+  estatus      IncidenteEstatus @default(abierto)
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@map("incidentes")
+}
+
+model TiempoMuerto {
+  id         String   @id @default(uuid())
+  proyectoId String   @map("proyecto_id")
+  frente     String
+  causa      String
+  duracion   Float // horas
+  fecha      DateTime
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@map("tiempos_muertos")
+}
+
+model BitacoraSincronizacion {
+  id            String   @id @default(uuid())
+  dispositivoId String?  @map("dispositivo_id")
+  tipo          String
+  fecha         DateTime @default(now())
+  estatus       String
+  detalles      String?
+
+  @@map("bitacora_sincronizaciones")
 }

@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: control_materiales_prod_db
+    restart: always
+    environment:
+      POSTGRES_DB: control_materiales
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: prod_strong_password
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: control_materiales_prod_cache
+    restart: always
+    volumes:
+      - redis_prod_data:/data
+
+  minio:
+    image: minio/minio
+    container_name: control_materiales_prod_storage
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin_strong_password
+    volumes:
+      - minio_prod_data:/data
+
+  backend:
+    build:
+      context: ../apps/backend
+      dockerfile: Dockerfile
+    container_name: control_materiales_prod_backend
+    restart: always
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_URL: 'postgresql://postgres:prod_strong_password@postgres:5432/control_materiales?schema=public'
+      JWT_ACCESS_SECRET: 'prod-access-token-secret-highly-secure'
+      JWT_REFRESH_SECRET: 'prod-refresh-token-secret-highly-secure'
+      JWT_ACCESS_EXPIRATION: '15m'
+      JWT_REFRESH_EXPIRATION: '7d'
+      PORT: 3000
+    depends_on:
+      - postgres
+      - redis
+      - minio
+
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    container_name: control_materiales_prod_web
+    restart: always
+    ports:
+      - '80:80'
+    depends_on:
+      - backend
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+  minio_prod_data:
