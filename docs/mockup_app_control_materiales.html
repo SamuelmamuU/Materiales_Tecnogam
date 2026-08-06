@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Sistema de Control de Materiales</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/dist/tabler-icons.min.css">
+<style>
+  :root{
+    --surface-0:#F7F7F5; --surface-1:#F1EFE8; --surface-2:#FFFFFF;
+    --text-primary:#1C1C1A; --text-secondary:#5F5E5A; --text-muted:#8B8A84;
+    --border:#E3E1D9; --border-strong:#C9C7BD;
+    --bg-accent:#E6F1FB; --text-accent:#0C447C; --fill-accent:#378ADD;
+    --bg-success:#EAF3DE; --text-success:#27500A; --fill-success:#639922;
+    --bg-warning:#FAEEDA; --text-warning:#633806; --fill-warning:#BA7517;
+    --text-danger:#A32D2D;
+    --fill-primary:#1C1C1A; --on-primary:#FFFFFF;
+    --radius:8px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--surface-0); color:var(--text-primary);
+    font-family:var(--font-sans); font-size:16px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page-header{
+    padding:1.5rem 1.5rem 1rem; max-width:920px; margin:0 auto;
+  }
+  .page-header h1{ font-size:20px; font-weight:500; margin:0 0 4px; }
+  .page-header p{ font-size:13px; color:var(--text-secondary); margin:0; }
+  .wrap{ max-width:920px; margin:0 auto; padding:0 1.5rem 3rem; }
+  .tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:1.5rem; }
+  .tabs button{
+    font-size:13px; padding:7px 16px; border-radius:var(--radius);
+    border:0.5px solid var(--border); background:transparent; color:var(--text-primary);
+    cursor:pointer; font-family:var(--font-sans);
+  }
+  .tabs button:hover{ background:var(--surface-1); }
+  .tabs button.active{ background:var(--surface-1); border-color:var(--border-strong); font-weight:500; }
+  input, select, textarea, button{ font-family:var(--font-sans); }
+  input, select, textarea{
+    height:36px; border-radius:var(--radius); border:0.5px solid var(--border);
+    background:var(--surface-2); padding:0 10px; color:var(--text-primary); font-size:14px;
+  }
+  button{
+    height:36px; border-radius:var(--radius); border:0.5px solid var(--border-strong);
+    background:transparent; cursor:pointer; font-size:14px; color:var(--text-primary);
+  }
+  button:hover{ background:var(--surface-1); }
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+  table{ border-collapse:collapse; }
+  a{ color:var(--text-accent); }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1><i class="ti ti-building" style="font-size:18px;vertical-align:-2px;margin-right:6px;" aria-hidden="true"></i>Mockup — Sistema de Control de Materiales</h1>
+  <p>Vista de referencia de las 4 pantallas principales. Usa los botones para navegar entre ellas.</p>
+</div>
+
+<div class="wrap">
+  <div class="tabs">
+    <button data-tab="login" onclick="showScreen('login')">Login</button>
+    <button data-tab="mobile" onclick="showScreen('mobile')">App móvil (Trabajador)</button>
+    <button data-tab="bom" onclick="showScreen('bom')">BOM de materiales</button>
+    <button data-tab="crear-proyecto" onclick="showScreen('crear-proyecto')">Crear proyecto</button>
+    <button data-tab="admin" onclick="showScreen('admin')">Dashboard administrador</button>
+    <button data-tab="cliente" onclick="showScreen('cliente')">Dashboard cliente</button>
+  </div>
+
+  <div id="screen-login" class="screen">
+    <div style="max-width:340px;margin:0 auto;background:var(--surface-1);border-radius:12px;padding:2rem 1.5rem;">
+      <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:4px;">
+        <i class="ti ti-building" style="font-size:20px;color:var(--text-accent);" aria-hidden="true"></i>
+        <span style="font-size:16px;font-weight:500;">Control de materiales</span>
+      </div>
+      <p style="text-align:center;color:var(--text-secondary);font-size:13px;margin:0 0 1.5rem;">Inicia sesión para continuar</p>
+      <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:4px;">Correo</label>
+      <input type="text" placeholder="nombre@empresa.com" style="width:100%;margin-bottom:12px;" />
+      <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:4px;">Contraseña</label>
+      <input type="password" placeholder="••••••••" style="width:100%;margin-bottom:12px;" />
+      <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:4px;">Perfil</label>
+      <select style="width:100%;margin-bottom:16px;">
+        <option>Trabajador</option>
+        <option>Supervisor</option>
+        <option>Administrador</option>
+        <option>Cliente</option>
+      </select>
+      <button style="width:100%;background:var(--fill-primary);color:var(--on-primary);border:none;">Entrar</button>
+      <p style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:14px;"><i class="ti ti-wifi-off" style="font-size:14px;vertical-align:-2px;margin-right:4px;" aria-hidden="true"></i>Funciona también sin conexión</p>
+    </div>
+  </div>
+
+  <div id="screen-mobile" class="screen">
+    <div style="background:var(--surface-1);border-radius:16px;padding:1.25rem;max-width:340px;margin:0 auto;">
+      <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:20px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:0.5px solid var(--border);">
+          <span style="font-size:13px;font-weight:500;">Captura diaria</span>
+          <span style="font-size:11px;color:var(--text-warning);background:var(--bg-warning);padding:2px 8px;border-radius:var(--radius);"><i class="ti ti-wifi-off" style="font-size:12px;vertical-align:-1px;margin-right:3px;" aria-hidden="true"></i>Sin conexión</span>
+        </div>
+        <div style="padding:14px;">
+          <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:3px;">Proyecto</label>
+          <select style="width:100%;margin-bottom:10px;font-size:13px;">
+            <option>Torre Norte - Fase 2</option>
+          </select>
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <div style="flex:1;">
+              <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:3px;">Fecha</label>
+              <input type="text" value="01/08/2026" style="width:100%;font-size:13px;" />
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:3px;">Frente</label>
+              <input type="text" value="Nivel 4" style="width:100%;font-size:13px;" />
+            </div>
+          </div>
+
+          <div style="border:0.5px solid var(--border);border-radius:var(--radius);padding:10px;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+              <i class="ti ti-check" style="font-size:14px;color:var(--text-accent);" aria-hidden="true"></i>
+              <span style="font-size:12px;font-weight:500;">Avance planeado</span>
+            </div>
+            <select id="material-planeado" style="width:100%;margin-bottom:6px;font-size:13px;">
+              <option>Ducto galvanizado 12"</option>
+              <option>Aislamiento térmico 2"</option>
+              <option>Válvula de compuerta 4"</option>
+            </select>
+            <div style="display:flex;gap:6px;margin-bottom:8px;">
+              <input id="cantidad-planeado" type="text" placeholder="Cantidad" value="24 ml" style="flex:1;font-size:13px;" />
+              <button onclick="agregarItem('planeado')" style="font-size:12px;padding:0 12px;white-space:nowrap;"><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px;margin-right:4px;" aria-hidden="true"></i>Agregar</button>
+            </div>
+            <ul id="lista-planeado" style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;">
+              <li style="display:flex;justify-content:space-between;align-items:center;background:var(--surface-1);border-radius:var(--radius);padding:6px 8px;font-size:12px;">
+                <span>Ducto galvanizado 12" · 24 ml</span>
+                <i class="ti ti-x" style="font-size:13px;color:var(--text-muted);" aria-hidden="true"></i>
+              </li>
+            </ul>
+          </div>
+
+          <div style="border:0.5px solid var(--border);border-radius:var(--radius);padding:10px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+              <i class="ti ti-alert-triangle" style="font-size:14px;color:var(--text-warning);" aria-hidden="true"></i>
+              <span style="font-size:12px;font-weight:500;">Avance no planeado</span>
+            </div>
+            <select id="subtipo-no-planeado" style="width:100%;margin-bottom:6px;font-size:13px;">
+              <option>Retrabajo</option>
+              <option>Trabajo extra</option>
+              <option>Modificación</option>
+            </select>
+            <input id="material-no-planeado" type="text" placeholder="Escribe el material utilizado" style="width:100%;margin-bottom:6px;font-size:13px;" />
+            <div style="display:flex;gap:6px;margin-bottom:6px;">
+              <input id="cantidad-no-planeado" type="text" placeholder="Cantidad" style="flex:1;font-size:13px;" />
+              <button onclick="agregarItem('no-planeado')" style="font-size:12px;padding:0 12px;white-space:nowrap;"><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px;margin-right:4px;" aria-hidden="true"></i>Agregar</button>
+            </div>
+            <p style="font-size:11px;color:var(--text-muted);margin:0 0 6px;"><i class="ti ti-info-circle" style="font-size:12px;vertical-align:-1px;margin-right:3px;" aria-hidden="true"></i>Material fuera de catálogo: se captura manualmente para revisión posterior</p>
+            <ul id="lista-no-planeado" style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;">
+              <li style="display:flex;justify-content:space-between;align-items:center;background:var(--surface-1);border-radius:var(--radius);padding:6px 8px;font-size:12px;">
+                <span>Soportería adicional (Extra) · 6 pza</span>
+                <i class="ti ti-x" style="font-size:13px;color:var(--text-muted);" aria-hidden="true"></i>
+              </li>
+            </ul>
+          </div>
+
+          <button style="width:100%;margin-bottom:10px;font-size:13px;"><i class="ti ti-camera" style="font-size:15px;vertical-align:-2px;margin-right:6px;" aria-hidden="true"></i>Adjuntar foto de evidencia</button>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);background:var(--surface-1);border-radius:var(--radius);padding:8px 10px;margin-bottom:14px;">
+            <i class="ti ti-map-pin" style="font-size:14px;" aria-hidden="true"></i>Ubicación capturada automáticamente
+          </div>
+          <button style="width:100%;background:var(--fill-primary);color:var(--on-primary);border:none;font-size:13px;">Guardar captura</button>
+        </div>
+        <div style="display:flex;justify-content:space-around;padding:10px 0;border-top:0.5px solid var(--border);">
+          <i class="ti ti-home" style="font-size:20px;color:var(--text-accent);" aria-hidden="true"></i>
+          <i class="ti ti-camera" style="font-size:20px;color:var(--text-muted);" aria-hidden="true"></i>
+          <i class="ti ti-alert-triangle" style="font-size:20px;color:var(--text-muted);" aria-hidden="true"></i>
+          <i class="ti ti-clock" style="font-size:20px;color:var(--text-muted);" aria-hidden="true"></i>
+          <i class="ti ti-user" style="font-size:20px;color:var(--text-muted);" aria-hidden="true"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-bom" class="screen">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:10px;">
+      <div>
+        <p style="font-size:15px;font-weight:500;margin:0;">Catálogo de materiales</p>
+        <p style="font-size:12px;color:var(--text-secondary);margin:2px 0 0;">Torre Norte - Fase 2 · Alimentación de BOM</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button style="font-size:13px;"><i class="ti ti-upload" style="font-size:14px;vertical-align:-2px;margin-right:5px;" aria-hidden="true"></i>Importar Excel / CSV</button>
+        <button style="font-size:13px;"><i class="ti ti-plus" style="font-size:14px;vertical-align:-2px;margin-right:5px;" aria-hidden="true"></i>Agregar material</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:1rem;align-items:center;">
+      <input type="text" placeholder="Buscar por código o descripción" style="flex:1;font-size:13px;" />
+      <span style="font-size:12px;color:var(--text-secondary);white-space:nowrap;">128 materiales cargados</span>
+    </div>
+
+    <table style="width:100%;font-size:12px;table-layout:fixed;margin-bottom:1rem;">
+      <tr style="border-bottom:0.5px solid var(--border);text-align:left;color:var(--text-secondary);">
+        <th style="padding:6px 4px;font-weight:400;width:14%;">Código</th>
+        <th style="padding:6px 4px;font-weight:400;">Descripción</th>
+        <th style="padding:6px 4px;font-weight:400;width:10%;">Unidad</th>
+        <th style="padding:6px 4px;font-weight:400;width:14%;">Cant. cotizada</th>
+        <th style="padding:6px 4px;font-weight:400;width:12%;">Cant. extra</th>
+        <th style="padding:6px 4px;font-weight:400;width:16%;">Estado</th>
+      </tr>
+      <tr style="border-bottom:0.5px solid var(--border);">
+        <td style="padding:6px 4px;">DG-1200</td><td style="padding:6px 4px;">Ducto galvanizado 12"</td><td style="padding:6px 4px;">ml</td><td style="padding:6px 4px;">1,800</td><td style="padding:6px 4px;">0</td>
+        <td style="padding:6px 4px;"><span style="background:var(--bg-success);color:var(--text-success);border-radius:var(--radius);padding:2px 8px;">Cargado</span></td>
+      </tr>
+      <tr style="border-bottom:0.5px solid var(--border);">
+        <td style="padding:6px 4px;">AT-0450</td><td style="padding:6px 4px;">Aislamiento térmico 2"</td><td style="padding:6px 4px;">m2</td><td style="padding:6px 4px;">960</td><td style="padding:6px 4px;">0</td>
+        <td style="padding:6px 4px;"><span style="background:var(--bg-success);color:var(--text-success);border-radius:var(--radius);padding:2px 8px;">Cargado</span></td>
+      </tr>
+      <tr style="border-bottom:0.5px solid var(--border);">
+        <td style="padding:6px 4px;">SP-0980</td><td style="padding:6px 4px;">Soportería adicional</td><td style="padding:6px 4px;">pza</td><td style="padding:6px 4px;">0</td><td style="padding:6px 4px;">45</td>
+        <td style="padding:6px 4px;"><span style="background:var(--bg-warning);color:var(--text-warning);border-radius:var(--radius);padding:2px 8px;">Pendiente revisión</span></td>
+      </tr>
+      <tr>
+        <td style="padding:6px 4px;">VL-2210</td><td style="padding:6px 4px;">Válvula de compuerta 4"</td><td style="padding:6px 4px;">pza</td><td style="padding:6px 4px;">12</td><td style="padding:6px 4px;">0</td>
+        <td style="padding:6px 4px;"><span style="background:var(--bg-success);color:var(--text-success);border-radius:var(--radius);padding:2px 8px;">Cargado</span></td>
+      </tr>
+    </table>
+
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);background:var(--surface-1);border-radius:var(--radius);padding:8px 10px;margin-bottom:14px;">
+      <i class="ti ti-refresh" style="font-size:14px;" aria-hidden="true"></i>Este catálogo se conecta automáticamente con el sistema de materiales de la empresa
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button style="font-size:13px;">Descartar cambios</button>
+      <button style="font-size:13px;background:var(--fill-primary);color:var(--on-primary);border:none;">Guardar catálogo</button>
+    </div>
+  </div>
+
+  <div id="screen-crear-proyecto" class="screen">
+    <p style="font-size:15px;font-weight:500;margin:0 0 1rem;">Nuevo proyecto</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:3px;">Nombre del proyecto</label>
+        <input type="text" placeholder="Ej. Torre Norte - Fase 2" style="width:100%;font-size:13px;" />
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:3px;">Cliente</label>
+        <select style="width:100%;font-size:13px;">
+          <option>Grupo Vega</option>
+          <option>Industrial MX</option>
+          <option>+ Nuevo cliente</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.25rem;">
+      <div>
+        <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:3px;">Fecha de inicio</label>
+        <input type="text" value="01/08/2026" style="width:100%;font-size:13px;" />
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:3px;">Fecha fin estimada</label>
+        <input type="text" value="15/02/2027" style="width:100%;font-size:13px;" />
+      </div>
+    </div>
+
+    <p style="font-size:13px;font-weight:500;margin:0 0 8px;">Plan de trabajo — Hitos</p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+      <div style="display:flex;gap:8px;align-items:center;background:var(--surface-1);border-radius:var(--radius);padding:8px 10px;font-size:13px;">
+        <i class="ti ti-flag" style="font-size:14px;color:var(--text-secondary);" aria-hidden="true"></i>
+        <span style="flex:1;">Levantamiento e ingeniería</span>
+        <span style="color:var(--text-secondary);font-size:12px;">30/08/2026</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;background:var(--surface-1);border-radius:var(--radius);padding:8px 10px;font-size:13px;">
+        <i class="ti ti-flag" style="font-size:14px;color:var(--text-secondary);" aria-hidden="true"></i>
+        <span style="flex:1;">Instalación nivel 1-4</span>
+        <span style="color:var(--text-secondary);font-size:12px;">15/11/2026</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;background:var(--surface-1);border-radius:var(--radius);padding:8px 10px;font-size:13px;">
+        <i class="ti ti-flag" style="font-size:14px;color:var(--text-secondary);" aria-hidden="true"></i>
+        <span style="flex:1;">Entrega final</span>
+        <span style="color:var(--text-secondary);font-size:12px;">15/02/2027</span>
+      </div>
+    </div>
+    <button style="font-size:13px;margin-bottom:1.25rem;"><i class="ti ti-plus" style="font-size:14px;vertical-align:-2px;margin-right:5px;" aria-hidden="true"></i>Agregar hito</button>
+
+    <p style="font-size:13px;font-weight:500;margin:0 0 8px;">Asignar equipo</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1.25rem;">
+      <span style="display:flex;align-items:center;gap:6px;background:var(--bg-accent);color:var(--text-accent);border-radius:var(--radius);padding:5px 10px;font-size:12px;"><i class="ti ti-user" style="font-size:13px;" aria-hidden="true"></i>Ana Torres · Supervisor</span>
+      <span style="display:flex;align-items:center;gap:6px;background:var(--surface-1);color:var(--text-primary);border-radius:var(--radius);padding:5px 10px;font-size:12px;"><i class="ti ti-user" style="font-size:13px;" aria-hidden="true"></i>Luis Peña · Trabajador</span>
+      <span style="display:flex;align-items:center;gap:6px;background:var(--surface-1);color:var(--text-primary);border-radius:var(--radius);padding:5px 10px;font-size:12px;"><i class="ti ti-user" style="font-size:13px;" aria-hidden="true"></i>Marco Díaz · Trabajador</span>
+      <button style="font-size:12px;padding:5px 10px;height:auto;"><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px;margin-right:4px;" aria-hidden="true"></i>Agregar</button>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button style="font-size:13px;">Cancelar</button>
+      <button style="font-size:13px;background:var(--fill-primary);color:var(--on-primary);border:none;">Crear proyecto</button>
+    </div>
+  </div>
+
+  <div id="screen-admin" class="screen">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:10px;">
+      <div>
+        <p style="font-size:15px;font-weight:500;margin:0;">Torre Norte - Fase 2</p>
+        <p style="font-size:12px;color:var(--text-secondary);margin:2px 0 0;">Dashboard Tecnogam</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;gap:6px;">
+          <button id="btn-vista-general" onclick="setVistaDashboard('general')" style="font-size:12px;padding:5px 12px;height:auto;">Vista general</button>
+          <button id="btn-vista-diario" onclick="setVistaDashboard('diario')" style="font-size:12px;padding:5px 12px;height:auto;">Vista diaria</button>
+        </div>
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--bg-accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:var(--text-accent);">AD</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:1.25rem;">
+      <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+        <p id="metric-avance-label" style="font-size:13px;color:var(--text-secondary);margin:0 0 4px;">Avance general</p>
+        <p id="metric-avance-value" style="font-size:24px;font-weight:500;margin:0;">68%</p>
+      </div>
+      <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+        <p id="metric-material-label" style="font-size:13px;color:var(--text-secondary);margin:0 0 4px;">Material instalado</p>
+        <p id="metric-material-value" style="font-size:24px;font-weight:500;margin:0;">1,240 ml</p>
+      </div>
+      <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+        <p id="metric-incidentes-label" style="font-size:13px;color:var(--text-secondary);margin:0 0 4px;">Incidentes abiertos</p>
+        <p id="metric-incidentes-value" style="font-size:24px;font-weight:500;margin:0;color:var(--text-danger);">3</p>
+      </div>
+      <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+        <p id="metric-tiempo-label" style="font-size:13px;color:var(--text-secondary);margin:0 0 4px;">Tiempo muerto</p>
+        <p id="metric-tiempo-value" style="font-size:24px;font-weight:500;margin:0;">6.5 h</p>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:12px;margin-bottom:1.25rem;">
+      <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 10px;">Avance planeado vs. real</p>
+
+        <svg id="chart-acumulado" viewBox="0 0 380 110" style="width:100%;height:auto;display:block;">
+          <line x1="10" y1="18" x2="370" y2="18" stroke="var(--border)" stroke-width="1"/>
+          <line x1="10" y1="38" x2="370" y2="38" stroke="var(--border)" stroke-width="1"/>
+          <line x1="10" y1="58" x2="370" y2="58" stroke="var(--border)" stroke-width="1"/>
+          <line x1="10" y1="78" x2="370" y2="78" stroke="var(--border)" stroke-width="1"/>
+          <line x1="10" y1="90" x2="370" y2="90" stroke="var(--border-strong)" stroke-width="1"/>
+
+          <path d="M10,80.4 L61.4,67.6 L112.8,56.4 L164.2,46 L215.6,37.2 L267,29.2 L318.4,22.8 L369.8,18 L369.8,90 L10,90 Z" fill="var(--fill-accent)" opacity="0.18"/>
+          <path d="M10,83.6 L61.4,74 L112.8,66 L164.2,58 L215.6,50 L267,43.6 L318.4,38.8 L369.8,35.6 L369.8,90 L10,90 Z" fill="var(--fill-success)" opacity="0.28"/>
+
+          <path d="M10,80.4 L61.4,67.6 L112.8,56.4 L164.2,46 L215.6,37.2 L267,29.2 L318.4,22.8 L369.8,18" fill="none" stroke="var(--fill-accent)" stroke-width="2"/>
+          <path d="M10,83.6 L61.4,74 L112.8,66 L164.2,58 L215.6,50 L267,43.6 L318.4,38.8 L369.8,35.6" fill="none" stroke="var(--fill-success)" stroke-width="2"/>
+
+          <text x="10" y="102" font-size="8" fill="var(--text-muted)">Sem 1</text>
+          <text x="164" y="102" font-size="8" fill="var(--text-muted)" text-anchor="middle">Sem 4</text>
+          <text x="362" y="102" font-size="8" fill="var(--text-muted)" text-anchor="end">Sem 8</text>
+        </svg>
+
+        <svg id="chart-diario" viewBox="0 0 380 110" style="width:100%;height:auto;display:none;">
+          <line x1="10" y1="18" x2="370" y2="18" stroke="var(--border)" stroke-width="1"/>
+          <line x1="10" y1="42" x2="370" y2="42" stroke="var(--border)" stroke-width="1"/>
+          <line x1="10" y1="66" x2="370" y2="66" stroke="var(--border)" stroke-width="1"/>
+          <line x1="10" y1="90" x2="370" y2="90" stroke="var(--border-strong)" stroke-width="1"/>
+
+          <rect x="16" y="42" width="14" height="48" rx="2" fill="var(--fill-accent)"/>
+          <rect x="33" y="58" width="14" height="32" rx="2" fill="var(--fill-success)"/>
+          <rect x="61" y="26" width="14" height="64" rx="2" fill="var(--fill-accent)"/>
+          <rect x="78" y="42" width="14" height="48" rx="2" fill="var(--fill-success)"/>
+          <rect x="106" y="34" width="14" height="56" rx="2" fill="var(--fill-accent)"/>
+          <rect x="123" y="50" width="14" height="40" rx="2" fill="var(--fill-success)"/>
+          <rect x="151" y="38" width="14" height="52" rx="2" fill="var(--fill-accent)"/>
+          <rect x="168" y="50" width="14" height="40" rx="2" fill="var(--fill-success)"/>
+          <rect x="196" y="46" width="14" height="44" rx="2" fill="var(--fill-accent)"/>
+          <rect x="213" y="50" width="14" height="40" rx="2" fill="var(--fill-success)"/>
+          <rect x="241" y="50" width="14" height="40" rx="2" fill="var(--fill-accent)"/>
+          <rect x="258" y="58" width="14" height="32" rx="2" fill="var(--fill-success)"/>
+          <rect x="286" y="58" width="14" height="32" rx="2" fill="var(--fill-accent)"/>
+          <rect x="303" y="66" width="14" height="24" rx="2" fill="var(--fill-success)"/>
+          <rect x="331" y="66" width="14" height="24" rx="2" fill="var(--fill-accent)"/>
+          <rect x="348" y="74" width="14" height="16" rx="2" fill="var(--fill-success)"/>
+
+          <text x="10" y="102" font-size="8" fill="var(--text-muted)">Sem 1</text>
+          <text x="164" y="102" font-size="8" fill="var(--text-muted)" text-anchor="middle">Sem 4</text>
+          <text x="362" y="102" font-size="8" fill="var(--text-muted)" text-anchor="end">Sem 8</text>
+        </svg>
+
+        <div style="display:flex;gap:14px;margin-top:8px;">
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);"><span style="width:8px;height:8px;border-radius:50%;background:var(--fill-accent);display:inline-block;"></span>Planeado</span>
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);"><span style="width:8px;height:8px;border-radius:50%;background:var(--fill-success);display:inline-block;"></span>Real</span>
+        </div>
+      </div>
+      <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+        <p id="incidentes-panel-title" style="font-size:13px;color:var(--text-secondary);margin:0 0 10px;">Últimos incidentes</p>
+        <div id="incidentes-general" style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+          <div style="display:flex;justify-content:space-between;"><span>Falta de material</span><span style="color:var(--text-danger);">Alto</span></div>
+          <div style="display:flex;justify-content:space-between;"><span>Retraso de cuadrilla</span><span style="color:var(--text-warning);">Medio</span></div>
+          <div style="display:flex;justify-content:space-between;"><span>Cambio de plano</span><span style="color:var(--text-secondary);">Bajo</span></div>
+        </div>
+        <div id="incidentes-diario" style="display:none;flex-direction:column;gap:8px;font-size:12px;">
+          <div style="display:flex;justify-content:space-between;"><span>Falta de material · 10:30 am</span><span style="color:var(--text-danger);">Alto</span></div>
+          <div style="display:flex;justify-content:space-between;"><span>Retraso de cuadrilla · 1:15 pm</span><span style="color:var(--text-warning);">Medio</span></div>
+        </div>
+      </div>
+    </div>
+
+    <p id="tabla-proyectos-title" style="font-size:13px;color:var(--text-secondary);margin:0 0 8px;">Proyectos — avance total</p>
+    <table style="width:100%;font-size:12px;table-layout:fixed;">
+      <thead>
+        <tr style="border-bottom:0.5px solid var(--border);text-align:left;color:var(--text-secondary);">
+          <th style="padding:6px 4px;font-weight:400;">Proyecto</th><th style="padding:6px 4px;font-weight:400;">Cliente</th><th id="tabla-col-avance" style="padding:6px 4px;font-weight:400;">Avance</th><th style="padding:6px 4px;font-weight:400;">Estado</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-general">
+        <tr style="border-bottom:0.5px solid var(--border);"><td style="padding:6px 4px;">Torre Norte F2</td><td style="padding:6px 4px;">Grupo Vega</td><td style="padding:6px 4px;">68%</td><td style="padding:6px 4px;"><span style="background:var(--bg-success);color:var(--text-success);border-radius:var(--radius);padding:2px 8px;">En tiempo</span></td></tr>
+        <tr><td style="padding:6px 4px;">Planta Sur</td><td style="padding:6px 4px;">Industrial MX</td><td style="padding:6px 4px;">41%</td><td style="padding:6px 4px;"><span style="background:var(--bg-warning);color:var(--text-warning);border-radius:var(--radius);padding:2px 8px;">Con retraso</span></td></tr>
+      </tbody>
+      <tbody id="tabla-diario" style="display:none;">
+        <tr style="border-bottom:0.5px solid var(--border);"><td style="padding:6px 4px;">Torre Norte F2</td><td style="padding:6px 4px;">Grupo Vega</td><td style="padding:6px 4px;">+4.2%</td><td style="padding:6px 4px;"><span style="background:var(--bg-success);color:var(--text-success);border-radius:var(--radius);padding:2px 8px;">En tiempo</span></td></tr>
+        <tr><td style="padding:6px 4px;">Planta Sur</td><td style="padding:6px 4px;">Industrial MX</td><td style="padding:6px 4px;">+1.8%</td><td style="padding:6px 4px;"><span style="background:var(--bg-warning);color:var(--text-warning);border-radius:var(--radius);padding:2px 8px;">Con retraso</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="screen-cliente" class="screen">
+    <div style="margin-bottom:1rem;">
+      <p style="font-size:15px;font-weight:500;margin:0;">Torre Norte - Fase 2</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:2px 0 0;">Resumen para cliente</p>
+    </div>
+
+    <div style="background:var(--surface-1);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem;text-align:center;">
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 4px;">Avance total del proyecto</p>
+      <p style="font-size:32px;font-weight:500;margin:0;">68%</p>
+    </div>
+
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 8px;">Estado de materiales</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:1.25rem;">
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Cotizado</span><span>100%</span></div>
+        <div style="background:var(--surface-1);border-radius:8px;height:8px;"><div style="width:100%;background:var(--fill-accent);border-radius:8px;height:8px;"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Recibido</span><span>82%</span></div>
+        <div style="background:var(--surface-1);border-radius:8px;height:8px;"><div style="width:82%;background:var(--fill-success);border-radius:8px;height:8px;"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Instalado</span><span>68%</span></div>
+        <div style="background:var(--surface-1);border-radius:8px;height:8px;"><div style="width:68%;background:var(--fill-warning);border-radius:8px;height:8px;"></div></div>
+      </div>
+    </div>
+
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 8px;">Resumen de materiales</p>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface-1);border-radius:var(--radius);padding:10px 12px;font-size:13px;">
+        <span>Ducto galvanizado 12"</span><span style="background:var(--bg-success);color:var(--text-success);border-radius:var(--radius);padding:2px 8px;font-size:11px;">Dentro de alcance</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface-1);border-radius:var(--radius);padding:10px 12px;font-size:13px;">
+        <span>Aislamiento térmico</span><span style="background:var(--bg-success);color:var(--text-success);border-radius:var(--radius);padding:2px 8px;font-size:11px;">Dentro de alcance</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface-1);border-radius:var(--radius);padding:10px 12px;font-size:13px;">
+        <span>Soportería adicional</span><span style="background:var(--bg-warning);color:var(--text-warning);border-radius:var(--radius);padding:2px 8px;font-size:11px;">Extra</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function setVistaDashboard(vista){
+  var esGeneral = (vista === 'general');
+
+  document.getElementById('chart-acumulado').style.display = esGeneral ? 'block' : 'none';
+  document.getElementById('chart-diario').style.display = esGeneral ? 'none' : 'block';
+
+  document.getElementById('metric-avance-label').textContent = esGeneral ? 'Avance general' : 'Avance de hoy';
+  document.getElementById('metric-avance-value').textContent = esGeneral ? '68%' : '+4.2%';
+  document.getElementById('metric-material-label').textContent = esGeneral ? 'Material instalado' : 'Material instalado hoy';
+  document.getElementById('metric-material-value').textContent = esGeneral ? '1,240 ml' : '38 ml';
+  document.getElementById('metric-incidentes-label').textContent = esGeneral ? 'Incidentes abiertos' : 'Incidentes de hoy';
+  document.getElementById('metric-incidentes-value').textContent = esGeneral ? '3' : '1';
+  document.getElementById('metric-tiempo-label').textContent = esGeneral ? 'Tiempo muerto' : 'Tiempo muerto hoy';
+  document.getElementById('metric-tiempo-value').textContent = esGeneral ? '6.5 h' : '0.8 h';
+
+  document.getElementById('incidentes-panel-title').textContent = esGeneral ? 'Últimos incidentes' : 'Incidentes de hoy';
+  document.getElementById('incidentes-general').style.display = esGeneral ? 'flex' : 'none';
+  document.getElementById('incidentes-diario').style.display = esGeneral ? 'none' : 'flex';
+
+  document.getElementById('tabla-proyectos-title').textContent = esGeneral ? 'Proyectos — avance total' : 'Proyectos — avance de hoy';
+  document.getElementById('tabla-col-avance').textContent = esGeneral ? 'Avance' : 'Avance hoy';
+  document.getElementById('tabla-general').style.display = esGeneral ? 'table-row-group' : 'none';
+  document.getElementById('tabla-diario').style.display = esGeneral ? 'none' : 'table-row-group';
+
+  var btnG = document.getElementById('btn-vista-general');
+  var btnD = document.getElementById('btn-vista-diario');
+  btnG.style.background = esGeneral ? 'var(--surface-2)' : 'transparent';
+  btnG.style.borderColor = esGeneral ? 'var(--border-strong)' : 'var(--border)';
+  btnG.style.fontWeight = esGeneral ? '500' : '400';
+  btnD.style.background = esGeneral ? 'transparent' : 'var(--surface-2)';
+  btnD.style.borderColor = esGeneral ? 'var(--border)' : 'var(--border-strong)';
+  btnD.style.fontWeight = esGeneral ? '400' : '500';
+}
+
+function agregarItem(tipo){
+  var lista, texto;
+  if(tipo === 'planeado'){
+    var mat = document.getElementById('material-planeado').value;
+    var cant = document.getElementById('cantidad-planeado').value || 'sin cantidad';
+    lista = document.getElementById('lista-planeado');
+    texto = mat + ' · ' + cant;
+  } else {
+    var sub = document.getElementById('subtipo-no-planeado').value;
+    var matM = document.getElementById('material-no-planeado').value || 'Material sin nombre';
+    var cantM = document.getElementById('cantidad-no-planeado').value || 'sin cantidad';
+    lista = document.getElementById('lista-no-planeado');
+    texto = matM + ' (' + sub + ') · ' + cantM;
+  }
+  var li = document.createElement('li');
+  li.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:var(--surface-1);border-radius:var(--radius);padding:6px 8px;font-size:12px;';
+  li.innerHTML = '<span>' + texto + '</span><i class="ti ti-x" style="font-size:13px;color:var(--text-muted);cursor:pointer;" onclick="this.parentElement.remove()" aria-hidden="true"></i>';
+  lista.appendChild(li);
+  if(tipo === 'no-planeado'){
+    document.getElementById('material-no-planeado').value = '';
+    document.getElementById('cantidad-no-planeado').value = '';
+  }
+}
+
+function showScreen(name){
+  var screens=['login','mobile','bom','crear-proyecto','admin','cliente'];
+  screens.forEach(function(s){
+    document.getElementById('screen-'+s).classList.toggle('active', s===name);
+    var btn=document.querySelector('[data-tab="'+s+'"]');
+    if(btn){ btn.classList.toggle('active', s===name); }
+  });
+}
+showScreen('mobile');
+setVistaDashboard('general');
+</script>
+
+</body>
+</html>
