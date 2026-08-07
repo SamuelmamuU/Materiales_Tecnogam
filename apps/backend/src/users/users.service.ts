@@ -1,4 +1,8 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashPassword } from '../common/utils/crypto';
 import { Prisma } from '@prisma/client';
@@ -49,6 +53,63 @@ export class UsersService {
         rol: true,
         activo: true,
         createdAt: true,
+      },
+    });
+  }
+
+  async findAll() {
+    return this.prisma.usuario.findMany({
+      select: {
+        id: true,
+        email: true,
+        nombre: true,
+        rol: true,
+        activo: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  async update(id: string, data: Partial<Prisma.UsuarioUpdateInput>) {
+    const existing = await this.prisma.usuario.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException('El usuario a actualizar no existe.');
+    }
+
+    const updateData = { ...data };
+    if (updateData.password && typeof updateData.password === 'string') {
+      updateData.password = hashPassword(updateData.password);
+    }
+
+    return this.prisma.usuario.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        nombre: true,
+        rol: true,
+        activo: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  async remove(id: string) {
+    const existing = await this.prisma.usuario.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException('El usuario a eliminar no existe.');
+    }
+
+    return this.prisma.usuario.delete({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
       },
     });
   }

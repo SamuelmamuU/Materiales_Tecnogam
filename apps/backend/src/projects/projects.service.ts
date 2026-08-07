@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ProjectsService {
@@ -218,6 +219,127 @@ export class ProjectsService {
     return this.prisma.incidente.update({
       where: { id: incidenteId },
       data: { estatus: 'resuelto' },
+    });
+  }
+
+  async create(data: Prisma.ProyectoCreateInput) {
+    return this.prisma.proyecto.create({
+      data,
+    });
+  }
+
+  async update(id: string, data: Partial<Prisma.ProyectoUpdateInput>) {
+    await this.findOne(id);
+    return this.prisma.proyecto.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async remove(id: string) {
+    await this.findOne(id);
+    return this.prisma.proyecto.delete({
+      where: { id },
+      select: {
+        id: true,
+        nombre: true,
+      },
+    });
+  }
+
+  async addMember(projectId: string, userId: string) {
+    await this.findOne(projectId);
+    const user = await this.prisma.usuario.findUnique({
+      where: { id: userId },
+    });
+    if (!user)
+      throw new NotFoundException('El usuario especificado no existe.');
+
+    const existing = await this.prisma.memberProyecto.findUnique({
+      where: {
+        usuarioId_proyectoId: { usuarioId: userId, proyectoId: projectId },
+      },
+    });
+    if (existing) return existing;
+
+    return this.prisma.memberProyecto.create({
+      data: {
+        proyectoId: projectId,
+        usuarioId: userId,
+      },
+    });
+  }
+
+  async removeMember(projectId: string, userId: string) {
+    await this.findOne(projectId);
+    const existing = await this.prisma.memberProyecto.findUnique({
+      where: {
+        usuarioId_proyectoId: { usuarioId: userId, proyectoId: projectId },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('El usuario no es miembro de este proyecto.');
+    }
+
+    return this.prisma.memberProyecto.delete({
+      where: {
+        usuarioId_proyectoId: { usuarioId: userId, proyectoId: projectId },
+      },
+    });
+  }
+
+  async createHito(
+    projectId: string,
+    data: {
+      nombre: string;
+      fechaObjetivo: string;
+      estatus?: 'pendiente' | 'completado' | 'atrasado';
+    },
+  ) {
+    await this.findOne(projectId);
+    return this.prisma.hito.create({
+      data: {
+        nombre: data.nombre,
+        fechaObjetivo: new Date(data.fechaObjetivo),
+        estatus: data.estatus || 'pendiente',
+        proyectoId: projectId,
+      },
+    });
+  }
+
+  async updateHito(
+    hitoId: string,
+    data: {
+      nombre?: string;
+      fechaObjetivo?: string;
+      estatus?: 'pendiente' | 'completado' | 'atrasado';
+    },
+  ) {
+    const existing = await this.prisma.hito.findUnique({
+      where: { id: hitoId },
+    });
+    if (!existing) throw new NotFoundException('El hito solicitado no existe.');
+
+    const updateData: Prisma.HitoUpdateInput = {};
+    if (data.nombre) updateData.nombre = data.nombre;
+    if (data.fechaObjetivo)
+      updateData.fechaObjetivo = new Date(data.fechaObjetivo);
+    if (data.estatus) updateData.estatus = data.estatus;
+
+    return this.prisma.hito.update({
+      where: { id: hitoId },
+      data: updateData,
+    });
+  }
+
+  async removeHito(hitoId: string) {
+    const existing = await this.prisma.hito.findUnique({
+      where: { id: hitoId },
+    });
+    if (!existing) throw new NotFoundException('El hito solicitado no existe.');
+
+    return this.prisma.hito.delete({
+      where: { id: hitoId },
     });
   }
 }
