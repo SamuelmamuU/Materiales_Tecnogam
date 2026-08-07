@@ -1,1 +1,63 @@
-/* Custom styles if needed, Tailwind is active */
+/* Custom styles for Tecnogam Materiales Web */
+
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
+  }
+  
+  /* Ocultar barra lateral y botones de control en impresión */
+  aside, 
+  header,
+  button,
+  select,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Forzar visibilidad del encabezado de reporte impreso */
+  .print\:block {
+    display: block !important;
+  }
+
+  /* Ajustes de layout para ocupar el ancho total de la hoja */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+  }
+
+  /* Evitar saltos de página a mitad de una tarjeta o fila */
+  .bg-white {
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 20px !important;
+  }
+
+  table {
+    page-break-inside: auto !important;
+    width: 100% !important;
+  }
+  
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  /* Asegurar colores de badges para contraste en blanco y negro */
+  .bg-green-100 {
+    background-color: #f0fdf4 !important;
+    color: #14532d !important;
+    border: 1px solid #bbf7d0 !important;
+  }
+
+  .bg-red-100 {
+    background-color: #fef2f2 !important;
+    color: #7f1d1d !important;
+    border: 1px solid #fecaca !important;
+  }
+}

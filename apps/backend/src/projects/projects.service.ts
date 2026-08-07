@@ -52,4 +52,172 @@ export class ProjectsService {
       include: { hitos: true },
     });
   }
+
+  async getDashboardData(projectId: string) {
+    const project = await this.prisma.proyecto.findUnique({
+      where: { id: projectId },
+      include: {
+        hitos: true,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('El proyecto solicitado no existe.');
+    }
+
+    const hitos = project.hitos;
+
+    const cotizados = await this.prisma.materialCotizado.findMany({
+      where: { proyectoId: projectId },
+      include: { material: true },
+    });
+
+    const capturados = await this.prisma.materialCapturado.findMany({
+      where: { proyectoId: projectId },
+      include: { material: true },
+    });
+
+    const declaraciones = await this.prisma.declaracionMaterial.findMany({
+      where: { proyectoId: projectId },
+      include: { material: true },
+    });
+
+    const incidentes = await this.prisma.incidente.findMany({
+      where: { proyectoId: projectId },
+      orderBy: { fecha: 'desc' },
+    });
+
+    const tiemposMuertos = await this.prisma.tiempoMuerto.findMany({
+      where: { proyectoId: projectId },
+      orderBy: { fecha: 'desc' },
+    });
+
+    const reconciliationMap = new Map<
+      string,
+      {
+        codigo: string;
+        descripcion: string;
+        unidad: string;
+        cotizado: number;
+        recibido: number;
+        declaradoCliente: number;
+        instalado: number;
+      }
+    >();
+
+    for (const c of cotizados) {
+      reconciliationMap.set(c.materialId, {
+        codigo: c.material.codigo,
+        descripcion: c.material.descripcion,
+        unidad: c.material.unidad,
+        cotizado: c.cantidad,
+        recibido: 0,
+        declaradoCliente: 0,
+        instalado: 0,
+      });
+    }
+
+    for (const d of declaraciones) {
+      if (!reconciliationMap.has(d.materialId)) {
+        reconciliationMap.set(d.materialId, {
+          codigo: d.material.codigo,
+          descripcion: d.material.descripcion,
+          unidad: d.material.unidad,
+          cotizado: 0,
+          recibido: 0,
+          declaradoCliente: 0,
+          instalado: 0,
+        });
+      }
+      const entry = reconciliationMap.get(d.materialId)!;
+      if (d.estado === 'real_recibido') {
+        entry.recibido += d.cantidad;
+      } else if (d.estado === 'declarado_cliente') {
+        entry.declaradoCliente += d.cantidad;
+      }
+    }
+
+    for (const cap of capturados) {
+      if (cap.materialId) {
+        if (!reconciliationMap.has(cap.materialId)) {
+          reconciliationMap.set(cap.materialId, {
+            codigo: cap.material?.codigo || 'Manual',
+            descripcion: cap.material?.descripcion || cap.materialManual || '',
+            unidad: cap.material?.unidad || 'pza',
+            cotizado: 0,
+            recibido: 0,
+            declaradoCliente: 0,
+            instalado: 0,
+          });
+        }
+        const entry = reconciliationMap.get(cap.materialId)!;
+        entry.instalado += cap.cantidad;
+      }
+    }
+
+    const reconciliation = Array.from(reconciliationMap.entries()).map(
+      ([materialId, data]) => ({
+        materialId,
+        ...data,
+        discrepancia: data.instalado - data.cotizado,
+      }),
+    );
+
+    const totalCotizado = cotizados.reduce((acc, c) => acc + c.cantidad, 0);
+    const totalInstalado = capturados.reduce((acc, c) => acc + c.cantidad, 0);
+    const totalRecibido = declaraciones
+      .filter((d) => d.estado === 'real_recibido')
+      .reduce((acc, d) => acc + d.cantidad, 0);
+
+    const avanceGeneral =
+      totalCotizado > 0 ? (totalInstalado / totalCotizado) * 100 : 0;
+
+    const totalTiemposMuertosHoras = tiemposMuertos.reduce(
+      (acc, t) => acc + t.duracion,
+      0,
+    );
+
+    const openIncidentes = incidentes.filter(
+      (i) => i.estatus === 'abierto',
+    ).length;
+    const resolvedIncidentes = incidentes.filter(
+      (i) => i.estatus === 'resuelto',
+    ).length;
+
+    return {
+      proyecto: {
+        id: project.id,
+        nombre: project.nombre,
+        cliente: project.cliente,
+        fechaInicio: project.fechaInicio,
+        fechaFinEstimada: project.fechaFinEstimada,
+      },
+      kpis: {
+        totalCotizado,
+        totalInstalado,
+        totalRecibido,
+        avanceGeneral,
+        totalTiemposMuertosHoras,
+        openIncidentes,
+        resolvedIncidentes,
+      },
+      hitos,
+      reconciliation,
+      incidentes,
+      tiemposMuertos,
+    };
+  }
+
+  async resolveIncidente(incidenteId: string) {
+    const existing = await this.prisma.incidente.findUnique({
+      where: { id: incidenteId },
+    });
+    if (!existing) {
+      throw new NotFoundException('El incidente solicitado no existe.');
+    }
+    return this.prisma.incidente.update({
+      where: { id: incidenteId },
+      data: { estatus: 'resuelto' },
+    });
+  }
 }
