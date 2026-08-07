@@ -7,6 +7,8 @@ import { HealthModule } from './health/health.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ProjectsModule } from './projects/projects.module';
+import { MediaModule } from './media/media.module';
+import { AvancesModule } from './avances/avances.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { ProjectsModule } from './projects/projects.module';
     UsersModule,
     AuthModule,
     ProjectsModule,
+    MediaModule,
+    AvancesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

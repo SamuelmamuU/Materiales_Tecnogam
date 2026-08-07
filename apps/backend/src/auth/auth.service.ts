@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { comparePassword } from '../common/utils/crypto';
@@ -33,11 +37,13 @@ export class AuthService {
 
     // Enforce that the selected role matches their actual role
     if (user.rol !== requestedRol) {
-      throw new ForbiddenException('El rol solicitado no coincide con su rol registrado.');
+      throw new ForbiddenException(
+        'El rol solicitado no coincide con su rol registrado.',
+      );
     }
 
     const payload = { sub: user.id, email: user.email, rol: user.rol };
-    
+
     // Generate Access Token
     const accessToken = this.jwtService.sign(payload, {
       secret: process.env.JWT_ACCESS_SECRET || 'super-secret-access-key',
@@ -45,10 +51,13 @@ export class AuthService {
     });
 
     // Generate Refresh Token
-    const refreshToken = this.jwtService.sign({ sub: user.id }, {
-      secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key',
-      expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d',
-    });
+    const refreshToken = this.jwtService.sign(
+      { sub: user.id },
+      {
+        secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key',
+        expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d',
+      },
+    );
 
     this.activeRefreshTokens.add(refreshToken);
 
@@ -72,7 +81,7 @@ export class AuthService {
     try {
       const payload = this.jwtService.verify(token, {
         secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key',
-      });
+      }) as unknown as { sub: string };
 
       const user = await this.usersService.findById(payload.sub);
       if (!user || !user.activo) {
@@ -90,10 +99,13 @@ export class AuthService {
         expiresIn: process.env.JWT_ACCESS_EXPIRATION || '15m',
       });
 
-      const refreshToken = this.jwtService.sign({ sub: user.id }, {
-        secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key',
-        expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d',
-      });
+      const refreshToken = this.jwtService.sign(
+        { sub: user.id },
+        {
+          secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key',
+          expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d',
+        },
+      );
 
       this.activeRefreshTokens.add(refreshToken);
 
@@ -107,8 +119,8 @@ export class AuthService {
     }
   }
 
-  async logout(token: string) {
+  logout(token: string): Promise<{ message: string }> {
     this.activeRefreshTokens.delete(token);
-    return { message: 'Sesión cerrada con éxito.' };
+    return Promise.resolve({ message: 'Sesión cerrada con éxito.' });
   }
 }

@@ -1,12 +1,18 @@
-import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RequestWithUser } from './jwt-auth.guard';
 
 @Injectable()
 export class ProjectGuard implements CanActivate {
   constructor(private readonly prisma: PrismaService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
     const user = request.user;
 
     if (!user) {
@@ -18,8 +24,12 @@ export class ProjectGuard implements CanActivate {
       return true;
     }
 
-    // Extrae projectId desde los parámetros de la ruta, query string o el cuerpo de la petición
-    const projectId = request.params.projectId || request.query.projectId || request.body.projectId;
+    // Extrae projectId desde los parámetros de la ruta, query string o el cuerpo de la petición con tipado estricto
+    const params = request.params as Record<string, string | undefined>;
+    const query = request.query as Record<string, string | undefined>;
+    const body = request.body as Record<string, string | undefined>;
+
+    const projectId = params.projectId || query.projectId || body.projectId;
 
     if (!projectId) {
       // Si la ruta no especifica un proyecto, se permite la navegación base
@@ -37,7 +47,9 @@ export class ProjectGuard implements CanActivate {
     });
 
     if (!membership) {
-      throw new ForbiddenException('Acceso denegado: usted no pertenece a este proyecto.');
+      throw new ForbiddenException(
+        'Acceso denegado: usted no pertenece a este proyecto.',
+      );
     }
 
     return true;

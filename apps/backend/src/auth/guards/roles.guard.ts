@@ -1,7 +1,13 @@
-import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { Rol } from '@prisma/client';
+import { RequestWithUser } from './jwt-auth.guard';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -17,16 +23,18 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
     const user = request.user;
 
     if (!user || !user.rol) {
       throw new ForbiddenException('Acceso denegado: rol no identificado.');
     }
 
-    const hasRole = requiredRoles.includes(user.rol);
+    const hasRole = requiredRoles.includes(user.rol as Rol);
     if (!hasRole) {
-      throw new ForbiddenException('Acceso denegado: no tiene el rol requerido.');
+      throw new ForbiddenException(
+        'Acceso denegado: no tiene el rol requerido.',
+      );
     }
 
     return true;

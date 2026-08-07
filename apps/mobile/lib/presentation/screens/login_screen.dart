@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -75,11 +76,11 @@ class _LoginScreenState extends State<LoginScreen> {
         _successMessage = '¡Bienvenido ${responseData['user']['nombre']}!';
       });
 
-      // Simular redirección a pantalla principal
+      // Redireccionar al Dashboard
       Future.delayed(const Duration(seconds: 1), () {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Sesión iniciada como ${_selectedRole.toUpperCase()}')),
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const DashboardScreen()),
           );
         }
       });

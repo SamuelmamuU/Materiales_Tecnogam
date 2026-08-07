@@ -1,7 +1,7 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashPassword } from '../common/utils/crypto';
-import { Prisma, Rol } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -31,7 +31,9 @@ export class UsersService {
   async create(data: Prisma.UsuarioCreateInput) {
     const existing = await this.findByEmail(data.email);
     if (existing) {
-      throw new ConflictException('Un usuario con este correo ya está registrado.');
+      throw new ConflictException(
+        'Un usuario con este correo ya está registrado.',
+      );
     }
 
     const hashedPassword = hashPassword(data.password);

@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/unbound-method */
+
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
@@ -8,7 +12,6 @@ import { hashPassword } from '../common/utils/crypto';
 describe('AuthService', () => {
   let service: AuthService;
   let usersService: UsersService;
-  let jwtService: JwtService;
 
   const mockUsersService = {
     findByEmail: jest.fn(),
@@ -31,7 +34,6 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     usersService = module.get<UsersService>(UsersService);
-    jwtService = module.get<JwtService>(JwtService);
   });
 
   afterEach(() => {
@@ -57,7 +59,11 @@ describe('AuthService', () => {
         return 'refresh-token';
       });
 
-      const result = await service.login('user@test.com', plainPassword, 'supervisor');
+      const result = await service.login(
+        'user@test.com',
+        plainPassword,
+        'supervisor',
+      );
 
       expect(usersService.findByEmail).toHaveBeenCalledWith('user@test.com');
       expect(result).toHaveProperty('accessToken', 'access-token');
@@ -134,15 +140,23 @@ describe('AuthService', () => {
 
       // Primero hacemos login para registrar el refresh token en memoria
       mockUsersService.findByEmail.mockResolvedValue(mockUser);
-      mockJwtService.sign.mockReturnValueOnce('access-token').mockReturnValueOnce('refresh-token-123');
-      
-      const loginRes = await service.login('user@test.com', 'password123', 'supervisor');
+      mockJwtService.sign
+        .mockReturnValueOnce('access-token')
+        .mockReturnValueOnce('refresh-token-123');
+
+      const loginRes = await service.login(
+        'user@test.com',
+        'password123',
+        'supervisor',
+      );
       const activeRefreshToken = loginRes.refreshToken;
 
       // Configuramos el mock de verificación del refresh token
       mockJwtService.verify.mockReturnValue({ sub: 'user-id' });
       mockUsersService.findById.mockResolvedValue(mockUser);
-      mockJwtService.sign.mockReturnValueOnce('new-access-token').mockReturnValueOnce('new-refresh-token');
+      mockJwtService.sign
+        .mockReturnValueOnce('new-access-token')
+        .mockReturnValueOnce('new-refresh-token');
 
       const refreshRes = await service.refresh(activeRefreshToken);
 
@@ -151,7 +165,9 @@ describe('AuthService', () => {
     });
 
     it('debería fallar al refrescar si el token fue revocado o no existe', async () => {
-      await expect(service.refresh('unknown-token')).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh('unknown-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('debería invalidar el token al hacer logout', async () => {
@@ -167,14 +183,22 @@ describe('AuthService', () => {
       };
 
       mockUsersService.findByEmail.mockResolvedValue(mockUser);
-      mockJwtService.sign.mockReturnValueOnce('access-token').mockReturnValueOnce('refresh-token-logout');
-      const loginRes = await service.login('user@test.com', 'password123', 'supervisor');
+      mockJwtService.sign
+        .mockReturnValueOnce('access-token')
+        .mockReturnValueOnce('refresh-token-logout');
+      const loginRes = await service.login(
+        'user@test.com',
+        'password123',
+        'supervisor',
+      );
 
       // Cierra sesión
       await service.logout(loginRes.refreshToken);
 
       // Si intentamos hacer refresh de nuevo, debería fallar
-      await expect(service.refresh(loginRes.refreshToken)).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh(loginRes.refreshToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 });
