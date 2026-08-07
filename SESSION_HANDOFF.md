@@ -1,6 +1,6 @@
 # Handoff de Sesión - Sistema de Control de Materiales
 
-Este documento resume el estado actual del **"Sistema de Control de Materiales, Avances y Seguimiento de Proyecto"** para Tecnogam, permitiendo reanudar el desarrollo de forma clara.
+Este documento resume el estado actual del **"Sistema de Control de Materiales, Avances y Seguimiento de Proyecto"** para Tecnogam.
 
 ---
 
@@ -11,77 +11,66 @@ Crear una aplicación multiplataforma (**Android** + **Web de escritorio**) para
 
 ## 2. Estado Actual del Proyecto y Avance por Fases
 
-* **Fase 0 (Entorno):** **COMPLETADO**. Monorepo estructurado (`backend` NestJS, `web` React/Vite, `mobile` Flutter), pipelines de CI/CD configurados en GitHub Actions y contenedores locales activos.
-* **Fase 1 (Base de Materiales):** **COMPLETADO**. Auditoría de catálogo en [auditoria-materiales.md](file:///C:/Users/samue/Desktop/ControlMatTecnogam/docs/auditoria-materiales.md), base de datos SQLite migrada, ETL implementado importando con éxito **2,299 materiales únicos** saneados, servicio de sincronización HTTP con API mockeada y cobertura del 100% en pruebas unitarias Jest.
-* **Fase 2 (Sistema Base):** **COMPLETADO**.
-  * Base de datos completa en Prisma (SQLite).
-  * Sembrado de datos (`prisma db seed`) configurado con hitos, proyectos, materiales cotizados y usuarios de prueba.
-  * Autenticación JWT y Refresh Tokens personalizada e invalidación en cierre de sesión.
-  * RBAC (`RolesGuard`) y Scoping por Proyecto (`ProjectGuard`) limitando el acceso de usuarios según pertenencia en la tabla `miembros_proyecto` (Administradores omiten el check).
-  * Documentación completa expuesta en `/docs` mediante NestJS Swagger con JWT habilitado.
-  * Pantalla de Login web (React + Tailwind v4) y móvil (Flutter Material 3) totalmente funcionales contra el backend real.
-* **Fase 3 (Captura en Campo):** **EN PROCESO**.
-  * **Servicio de Storage (Backend):** Configurado para conectarse a MinIO (S3 compatible) auto-creando el bucket público de evidencias y exponiendo `POST /media/upload` (Listo).
-  * **API de Avances (Backend):** Endpoints `POST /avances`, `POST /tiempos-muertos` y `POST /incidentes` listos con lógica de idempotencia basada en UUID cliente para evitar duplicados en reintentos de red (Listo).
-  * **Base de datos local (Móvil):** SQLite inicializado mediante `sqflite` y `path` con tablas para avances, incidentes, tiempos muertos y bitácora de sincronización (Listo).
-  * **Interfaces de Captura (Móvil):** Diseñadas las pantallas en Flutter:
-    * `DashboardScreen`: Muestra el perfil, cuenta los registros pendientes offline y ofrece sincronización manual.
-    * `CaptureAvanceScreen`: Soporta avances planeados (catálogo) y no planeados (retrabajo, extra, modificación con texto libre), simulando carga GPS e imágenes.
-    * `CaptureTiempoMuertoScreen` y `CaptureIncidenteScreen`: Formularios adaptados al modelo de datos offline.
-  * **Algoritmo de Sincronización (Móvil):** Implementado en `SyncService` con reintentos automáticos y renovación de token JWT expirado usando refresh token (Listo).
+* **Fase 1 (Base de Materiales):** **COMPLETADO**. Catálogo maestro normalizado (2,299 materiales), Prisma schema sincronizado y ETL local de importación funcional con pruebas unitarias Jest.
+* **Fase 2 (Creación del Sistema Base):** **COMPLETADO**. Prisma migrations, sembrado de base de datos base, autenticación JWT, guards RBAC y Project Guard (scoping), Swagger interactivo `/docs`, y pantallas iniciales de Login en React y Flutter.
+* **Fase 3 (Declaración y Control de Materiales / Captura en Móvil):** **COMPLETADO**.
+  * **Storage:** API `POST /media/upload` conectada a MinIO con auto-creación del bucket de evidencias y políticas públicas.
+  * **Idempotencia:** Endpoints `POST /avances`, `POST /tiempos-muertos` y `POST /incidentes` en backend de-duplicando capturas por UUID.
+  * **Persistencia Local Móvil:** SQLite local en Flutter con bitácora de sincronización.
+  * **Sincronizador:** Algoritmo en Dart con autorefresh de JWT expilados.
+  * **Pruebas Unitarias:** Cobertura Jest completa para `AvancesService` y `MediaService` (Validación de tipos de archivos, transacciones e idempotencia).
+* **Fase 4 (Usuarios y Proyectos):** **COMPLETADO**.
+  * **Admin CRUD en Backend:** Endpoints dedicados para crear/editar/eliminar Usuarios, crear/editar/eliminar Proyectos, hitos y membresías (Scoping).
+  * **Panel Web de Administración:** Desarrollado un completo panel administrativo responsivo en React (Vite + Tailwind v4) para administradores y supervisores que permite:
+    * Monitorear KPIs (Avance real vs cotizado, incidentes abiertos, tiempos muertos).
+    * Resolver incidentes en línea de forma interactiva.
+    * Crear/editar proyectos, registrar hitos (milestones) y gestionar membresías de obra.
+    * Crear/editar/eliminar usuarios y roles.
+    * Gráficos interactivos de conciliación mediante conic-gradients de CSS puro.
+    * Exportar reportes en PDF con estilos de impresión optimizados (hiding menus/sidebar, formatting tables).
 
 ---
 
 ## 3. Features Implementadas vs. Pendientes
 
 ### Implementadas:
-* [x] Catálogo maestro saneado y cargado en base de datos.
-* [x] Registro y Login en Web y Móvil contra la API con validación de roles en formulario.
-* [x] Filtros por rol (RBAC) y Scoping de Proyectos por Base de Datos.
-* [x] Documentación interactiva de la API en `/docs`.
-* [x] Subida de archivos de evidencia en backend (MinIO).
-* [x] CRUD local SQLite para avances/tiempos muertos/incidentes offline en el móvil.
-* [x] Sincronizador móvil con reintentos y refresco automático de JWT.
+* [x] Catálogo maestro de materiales saneado (2,299 registros).
+* [x] Autenticación JWT y guards de rol y scoped proyecto en API.
+* [x] CRUD local SQLite para avances, incidentes y tiempos muertos en Flutter.
+* [x] Sincronización en lotes con idempotencia.
+* [x] Carga de evidencias en MinIO S3.
+* [x] Dashboard de Control en React con KPIs de avances y tiempos.
+* [x] Consola de Administración Web (CRUD Usuarios, Proyectos, Hitos, Miembros).
+* [x] Reporte de Conciliación de Carga e Impresión optimizada a PDF.
 
-### Pendientes (Siguiente sesión):
-* [ ] Integrar el flujo de la cámara real en Flutter (actualmente simula la foto y geolocalización mediante mock URLs y coordenadas fijas).
-* [ ] Implementar la Fase 4: Panel Web de Administración (Dashboard React mostrando las discrepancias entre material cotizado vs real, gráficos de avances e hitos y reportes en PDF).
-* [ ] Implementar la Fase 5: Módulo de Sincronización y Revisión en campo (Flujo de descarga de hitos y discrepancias al móvil).
+### Pendientes (Siguiente sesión / Fase 5):
+* [ ] Integrar el plugin de cámara nativa y GPS en el cliente móvil (actualmente simulado con mock URL e ID local).
+* [ ] Implementar la Fase 5: Módulo de Sincronización Avanzada de Campo (Descarga de catálogo local e hitos desde el backend al móvil).
 
 ---
 
 ## 4. Archivos Modificados / Creados Clave
 
 ### Backend (`apps/backend`):
-* [prisma/schema.prisma](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/prisma/schema.prisma): Modelado relacional completo.
-* [prisma/seed.ts](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/prisma/seed.ts): Sembrado de datos para pruebas locales.
-* [src/auth/guards/](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/auth/guards/): `jwt-auth.guard.ts`, `roles.guard.ts` y `project.guard.ts`.
-* [src/media/](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/media/): Controlador y servicio de carga S3/MinIO.
-* [src/avances/](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/avances/): Endpoints con lógica de-duplicación para avances, incidentes y tiempos muertos.
+* [src/users/](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/users/): `users.controller.ts` (creado), `users.service.ts` y `users.module.ts` (actualizados con CRUD admin).
+* [src/projects/](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/projects/): `projects.controller.ts` y `projects.service.ts` (actualizados con Dashboard y CRUD admin).
+* [src/avances/avances.service.spec.ts](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/avances/avances.service.spec.ts): Pruebas de transacción e idempotencia.
+* [src/media/media.service.spec.ts](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/media/media.service.spec.ts): Pruebas de subida S3 y restricciones de tipos.
 
 ### Frontend Web (`apps/web`):
-* [src/App.tsx](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/src/App.tsx): Ruteo seguro y Dashboard de bienvenida.
-* [src/pages/Login.tsx](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/src/pages/Login.tsx): Pantalla de login Tailwind v4 conectada a la API.
-
-### Móvil (`apps/mobile`):
-* [lib/data/sources/local_database.dart](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/mobile/lib/data/sources/local_database.dart): Inicialización SQLite y operaciones CRUD offline.
-* [lib/data/repositories/sync_service.dart](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/mobile/lib/data/repositories/sync_service.dart): Algoritmo de sincronización e idempotencia de red.
-* [lib/presentation/screens/](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/mobile/lib/presentation/screens/): Pantallas de captura (`capture_avance_screen.dart`, etc.) y `dashboard_screen.dart`.
-
-### Infraestructura:
-* [infra/docker-compose.prod.yml](file:///C:/Users/samue/Desktop/ControlMatTecnogam/infra/docker-compose.prod.yml): Orquestación multi-contenedor para staging.
+* [src/App.tsx](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/src/App.tsx): Dashboard de KPIs, conciliación, bitácoras y panel de control administrativo.
+* [src/App.css](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/src/App.css): Estilos print media para PDF limpio.
+* [src/main.tsx](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/src/main.tsx): Importación de estilos css.
 
 ---
 
-## 5. Decisiones de Diseño Clave
-1. **Hasheo de Contraseñas Nativo:** Se utilizó `scrypt` de la biblioteca nativa `crypto` de Node.js en lugar de `bcrypt`. Esto evita problemas de compilación C++ en entornos Windows locales.
-2. **SQLite en Desarrollo y Postgres en Producción:** Definido vía variables de entorno en Prisma. Se sincronizó localmente con SQLite (`better-sqlite3` driver adapter de Prisma 7) y se dejó listo el esquema compatible con Postgres en el Compose de producción.
-3. **Idempotencia de Sincronización:** Se generaron UUIDs del lado del cliente en el móvil para los reportes de avances, paros e incidentes. La API del backend realiza una validación única contra estos UUIDs en las peticiones entrantes para evitar duplicados si la petición se reintenta por inestabilidad de red.
+## 5. Bugs Conocidos
+* Ninguno. Toda la suite de backend Jest corre limpia y el build estático de Vite React compila al 100%.
 
 ---
 
-## 6. Bugs Conocidos y Siguiente Acción Recomendada
-* **Bugs:** Ninguno. Las pruebas Jest del backend pasan al 100%, el linter backend/web está libre de advertencias y la compilación tanto de la aplicación Web como del APK de Android finalizan con éxito absoluto.
-* **Siguiente Acción:**
-  1. Correr el backend (`npm run start:dev` en backend) y la base de datos local para interactuar con la pantalla de login del móvil o la web.
-  2. Iniciar con la **Fase 4 (Panel Web de Administración)**, creando la UI de administración en React que consuma los avances reportados por la app móvil y muestre las discrepancias e indicadores clave de rendimiento (KPIs).
+## 6. Siguiente Acción Recomendada
+1. Levantar el ecosistema local para probar los flujos integrados:
+   * Backend: `npm run start:dev` en `apps/backend`.
+   * Frontend: `npm run dev` en `apps/web`.
+2. Continuar con la **Fase 5 (Módulo de Sincronización y Revisión en campo)**, habilitando la cámara real y GPS en el móvil, y sincronizando el catálogo de materiales del backend hacia la base de datos local SQLite del móvil.
