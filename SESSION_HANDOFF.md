@@ -13,21 +13,19 @@ Crear una aplicación multiplataforma (**Android** + **Web de escritorio**) para
 
 * **Fase 1 (Base de Materiales):** **COMPLETADO**. Catálogo maestro normalizado (2,299 materiales), Prisma schema sincronizado y ETL local de importación funcional con pruebas unitarias Jest.
 * **Fase 2 (Creación del Sistema Base):** **COMPLETADO**. Prisma migrations, sembrado de base de datos base, autenticación JWT, guards RBAC y Project Guard (scoping), Swagger interactivo `/docs`, y pantallas iniciales de Login en React y Flutter.
-* **Fase 3 (Declaración y Control de Materiales / Captura en Móvil):** **COMPLETADO**.
-  * **Storage:** API `POST /media/upload` conectada a MinIO con auto-creación del bucket de evidencias y políticas públicas.
-  * **Idempotencia:** Endpoints `POST /avances`, `POST /tiempos-muertos` y `POST /incidentes` en backend de-duplicando capturas por UUID.
-  * **Persistencia Local Móvil:** SQLite local en Flutter con bitácora de sincronización.
-  * **Sincronizador:** Algoritmo en Dart con autorefresh de JWT expilados.
-  * **Pruebas Unitarias:** Cobertura Jest completa para `AvancesService` y `MediaService` (Validación de tipos de archivos, transacciones e idempotencia).
+* **Fase 3 (Declaración y Control de Materiales):** **COMPLETADO**. Motor de contraste cotizado/recibido/instalado en backend, carga masiva, y pantalla de conciliación.
 * **Fase 4 (Usuarios y Proyectos):** **COMPLETADO**.
-  * **Admin CRUD en Backend:** Endpoints dedicados para crear/editar/eliminar Usuarios, crear/editar/eliminar Proyectos, hitos y membresías (Scoping).
-  * **Panel Web de Administración:** Desarrollado un completo panel administrativo responsivo en React (Vite + Tailwind v4) para administradores y supervisores que permite:
-    * Monitorear KPIs (Avance real vs cotizado, incidentes abiertos, tiempos muertos).
-    * Resolver incidentes en línea de forma interactiva.
-    * Crear/editar proyectos, registrar hitos (milestones) y gestionar membresías de obra.
-    * Crear/editar/eliminar usuarios y roles.
-    * Gráficos interactivos de conciliación mediante conic-gradients de CSS puro.
-    * Exportar reportes en PDF con estilos de impresión optimizados (hiding menus/sidebar, formatting tables).
+  * CRUD completo en backend y frontend para Usuarios, Proyectos, Hitos y Membresías.
+* **Fase 5 (Pantalla de Avances):** **COMPLETADO**.
+  * **Validación de Negocio:** Verificación en `POST /avances` de materiales de catálogo para planeados y manuales para no planeados (Tarea 5.3).
+  * **Bitácora Histórica:** Filtros avanzados por tipo/rango de fecha y tabla detallada con fotos en frontend React (Tarea 5.4).
+  * **Cálculo de Progreso:** Algoritmo en NestJS que calcula y proyecta la distribución diaria y acumulada real vs. planeada (Tarea 5.5).
+* **Fase 6 (App Móvil Offline):** **COMPLETADO/EN CURSO**.
+  * SQLite local configurado, pantallas de captura diaria (planeados, no planeados, incidentes, tiempos muertos) y sincronización con de-duplicación por UUID e idempotencia listas.
+  * *Pendiente:* Integrar plugin físico de cámara y GPS en Flutter (actualmente emulado por mocks).
+* **Fase 7 (Dashboards Tecnogam y Cliente):** **COMPLETADO**.
+  * **Gráfico S-Curve:** Renderizador dinámico en SVG puro (sin dependencias externas) que muestra la curva acumulativa planeada vs. real (S-Curve) y gráficos de barras agrupadas para el modo diario (Tareas 7.3/7.4).
+  * **Toggle General/Diario:** Control reactivo al inicio que reestructura los KPIs y gráficos según el modo seleccionado (Tarea 7.2).
 
 ---
 
@@ -40,27 +38,27 @@ Crear una aplicación multiplataforma (**Android** + **Web de escritorio**) para
 * [x] Sincronización en lotes con idempotencia.
 * [x] Carga de evidencias en MinIO S3.
 * [x] Dashboard de Control en React con KPIs de avances y tiempos.
+* [x] Gráficos interactivos de S-Curve y Barras agrupadas en SVG puro.
+* [x] Bitácora Histórica de avances diarios con filtros de fecha y tipo.
 * [x] Consola de Administración Web (CRUD Usuarios, Proyectos, Hitos, Miembros).
 * [x] Reporte de Conciliación de Carga e Impresión optimizada a PDF.
 
-### Pendientes (Siguiente sesión / Fase 5):
-* [ ] Integrar el plugin de cámara nativa y GPS en el cliente móvil (actualmente simulado con mock URL e ID local).
-* [ ] Implementar la Fase 5: Módulo de Sincronización Avanzada de Campo (Descarga de catálogo local e hitos desde el backend al móvil).
+### Pendientes:
+* [ ] Integrar el plugin físico de cámara y GPS en el cliente móvil (actualmente simulado).
+* [ ] Configuración final de Staging en nube y pruebas E2E multi-usuario.
 
 ---
 
 ## 4. Archivos Modificados / Creados Clave
 
 ### Backend (`apps/backend`):
-* [src/users/](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/users/): `users.controller.ts` (creado), `users.service.ts` y `users.module.ts` (actualizados con CRUD admin).
-* [src/projects/](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/projects/): `projects.controller.ts` y `projects.service.ts` (actualizados con Dashboard y CRUD admin).
-* [src/avances/avances.service.spec.ts](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/avances/avances.service.spec.ts): Pruebas de transacción e idempotencia.
-* [src/media/media.service.spec.ts](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/media/media.service.spec.ts): Pruebas de subida S3 y restricciones de tipos.
+* [src/users/](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/users/): `users.controller.ts` y `users.service.ts` (CRUD admin).
+* [src/projects/](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/projects/): `projects.controller.ts` y `projects.service.ts` (Dashboard y CRUD admin).
+* [src/avances/](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/avances/): `avances.controller.ts` y `avances.service.ts` (Validaciones, Historial, S-Curve).
 
 ### Frontend Web (`apps/web`):
-* [src/App.tsx](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/src/App.tsx): Dashboard de KPIs, conciliación, bitácoras y panel de control administrativo.
+* [src/App.tsx](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/src/App.tsx): Dashboard de KPIs, historial de avances con filtros, S-Curve SVG, y paneles de administración.
 * [src/App.css](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/src/App.css): Estilos print media para PDF limpio.
-* [src/main.tsx](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/src/main.tsx): Importación de estilos css.
 
 ---
 
@@ -73,4 +71,4 @@ Crear una aplicación multiplataforma (**Android** + **Web de escritorio**) para
 1. Levantar el ecosistema local para probar los flujos integrados:
    * Backend: `npm run start:dev` en `apps/backend`.
    * Frontend: `npm run dev` en `apps/web`.
-2. Continuar con la **Fase 5 (Módulo de Sincronización y Revisión en campo)**, habilitando la cámara real y GPS en el móvil, y sincronizando el catálogo de materiales del backend hacia la base de datos local SQLite del móvil.
+2. Proceder a configurar el entorno de producción/staging o realizar pruebas de extremo a extremo (Fase 8).
