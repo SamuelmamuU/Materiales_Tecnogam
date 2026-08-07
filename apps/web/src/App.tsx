@@ -24,7 +24,9 @@ import {
   Trash2,
   UserPlus,
   Edit,
-  X
+  X,
+  Camera,
+  MapPin
 } from 'lucide-react';
 
 // Componente simple para proteger rutas privadas
@@ -107,6 +109,43 @@ interface ProjectBrief {
   fechaFinEstimada: string;
 }
 
+interface AvanceItem {
+  id: string;
+  tipo: 'planeado' | 'no_planeado';
+  subtipo?: 'retrabajo' | 'extra' | 'modificacion';
+  materialId?: string;
+  materialManual?: string;
+  cantidad: number;
+  material?: {
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+  };
+}
+
+interface AvanceRecord {
+  id: string;
+  fecha: string;
+  frente: string;
+  autorId: string;
+  latitud?: number;
+  longitud?: number;
+  evidenciaUrl?: string;
+  autor: {
+    nombre: string;
+    email: string;
+  };
+  items: AvanceItem[];
+}
+
+interface TimelinePoint {
+  fecha: string;
+  acumuladoReal: number;
+  acumuladoPlaneado: number;
+  diarioReal: number;
+  diarioPlaneado: number;
+}
+
 interface DashboardData {
   proyecto: ProjectBrief;
   kpis: {
@@ -136,7 +175,18 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolvingIncidentId, setResolvingIncidentId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'kpis' | 'materiales' | 'incidentes' | 'tiempos' | 'admin'>('kpis');
+  const [activeTab, setActiveTab] = useState<'kpis' | 'materiales' | 'avances' | 'incidentes' | 'tiempos' | 'admin'>('kpis');
+
+  // Estados del Historial de Avances (Fase 5)
+  const [avancesHistory, setAvancesHistory] = useState<AvanceRecord[]>([]);
+  const [filterTipo, setFilterTipo] = useState<string>('');
+  const [filterFechaInicio, setFilterFechaInicio] = useState<string>('');
+  const [filterFechaFin, setFilterFechaFin] = useState<string>('');
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Estados de S-Curve y Timeline (Fase 7 / Tarea 5.5)
+  const [timelineData, setTimelineData] = useState<TimelinePoint[]>([]);
+  const [viewMode, setViewMode] = useState<'acumulado' | 'diario'>('acumulado');
 
   // Estados de Administración
   const [adminSubTab, setAdminSubTab] = useState<'proyectos' | 'usuarios'>('proyectos');
@@ -164,8 +214,17 @@ function Dashboard() {
   useEffect(() => {
     if (selectedProjectId) {
       fetchDashboardData(selectedProjectId);
+      fetchTimelineData(selectedProjectId);
+      fetchAvancesHistory(selectedProjectId);
     }
   }, [selectedProjectId]);
+
+  // Cargar avances si se modifican los filtros
+  useEffect(() => {
+    if (selectedProjectId && activeTab === 'avances') {
+      fetchAvancesHistory(selectedProjectId);
+    }
+  }, [filterTipo, filterFechaInicio, filterFechaFin, activeTab]);
 
   // Cargar datos de administración cuando se activa la pestaña de admin
   useEffect(() => {
@@ -228,10 +287,46 @@ function Dashboard() {
     }
   };
 
+  const fetchTimelineData = async (projectId: string) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`http://localhost:3000/projects/${projectId}/avances/timeline`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTimelineData(data);
+      }
+    } catch (_) {}
+  };
+
+  const fetchAvancesHistory = async (projectId: string) => {
+    setLoadingHistory(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      let url = `http://localhost:3000/projects/${projectId}/avances?`;
+      if (filterTipo) url += `tipo=${filterTipo}&`;
+      if (filterFechaInicio) url += `fechaInicio=${filterFechaInicio}&`;
+      if (filterFechaFin) url += `fechaFin=${filterFechaFin}&`;
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAvancesHistory(data);
+      }
+    } catch (_) {}
+    setLoadingHistory(false);
+  };
+
   const fetchAdminData = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      // Cargar usuarios
       const usersRes = await fetch('http://localhost:3000/users', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -445,7 +540,6 @@ function Dashboard() {
     }
   };
 
-  // --- Otros ---
   const handleResolveIncidente = async (incidenteId: string) => {
     setResolvingIncidentId(incidenteId);
     try {
@@ -461,7 +555,6 @@ function Dashboard() {
         throw new Error('No se pudo resolver el incidente.');
       }
 
-      // Recargar datos para refrescar la UI
       if (selectedProjectId) {
         await fetchDashboardData(selectedProjectId);
       }
@@ -479,6 +572,141 @@ function Dashboard() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // --- Renderización del Gráfico S-Curve en SVG ---
+  const renderSvgChart = () => {
+    if (timelineData.length === 0) return null;
+
+    const width = 650;
+    const height = 240;
+    const padding = 40;
+
+    // Obtener valores máximos
+    const maxVal = Math.max(
+      ...timelineData.map((d) => 
+        viewMode === 'acumulado' 
+          ? Math.max(d.acumuladoPlaneado, d.acumuladoReal) 
+          : Math.max(d.diarioPlaneado, d.diarioReal)
+      )
+    ) || 100;
+
+    const pointsCount = timelineData.length;
+
+    // Mapeo de coordenadas
+    const getX = (index: number) => padding + (index / (pointsCount - 1)) * (width - 2 * padding);
+    const getY = (value: number) => height - padding - (value / maxVal) * (height - 2 * padding);
+
+    if (viewMode === 'acumulado') {
+      // 1. Generar línea de Planeado (Gris)
+      const plannedPoints = timelineData
+        .map((p, i) => `${getX(i).toFixed(1)},${getY(p.acumuladoPlaneado).toFixed(1)}`)
+        .join(' ');
+
+      // 2. Generar línea de Real (Verde)
+      // Solo graficar hasta donde haya avances (evitando caer a cero si es futuro)
+      // Buscamos el último punto reportado que tenga avance o sea antes de hoy
+      const lastReportedIndex = timelineData.map((d) => d.diarioReal).reduce((lastIdx, val, idx) => val > 0 ? idx : lastIdx, 0);
+      const realTimelinePoints = timelineData.slice(0, lastReportedIndex + 1);
+      
+      const realPoints = realTimelinePoints
+        .map((p, i) => `${getX(i).toFixed(1)},${getY(p.acumuladoReal).toFixed(1)}`)
+        .join(' ');
+
+      // Generar área sombreada real
+      const realAreaPoints = realTimelinePoints.length > 0 
+        ? `${getX(0).toFixed(1)},${(height - padding).toFixed(1)} ` + realPoints + ` ${getX(realTimelinePoints.length - 1).toFixed(1)},${(height - padding).toFixed(1)}`
+        : '';
+
+      return (
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
+          {/* Ejes y cuadrículas */}
+          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#E3E1D9" strokeWidth="1" />
+          <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#E3E1D9" strokeWidth="1" />
+          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#F1EFE8" strokeDasharray="3" />
+          <line x1={padding} y1={height/2} x2={width - padding} y2={height/2} stroke="#F1EFE8" strokeDasharray="3" />
+
+          {/* Área sombreada real */}
+          {realAreaPoints && (
+            <polygon points={realAreaPoints} fill="url(#realGrad)" opacity="0.15" />
+          )}
+
+          {/* Línea Planeado */}
+          {plannedPoints && (
+            <polyline points={plannedPoints} fill="none" stroke="#8B8A84" strokeWidth="2.5" strokeDasharray="4" />
+          )}
+
+          {/* Línea Real */}
+          {realPoints && (
+            <polyline points={realPoints} fill="none" stroke="#27500A" strokeWidth="3" />
+          )}
+
+          {/* Etiquetas sencillas */}
+          <text x={padding} y={padding - 10} fill="#5F5E5A" fontSize="9" fontWeight="bold">
+            {maxVal.toFixed(0)} u.
+          </text>
+          <text x={width - padding} y={height - padding + 15} fill="#5F5E5A" fontSize="9" textAnchor="end">
+            Final de Proyecto
+          </text>
+          <text x={padding} y={height - padding + 15} fill="#5F5E5A" fontSize="9">
+            Inicio
+          </text>
+
+          {/* Degradado para el área */}
+          <defs>
+            <linearGradient id="realGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#27500A" />
+              <stop offset="100%" stopColor="#27500A" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+        </svg>
+      );
+    } else {
+      // Vista diaria (Barras agrupadas)
+      const barWidth = Math.max(2, (width - 2 * padding) / (pointsCount * 2.2));
+
+      return (
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
+          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#E3E1D9" strokeWidth="1" />
+          <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#E3E1D9" strokeWidth="1" />
+
+          {timelineData.map((d, i) => {
+            const xPlanned = getX(i) - barWidth;
+            const xReal = getX(i);
+            const hPlanned = (d.diarioPlaneado / maxVal) * (height - 2 * padding);
+            const hReal = (d.diarioReal / maxVal) * (height - 2 * padding);
+
+            return (
+              <g key={i}>
+                {/* Barra planeado (Gris) */}
+                <rect
+                  x={xPlanned}
+                  y={height - padding - hPlanned}
+                  width={barWidth}
+                  height={hPlanned}
+                  fill="#C9C7BD"
+                  opacity="0.6"
+                  rx="1"
+                />
+                {/* Barra real (Verde) */}
+                <rect
+                  x={xReal}
+                  y={height - padding - hReal}
+                  width={barWidth}
+                  height={hReal}
+                  fill="#27500A"
+                  rx="1"
+                />
+              </g>
+            );
+          })}
+
+          <text x={padding} y={padding - 10} fill="#5F5E5A" fontSize="9" fontWeight="bold">
+            {maxVal.toFixed(0)} u.
+          </text>
+        </svg>
+      );
+    }
   };
 
   if (error && projects.length === 0) {
@@ -532,6 +760,15 @@ function Dashboard() {
             >
               <FileText className="w-4 h-4" />
               Conciliación Materiales
+            </button>
+            <button
+              onClick={() => setActiveTab('avances')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                activeTab === 'avances' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
+              }`}
+            >
+              <Activity className="w-4 h-4" />
+              Historial de Avances
             </button>
             <button
               onClick={() => setActiveTab('incidentes')}
@@ -652,7 +889,7 @@ function Dashboard() {
           </div>
         </div>
 
-        {loading && activeTab !== 'admin' ? (
+        {loading && activeTab !== 'admin' && activeTab !== 'avances' ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20">
             <RefreshCw className="w-10 h-10 text-[#0C447C] animate-spin mb-4" />
             <p className="text-sm font-medium text-[#5F5E5A]">Cargando información consolidada...</p>
@@ -775,11 +1012,8 @@ function Dashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Panel Hitos */}
                   <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
                     <h3 className="text-sm font-bold text-[#1C1C1A] pb-2 border-b border-[#E3E1D9]">Hitos de Cronograma</h3>
-                    
-                    {/* Listado de hitos */}
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                       {selectedAdminProject.hitos.map((hito) => (
                         <div key={hito.id} className="p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl flex justify-between items-center text-xs">
@@ -799,7 +1033,6 @@ function Dashboard() {
                       ))}
                     </div>
 
-                    {/* Agregar Hito */}
                     <form onSubmit={handleAddHito} className="pt-4 border-t border-[#E3E1D9] space-y-3">
                       <span className="block text-xs font-semibold text-[#1C1C1A]">Agregar Hito</span>
                       <div className="grid grid-cols-2 gap-3">
@@ -828,11 +1061,8 @@ function Dashboard() {
                     </form>
                   </div>
 
-                  {/* Panel Miembros */}
                   <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
                     <h3 className="text-sm font-bold text-[#1C1C1A] pb-2 border-b border-[#E3E1D9]">Miembros de Obra</h3>
-                    
-                    {/* Listado */}
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                       {selectedAdminProject.miembros.map((memb) => (
                         <div key={memb.id} className="p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl flex justify-between items-center text-xs">
@@ -852,7 +1082,6 @@ function Dashboard() {
                       ))}
                     </div>
 
-                    {/* Agregar Miembro */}
                     <form onSubmit={handleAddMember} className="pt-4 border-t border-[#E3E1D9] space-y-3">
                       <span className="block text-xs font-semibold text-[#1C1C1A]">Vincular Miembro</span>
                       <div className="flex gap-2">
@@ -1073,10 +1302,61 @@ function Dashboard() {
             {/* VISTA 1: GENERAL & HITOS */}
             {activeTab === 'kpis' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Panel S-Curve (Fase 7 / Tareas 7.2-7.4) */}
                 <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-2 space-y-4">
                   <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
-                    <h3 className="text-sm font-bold text-[#1C1C1A]">Cronograma e Hitos de Proyecto</h3>
-                    <span className="text-xs text-[#5F5E5A] font-medium">{dashboardData.hitos.length} Hitos</span>
+                    <div>
+                      <h3 className="text-sm font-bold text-[#1C1C1A]">Curva S de Avance Planeado vs Real</h3>
+                      <p className="text-[10px] text-[#5F5E5A]">Progreso acumulado y diario a lo largo del cronograma de obra.</p>
+                    </div>
+                    {/* Toggle general / diario (Tarea 7.2) */}
+                    <div className="flex bg-[#F7F7F5] border border-[#E3E1D9] p-1 rounded-xl text-[10px] font-bold">
+                      <button
+                        onClick={() => setViewMode('acumulado')}
+                        className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
+                          viewMode === 'acumulado' ? 'bg-[#1C1C1A] text-white shadow-sm' : 'text-[#5F5E5A]'
+                        }`}
+                      >
+                        Acumulado
+                      </button>
+                      <button
+                        onClick={() => setViewMode('diario')}
+                        className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
+                          viewMode === 'diario' ? 'bg-[#1C1C1A] text-white shadow-sm' : 'text-[#5F5E5A]'
+                        }`}
+                      >
+                        Diario
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Canvas del Gráfico SVG */}
+                  <div className="h-60 flex items-center justify-center bg-[#F7F7F5]/50 border border-[#E3E1D9]/40 rounded-xl p-2">
+                    {timelineData.length > 0 ? (
+                      renderSvgChart()
+                    ) : (
+                      <span className="text-xs text-[#8B8A84] font-medium">Sin datos de S-Curve</span>
+                    )}
+                  </div>
+
+                  {/* Leyenda del gráfico */}
+                  <div className="flex gap-4 justify-center text-[10px] font-semibold text-[#5F5E5A]">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-0.5 bg-[#27500A] border-t border-[#27500A]" />
+                      <span>Avance Físico Real</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-0.5 bg-[#8B8A84] border-t border-dashed border-[#8B8A84]" />
+                      <span>Línea Base Planeada (S-Curve)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ficha Hitos */}
+                <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-1 space-y-4 max-h-[352px] overflow-y-auto">
+                  <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
+                    <h3 className="text-sm font-bold text-[#1C1C1A]">Hitos Clave</h3>
+                    <span className="text-xs text-[#5F5E5A] font-semibold">{dashboardData.hitos.length}</span>
                   </div>
 
                   <div className="divide-y divide-[#E3E1D9]">
@@ -1086,68 +1366,20 @@ function Dashboard() {
                       if (hito.estatus === 'atrasado') tagColor = 'bg-[#FDE8E8] text-[#C23939]';
 
                       return (
-                        <div key={hito.id} className="py-4 flex justify-between items-center gap-4">
-                          <div className="space-y-1">
-                            <h4 className="text-sm font-bold text-[#1C1C1A]">{hito.nombre}</h4>
-                            <p className="text-xs text-[#5F5E5A] flex items-center gap-1">
-                              <Calendar className="w-3.5 h-3.5 text-[#8B8A84]" />
-                              Objetivo: {new Date(hito.fechaObjetivo).toLocaleDateString()}
-                            </p>
+                        <div key={hito.id} className="py-2.5 flex justify-between items-center gap-2 text-xs">
+                          <div className="min-w-0">
+                            <span className="font-bold text-[#1C1C1A] block truncate">{hito.nombre}</span>
+                            <span className="text-[9px] text-[#5F5E5A]">
+                              Plazo: {new Date(hito.fechaObjetivo).toLocaleDateString()}
+                            </span>
                           </div>
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${tagColor}`}>
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase shrink-0 ${tagColor}`}>
                             {hito.estatus}
                           </span>
                         </div>
                       );
                     })}
                   </div>
-                </div>
-
-                <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-1 space-y-6 flex flex-col justify-between">
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-bold text-[#1C1C1A] pb-2 border-b border-[#E3E1D9]">
-                      Diferencial de Carga
-                    </h3>
-
-                    <div className="flex justify-center py-4">
-                      <div
-                        className="w-32 h-32 rounded-full flex items-center justify-center relative shadow-inner"
-                        style={{
-                          background: `conic-gradient(
-                            #27500A 0% ${dashboardData.kpis.avanceGeneral}%, 
-                            #0C447C ${dashboardData.kpis.avanceGeneral}% 100%
-                          )`
-                        }}
-                      >
-                        <div className="w-24 h-24 bg-white rounded-full flex flex-col items-center justify-center shadow">
-                          <span className="text-lg font-bold text-[#1C1C1A]">
-                            {dashboardData.kpis.avanceGeneral.toFixed(0)}%
-                          </span>
-                          <span className="text-[9px] text-[#5F5E5A] uppercase tracking-wider">Instalado</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-[#27500A] rounded-full" />
-                        <span className="text-[#5F5E5A] font-medium flex-1">Material Instalado:</span>
-                        <span className="font-bold text-[#1C1C1A]">{dashboardData.kpis.totalInstalado.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-[#0C447C] rounded-full" />
-                        <span className="text-[#5F5E5A] font-medium flex-1">Presupuesto Cotizado:</span>
-                        <span className="font-bold text-[#1C1C1A]">{dashboardData.kpis.totalCotizado.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setActiveTab('materiales')}
-                    className="w-full h-9 bg-transparent hover:bg-[#F7F7F5] border border-[#C9C7BD] text-xs font-bold text-[#1C1C1A] rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
-                  >
-                    Ver reporte de conciliación completo
-                  </button>
                 </div>
               </div>
             )}
@@ -1206,7 +1438,126 @@ function Dashboard() {
               </div>
             )}
 
-            {/* VISTA 3: BITÁCORA DE INCIDENTES */}
+            {/* VISTA 3: HISTORIAL DE AVANCES (Tab Activa: avances / Fase 5) */}
+            {activeTab === 'avances' && (
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
+                <div className="pb-2 border-b border-[#E3E1D9]">
+                  <h3 className="text-sm font-bold text-[#1C1C1A]">Bitácora Histórica de Avances Diarios</h3>
+                  <p className="text-xs text-[#5F5E5A]">Listado de capturas de campo y materiales instalados en obra.</p>
+                </div>
+
+                {/* Filtros de Historial (Tarea 5.4) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl text-xs print:hidden">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Clasificación</label>
+                    <select
+                      value={filterTipo}
+                      onChange={(e) => setFilterTipo(e.target.value)}
+                      className="w-full h-8 px-2 bg-white border border-[#C9C7BD] rounded-lg font-medium cursor-pointer"
+                    >
+                      <option value="">Todos los avances</option>
+                      <option value="planeado">Planeado (Catálogo)</option>
+                      <option value="no_planeado">No Planeado (Manual/Extras)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Fecha Desde</label>
+                    <input
+                      type="date"
+                      value={filterFechaInicio}
+                      onChange={(e) => setFilterFechaInicio(e.target.value)}
+                      className="w-full h-8 px-2 bg-white border border-[#C9C7BD] rounded-lg font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Fecha Hasta</label>
+                    <input
+                      type="date"
+                      value={filterFechaFin}
+                      onChange={(e) => setFilterFechaFin(e.target.value)}
+                      className="w-full h-8 px-2 bg-white border border-[#C9C7BD] rounded-lg font-medium"
+                    />
+                  </div>
+                </div>
+
+                {loadingHistory ? (
+                  <div className="py-12 flex justify-center">
+                    <RefreshCw className="w-8 h-8 text-[#0C447C] animate-spin" />
+                  </div>
+                ) : avancesHistory.length === 0 ? (
+                  <div className="text-center py-12 text-[#8B8A84] space-y-2">
+                    <Activity className="w-12 h-12 text-gray-400 mx-auto opacity-45" />
+                    <p className="text-sm font-semibold">Sin registros de avance encontrados</p>
+                    <p className="text-xs">Ajuste los filtros o registre un avance en la app de campo.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {avancesHistory.map((av) => (
+                      <div key={av.id} className="p-4 border border-[#E3E1D9] rounded-xl bg-white hover:shadow-xs transition-shadow">
+                        <div className="flex flex-wrap justify-between items-start gap-4 pb-2 border-b border-[#E3E1D9] text-xs">
+                          <div className="space-y-1">
+                            <span className="font-bold text-[#1C1C1A] text-sm">{av.frente}</span>
+                            <div className="flex gap-3 text-[10px] text-[#5F5E5A] font-medium">
+                              <span className="flex items-center gap-1">
+                                <User className="w-3 h-3 text-[#8B8A84]" /> {av.autor.nombre}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3 text-[#8B8A84]" /> 
+                                {new Date(av.fecha).toLocaleDateString()} {new Date(av.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {av.latitud && av.longitud && (
+                              <span className="inline-flex items-center gap-1 h-6 px-2 bg-[#F1EFE8] rounded text-[9px] font-bold text-[#5F5E5A]">
+                                <MapPin className="w-2.5 h-2.5" /> GPS OK
+                              </span>
+                            )}
+                            {av.evidenciaUrl && (
+                              <a
+                                href={av.evidenciaUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 h-6 px-2.5 bg-[#EAF3DE] text-[#27500A] rounded text-[9px] font-bold hover:bg-[#D5EAC3] transition-colors"
+                              >
+                                <Camera className="w-2.5 h-2.5" /> Ver Evidencia
+                              </a>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Listado de items de avance */}
+                        <div className="pt-2 divide-y divide-[#E3E1D9]/40 text-xs">
+                          {av.items.map((item) => (
+                            <div key={item.id} className="py-2 flex justify-between items-center text-xs">
+                              <div>
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase mr-2 ${
+                                  item.tipo === 'planeado' ? 'bg-[#E6F1FB] text-[#0C447C]' : 'bg-[#FCF4E6] text-[#BA7517]'
+                                }`}>
+                                  {item.tipo === 'planeado' ? 'Planeado' : `No Planeado (${item.subtipo})`}
+                                </span>
+                                <span className="font-bold text-[#1C1C1A]">
+                                  {item.tipo === 'planeado' ? item.material?.codigo : 'MANUAL'}
+                                </span>
+                                <span className="text-[#5F5E5A] ml-2">
+                                  {item.tipo === 'planeado' ? item.material?.descripcion : item.materialManual}
+                                </span>
+                              </div>
+                              <span className="font-bold text-[#27500A] bg-[#EAF3DE]/30 px-2 py-0.5 rounded">
+                                +{item.cantidad} {item.material?.unidad || 'pza'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* VISTA 4: BITÁCORA DE INCIDENTES */}
             {activeTab === 'incidentes' && (
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
@@ -1300,7 +1651,7 @@ function Dashboard() {
               </div>
             )}
 
-            {/* VISTA 4: BITÁCORA DE TIEMPOS MUERTOS */}
+            {/* VISTA 5: BITÁCORA DE TIEMPOS MUERTOS */}
             {activeTab === 'tiempos' && (
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">

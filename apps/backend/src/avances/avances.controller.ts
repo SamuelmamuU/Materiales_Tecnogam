@@ -1,6 +1,16 @@
-import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Request,
+  Get,
+  Query,
+  Param,
+} from '@nestjs/common';
 import { AvancesService } from './avances.service';
 import { JwtAuthGuard, RequestWithUser } from '../auth/guards/jwt-auth.guard';
+import { ProjectGuard } from '../auth/guards/project.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import {
@@ -9,6 +19,8 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiProperty,
+  ApiQuery,
+  ApiParam,
 } from '@nestjs/swagger';
 import { AvanceItemTipo, AvanceItemSubtipo } from '@prisma/client';
 
@@ -149,12 +161,12 @@ class CreateIncidenteDto {
 @ApiTags('Avances de Campo')
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('administrador', 'supervisor', 'trabajador')
 @ApiBearerAuth('JWT-auth')
 export class AvancesController {
   constructor(private readonly avancesService: AvancesService) {}
 
   @Post('avances')
+  @Roles('administrador', 'supervisor', 'trabajador')
   @ApiOperation({ summary: 'Registrar avance diario en campo (Idempotente)' })
   @ApiResponse({
     status: 201,
@@ -178,6 +190,7 @@ export class AvancesController {
   }
 
   @Post('tiempos-muertos')
+  @Roles('administrador', 'supervisor', 'trabajador')
   @ApiOperation({ summary: 'Registrar tiempo muerto en campo (Idempotente)' })
   @ApiResponse({ status: 201, description: 'Tiempo muerto registrado.' })
   async createTiempoMuerto(@Body() dto: CreateTiempoMuertoDto) {
@@ -185,9 +198,54 @@ export class AvancesController {
   }
 
   @Post('incidentes')
+  @Roles('administrador', 'supervisor', 'trabajador')
   @ApiOperation({ summary: 'Registrar incidente en campo (Idempotente)' })
   @ApiResponse({ status: 201, description: 'Incidente registrado.' })
   async createIncidente(@Body() dto: CreateIncidenteDto) {
     return this.avancesService.createIncidente(dto);
+  }
+
+  @Get('projects/:projectId/avances')
+  @UseGuards(ProjectGuard)
+  @ApiOperation({
+    summary:
+      'Consultar el historial de avances de un proyecto específico (Valida Scoping)',
+  })
+  @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
+  @ApiQuery({ name: 'tipo', required: false, enum: AvanceItemTipo })
+  @ApiQuery({ name: 'subtipo', required: false, enum: AvanceItemSubtipo })
+  @ApiQuery({
+    name: 'fechaInicio',
+    required: false,
+    description: 'Formato YYYY-MM-DD',
+  })
+  @ApiQuery({
+    name: 'fechaFin',
+    required: false,
+    description: 'Formato YYYY-MM-DD',
+  })
+  async getProjectAvances(
+    @Param('projectId') projectId: string,
+    @Query('tipo') tipo?: AvanceItemTipo,
+    @Query('subtipo') subtipo?: AvanceItemSubtipo,
+    @Query('fechaInicio') fechaInicio?: string,
+    @Query('fechaFin') fechaFin?: string,
+  ) {
+    return this.avancesService.findAllForProject(projectId, {
+      tipo,
+      subtipo,
+      fechaInicio,
+      fechaFin,
+    });
+  }
+
+  @Get('projects/:projectId/avances/timeline')
+  @UseGuards(ProjectGuard)
+  @ApiOperation({
+    summary:
+      'Obtener la línea de tiempo agregada de avances vs planeado (S-Curve)',
+  })
+  async getProgressTimeline(@Param('projectId') projectId: string) {
+    return this.avancesService.getProgressTimeline(projectId);
   }
 }
