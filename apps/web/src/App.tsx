@@ -18,7 +18,13 @@ import {
   RefreshCw,
   Eye,
   Check,
-  AlertCircle
+  AlertCircle,
+  Settings,
+  Plus,
+  Trash2,
+  UserPlus,
+  Edit,
+  X
 } from 'lucide-react';
 
 // Componente simple para proteger rutas privadas
@@ -36,6 +42,30 @@ interface Hito {
   nombre: string;
   fechaObjetivo: string;
   estatus: 'pendiente' | 'completado' | 'atrasado';
+}
+
+interface UserDetail {
+  id: string;
+  email: string;
+  nombre: string;
+  rol: 'administrador' | 'supervisor' | 'trabajador' | 'cliente';
+  activo: boolean;
+}
+
+interface MemberDetail {
+  id: string;
+  usuarioId: string;
+  usuario: {
+    id: string;
+    nombre: string;
+    email: string;
+    rol: string;
+  };
+}
+
+interface ProjectDetail extends ProjectBrief {
+  hitos: Hito[];
+  miembros: MemberDetail[];
 }
 
 interface ReconciliationItem {
@@ -97,6 +127,7 @@ interface DashboardData {
 function Dashboard() {
   const userJson = localStorage.getItem('user');
   const user = userJson ? JSON.parse(userJson) : { email: 'usuario@tecnogam.com', rol: 'usuario', nombre: 'Usuario' };
+  const isAdmin = user.rol === 'administrador';
   const isAdminOrSupervisor = user.rol === 'administrador' || user.rol === 'supervisor';
 
   const [projects, setProjects] = useState<ProjectBrief[]>([]);
@@ -105,7 +136,24 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolvingIncidentId, setResolvingIncidentId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'kpis' | 'materiales' | 'incidentes' | 'tiempos'>('kpis');
+  const [activeTab, setActiveTab] = useState<'kpis' | 'materiales' | 'incidentes' | 'tiempos' | 'admin'>('kpis');
+
+  // Estados de Administración
+  const [adminSubTab, setAdminSubTab] = useState<'proyectos' | 'usuarios'>('proyectos');
+  const [allUsers, setAllUsers] = useState<UserDetail[]>([]);
+  const [selectedAdminProject, setSelectedAdminProject] = useState<ProjectDetail | null>(null);
+  
+  // Modales y Formularios
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<ProjectBrief | null>(null);
+  const [projectForm, setProjectForm] = useState({ nombre: '', cliente: '', fechaInicio: '', fechaFinEstimada: '' });
+
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserDetail | null>(null);
+  const [userForm, setUserForm] = useState({ nombre: '', email: '', password: '', rol: 'trabajador', activo: true });
+
+  const [hitoForm, setHitoForm] = useState({ nombre: '', fechaObjetivo: '', estatus: 'pendiente' });
+  const [selectedMemberId, setSelectedMemberId] = useState('');
 
   // Cargar proyectos al iniciar
   useEffect(() => {
@@ -118,6 +166,13 @@ function Dashboard() {
       fetchDashboardData(selectedProjectId);
     }
   }, [selectedProjectId]);
+
+  // Cargar datos de administración cuando se activa la pestaña de admin
+  useEffect(() => {
+    if (activeTab === 'admin' && isAdmin) {
+      fetchAdminData();
+    }
+  }, [activeTab]);
 
   const fetchProjects = async () => {
     try {
@@ -173,6 +228,224 @@ function Dashboard() {
     }
   };
 
+  const fetchAdminData = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      // Cargar usuarios
+      const usersRes = await fetch('http://localhost:3000/users', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        setAllUsers(usersData);
+      }
+    } catch (_) {}
+  };
+
+  const fetchProjectDetailForAdmin = async (projectId: string) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`http://localhost:3000/projects/${projectId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedAdminProject(data);
+      }
+    } catch (_) {}
+  };
+
+  // --- CRUD Proyectos ---
+  const handleSaveProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('accessToken');
+      const isEdit = !!editingProject;
+      const url = isEdit 
+        ? `http://localhost:3000/projects/${editingProject.id}` 
+        : 'http://localhost:3000/projects';
+      
+      const response = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nombre: projectForm.nombre,
+          cliente: projectForm.cliente,
+          fechaInicio: new Date(projectForm.fechaInicio).toISOString(),
+          fechaFinEstimada: new Date(projectForm.fechaFinEstimada).toISOString(),
+        }),
+      });
+
+      if (!response.ok) throw new Error('No se pudo guardar el proyecto.');
+
+      setShowProjectModal(false);
+      setEditingProject(null);
+      setProjectForm({ nombre: '', cliente: '', fechaInicio: '', fechaFinEstimada: '' });
+      await fetchProjects();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('¿Está seguro de eliminar este proyecto y todos sus datos relacionados?')) return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`http://localhost:3000/projects/${projectId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('No se pudo eliminar el proyecto.');
+      if (selectedProjectId === projectId) {
+        setSelectedProjectId('');
+        setDashboardData(null);
+      }
+      await fetchProjects();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  // --- CRUD Hitos ---
+  const handleAddHito = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAdminProject) return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`http://localhost:3000/projects/${selectedAdminProject.id}/hitos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nombre: hitoForm.nombre,
+          fechaObjetivo: new Date(hitoForm.fechaObjetivo).toISOString(),
+          estatus: hitoForm.estatus,
+        }),
+      });
+
+      if (!response.ok) throw new Error('No se pudo agregar el hito.');
+      setHitoForm({ nombre: '', fechaObjetivo: '', estatus: 'pendiente' });
+      await fetchProjectDetailForAdmin(selectedAdminProject.id);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteHito = async (hitoId: string) => {
+    if (!selectedAdminProject || !confirm('¿Eliminar este hito?')) return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`http://localhost:3000/projects/${selectedAdminProject.id}/hitos/${hitoId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('No se pudo eliminar el hito.');
+      await fetchProjectDetailForAdmin(selectedAdminProject.id);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  // --- Miembros ---
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAdminProject || !selectedMemberId) return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`http://localhost:3000/projects/${selectedAdminProject.id}/members`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ usuarioId: selectedMemberId }),
+      });
+
+      if (!response.ok) throw new Error('No se pudo asignar el miembro.');
+      setSelectedMemberId('');
+      await fetchProjectDetailForAdmin(selectedAdminProject.id);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!selectedAdminProject || !confirm('¿Remover este miembro del proyecto?')) return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`http://localhost:3000/projects/${selectedAdminProject.id}/members/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('No se pudo remover el miembro.');
+      await fetchProjectDetailForAdmin(selectedAdminProject.id);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  // --- CRUD Usuarios ---
+  const handleSaveUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('accessToken');
+      const isEdit = !!editingUser;
+      const url = isEdit 
+        ? `http://localhost:3000/users/${editingUser.id}` 
+        : 'http://localhost:3000/users';
+      
+      const payload: any = {
+        nombre: userForm.nombre,
+        email: userForm.email,
+        rol: userForm.rol,
+        activo: userForm.activo,
+      };
+
+      if (!isEdit || userForm.password) {
+        payload.password = userForm.password;
+      }
+
+      const response = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) throw new Error('No se pudo guardar el usuario.');
+
+      setShowUserModal(false);
+      setEditingUser(null);
+      setUserForm({ nombre: '', email: '', password: '', rol: 'trabajador', activo: true });
+      await fetchAdminData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('¿Está seguro de eliminar este usuario?')) return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`http://localhost:3000/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('No se pudo eliminar el usuario.');
+      await fetchAdminData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  // --- Otros ---
   const handleResolveIncidente = async (incidenteId: string) => {
     setResolvingIncidentId(incidenteId);
     try {
@@ -283,6 +556,17 @@ function Dashboard() {
               <Clock className="w-4 h-4" />
               Tiempos Muertos
             </button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                  activeTab === 'admin' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                Panel Administración
+              </button>
+            )}
           </nav>
         </div>
 
@@ -368,12 +652,324 @@ function Dashboard() {
           </div>
         </div>
 
-        {loading ? (
+        {loading && activeTab !== 'admin' ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20">
             <RefreshCw className="w-10 h-10 text-[#0C447C] animate-spin mb-4" />
             <p className="text-sm font-medium text-[#5F5E5A]">Cargando información consolidada...</p>
           </div>
+        ) : activeTab === 'admin' ? (
+          // ================= PANELES DE ADMINISTRACIÓN (SOLO ADMIN) =================
+          <div className="space-y-6">
+            <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 shadow-sm flex gap-4">
+              <button
+                onClick={() => { setAdminSubTab('proyectos'); setSelectedAdminProject(null); }}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+                  adminSubTab === 'proyectos' ? 'bg-[#1C1C1A] text-white' : 'text-[#5F5E5A] hover:bg-[#F7F7F5]'
+                }`}
+              >
+                Proyectos e Hitos
+              </button>
+              <button
+                onClick={() => setAdminSubTab('usuarios')}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+                  adminSubTab === 'usuarios' ? 'bg-[#1C1C1A] text-white' : 'text-[#5F5E5A] hover:bg-[#F7F7F5]'
+                }`}
+              >
+                Usuarios y Roles
+              </button>
+            </div>
+
+            {/* SUB-TAB: PROYECTOS */}
+            {adminSubTab === 'proyectos' && !selectedAdminProject && (
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
+                <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#1C1C1A]">Catálogo de Proyectos</h3>
+                    <p className="text-xs text-[#5F5E5A]">Administre la lista global de proyectos vigentes.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingProject(null);
+                      setProjectForm({ nombre: '', cliente: '', fechaInicio: '', fechaFinEstimada: '' });
+                      setShowProjectModal(true);
+                    }}
+                    className="flex items-center gap-1.5 h-9 px-3 bg-[#27500A] text-white hover:bg-[#3E5C1B] rounded-lg text-xs font-bold cursor-pointer transition-all"
+                  >
+                    <Plus className="w-4 h-4" /> Crear Proyecto
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-[#E3E1D9] bg-[#F7F7F5] text-[#5F5E5A]">
+                        <th className="p-3 font-semibold">Proyecto</th>
+                        <th className="p-3 font-semibold">Cliente</th>
+                        <th className="p-3 font-semibold">Inicio</th>
+                        <th className="p-3 font-semibold">Fin Estimado</th>
+                        <th className="p-3 font-semibold text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E3E1D9]">
+                      {projects.map((proj) => (
+                        <tr key={proj.id} className="hover:bg-[#F7F7F5]/50">
+                          <td className="p-3 font-bold text-[#1C1C1A]">{proj.nombre}</td>
+                          <td className="p-3 text-[#5F5E5A] font-semibold">{proj.cliente}</td>
+                          <td className="p-3 text-[#5F5E5A]">{new Date(proj.fechaInicio).toLocaleDateString()}</td>
+                          <td className="p-3 text-[#5F5E5A]">{new Date(proj.fechaFinEstimada).toLocaleDateString()}</td>
+                          <td className="p-3">
+                            <div className="flex justify-center gap-2">
+                              <button
+                                onClick={() => fetchProjectDetailForAdmin(proj.id)}
+                                className="h-7 px-2.5 border border-[#C9C7BD] hover:bg-[#F1EFE8] rounded text-[11px] font-bold text-[#1C1C1A] cursor-pointer"
+                              >
+                                Gestionar Hitos/Miembros
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingProject(proj);
+                                  setProjectForm({
+                                    nombre: proj.nombre,
+                                    cliente: proj.cliente,
+                                    fechaInicio: proj.fechaInicio.split('T')[0],
+                                    fechaFinEstimada: proj.fechaFinEstimada.split('T')[0],
+                                  });
+                                  setShowProjectModal(true);
+                                }}
+                                className="h-7 w-7 border border-[#C9C7BD] hover:bg-[#F1EFE8] flex items-center justify-center rounded text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProject(proj.id)}
+                                className="h-7 w-7 border border-[#F8B4B4] hover:bg-[#FDE8E8] flex items-center justify-center rounded text-[#C23939] cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* DETALLE Y GESTIÓN DE PROYECTO (HITOS Y MIEMBROS) */}
+            {adminSubTab === 'proyectos' && selectedAdminProject && (
+              <div className="space-y-6">
+                <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm">
+                  <div className="flex justify-between items-start gap-4">
+                    <div>
+                      <button
+                        onClick={() => setSelectedAdminProject(null)}
+                        className="text-xs text-[#0C447C] font-semibold hover:underline mb-2 block cursor-pointer"
+                      >
+                        &larr; Volver al listado de proyectos
+                      </button>
+                      <h2 className="text-xl font-bold text-[#1C1C1A]">{selectedAdminProject.nombre}</h2>
+                      <p className="text-xs text-[#5F5E5A]">Cliente: {selectedAdminProject.cliente}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Panel Hitos */}
+                  <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
+                    <h3 className="text-sm font-bold text-[#1C1C1A] pb-2 border-b border-[#E3E1D9]">Hitos de Cronograma</h3>
+                    
+                    {/* Listado de hitos */}
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {selectedAdminProject.hitos.map((hito) => (
+                        <div key={hito.id} className="p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl flex justify-between items-center text-xs">
+                          <div>
+                            <span className="font-bold text-[#1C1C1A] block">{hito.nombre}</span>
+                            <span className="text-[10px] text-[#5F5E5A]">
+                              Plazo: {new Date(hito.fechaObjetivo).toLocaleDateString()} | Estatus: {hito.estatus.toUpperCase()}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteHito(hito.id)}
+                            className="h-7 w-7 text-[#C23939] hover:bg-[#FDE8E8] rounded flex items-center justify-center transition-all cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Agregar Hito */}
+                    <form onSubmit={handleAddHito} className="pt-4 border-t border-[#E3E1D9] space-y-3">
+                      <span className="block text-xs font-semibold text-[#1C1C1A]">Agregar Hito</span>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          placeholder="Nombre del Hito"
+                          required
+                          value={hitoForm.nombre}
+                          onChange={(e) => setHitoForm({ ...hitoForm, nombre: e.target.value })}
+                          className="h-9 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs"
+                        />
+                        <input
+                          type="date"
+                          required
+                          value={hitoForm.fechaObjetivo}
+                          onChange={(e) => setHitoForm({ ...hitoForm, fechaObjetivo: e.target.value })}
+                          className="h-9 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="w-full h-9 bg-[#1C1C1A] hover:bg-[#3E3D39] text-white text-xs font-bold rounded-lg cursor-pointer"
+                      >
+                        Guardar Hito
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Panel Miembros */}
+                  <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
+                    <h3 className="text-sm font-bold text-[#1C1C1A] pb-2 border-b border-[#E3E1D9]">Miembros de Obra</h3>
+                    
+                    {/* Listado */}
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {selectedAdminProject.miembros.map((memb) => (
+                        <div key={memb.id} className="p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl flex justify-between items-center text-xs">
+                          <div>
+                            <span className="font-bold text-[#1C1C1A] block">{memb.usuario.nombre}</span>
+                            <span className="text-[10px] text-[#5F5E5A] capitalize">
+                              {memb.usuario.rol} ({memb.usuario.email})
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveMember(memb.usuarioId)}
+                            className="h-7 w-7 text-[#C23939] hover:bg-[#FDE8E8] rounded flex items-center justify-center transition-all cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Agregar Miembro */}
+                    <form onSubmit={handleAddMember} className="pt-4 border-t border-[#E3E1D9] space-y-3">
+                      <span className="block text-xs font-semibold text-[#1C1C1A]">Vincular Miembro</span>
+                      <div className="flex gap-2">
+                        <select
+                          required
+                          value={selectedMemberId}
+                          onChange={(e) => setSelectedMemberId(e.target.value)}
+                          className="h-9 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs flex-1 cursor-pointer"
+                        >
+                          <option value="">Seleccione un usuario...</option>
+                          {allUsers
+                            .filter(
+                              (u) =>
+                                u.activo &&
+                                !selectedAdminProject.miembros.some(
+                                  (m) => m.usuarioId === u.id,
+                                ),
+                            )
+                            .map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.nombre} ({u.rol})
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          type="submit"
+                          className="h-9 px-4 bg-[#1C1C1A] hover:bg-[#3E3D39] text-white text-xs font-bold rounded-lg cursor-pointer"
+                        >
+                          Asignar
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-TAB: USUARIOS */}
+            {adminSubTab === 'usuarios' && (
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
+                <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#1C1C1A]">Catálogo de Usuarios</h3>
+                    <p className="text-xs text-[#5F5E5A]">Gestione el acceso al sistema y asigne perfiles.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingUser(null);
+                      setUserForm({ nombre: '', email: '', password: '', rol: 'trabajador', activo: true });
+                      setShowUserModal(true);
+                    }}
+                    className="flex items-center gap-1.5 h-9 px-3 bg-[#27500A] text-white hover:bg-[#3E5C1B] rounded-lg text-xs font-bold cursor-pointer transition-all"
+                  >
+                    <UserPlus className="w-4 h-4" /> Crear Usuario
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-[#E3E1D9] bg-[#F7F7F5] text-[#5F5E5A]">
+                        <th className="p-3 font-semibold">Nombre</th>
+                        <th className="p-3 font-semibold">Email</th>
+                        <th className="p-3 font-semibold">Rol</th>
+                        <th className="p-3 font-semibold text-center">Estado</th>
+                        <th className="p-3 font-semibold text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E3E1D9]">
+                      {allUsers.map((u) => (
+                        <tr key={u.id} className="hover:bg-[#F7F7F5]/50">
+                          <td className="p-3 font-bold text-[#1C1C1A]">{u.nombre}</td>
+                          <td className="p-3 text-[#5F5E5A] font-semibold">{u.email}</td>
+                          <td className="p-3 text-[#0C447C] font-bold capitalize">{u.rol}</td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                              u.activo ? 'bg-[#EAF3DE] text-[#27500A]' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {u.activo ? 'Activo' : 'Inactivo'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex justify-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setEditingUser(u);
+                                  setUserForm({
+                                    nombre: u.nombre,
+                                    email: u.email,
+                                    password: '',
+                                    rol: u.rol,
+                                    activo: u.activo,
+                                  });
+                                  setShowUserModal(true);
+                                }}
+                                className="h-7 w-7 border border-[#C9C7BD] hover:bg-[#F1EFE8] flex items-center justify-center rounded text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(u.id)}
+                                className="h-7 w-7 border border-[#F8B4B4] hover:bg-[#FDE8E8] flex items-center justify-center rounded text-[#C23939] cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         ) : dashboardData ? (
+          // ================= VISTAS ESTÁNDAR DEL DASHBOARD DE PROYECTO =================
           <div className="space-y-6">
             
             {/* FICHA TÉCNICA DEL PROYECTO SELECCIONADO */}
@@ -410,7 +1006,6 @@ function Dashboard() {
 
             {/* GRILLA DE KPIS DE CONTROL */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* KPI 1: Avance General */}
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-5 shadow-sm flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-[#EAF3DE] flex items-center justify-center text-[#27500A] shrink-0">
                   <Activity className="w-6 h-6" />
@@ -420,7 +1015,6 @@ function Dashboard() {
                   <span className="block text-2xl font-bold text-[#1C1C1A] leading-none mt-1">
                     {dashboardData.kpis.avanceGeneral.toFixed(1)}%
                   </span>
-                  {/* Minibar */}
                   <div className="w-full bg-[#F7F7F5] h-1.5 rounded-full mt-2 overflow-hidden border border-[#E3E1D9]">
                     <div
                       className="bg-[#27500A] h-full rounded-full transition-all duration-500"
@@ -430,7 +1024,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* KPI 2: Materiales Conciliados */}
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-5 shadow-sm flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-[#E6F1FB] flex items-center justify-center text-[#0C447C] shrink-0">
                   <Layers className="w-6 h-6" />
@@ -444,7 +1037,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* KPI 3: Incidentes Activos */}
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-5 shadow-sm flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
                   dashboardData.kpis.openIncidentes > 0 ? 'bg-[#FDE8E8] text-[#C23939]' : 'bg-[#EAF3DE] text-[#27500A]'
@@ -464,7 +1056,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* KPI 4: Horas de Paro */}
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-5 shadow-sm flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-[#FCF4E6] flex items-center justify-center text-[#BA7517] shrink-0">
                   <Clock className="w-6 h-6" />
@@ -479,10 +1070,9 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* VISTA 1: GENERAL & HITOS (Tab Activa: kpis) */}
+            {/* VISTA 1: GENERAL & HITOS */}
             {activeTab === 'kpis' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Hitos */}
                 <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-2 space-y-4">
                   <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
                     <h3 className="text-sm font-bold text-[#1C1C1A]">Cronograma e Hitos de Proyecto</h3>
@@ -513,14 +1103,12 @@ function Dashboard() {
                   </div>
                 </div>
 
-                {/* Resumen Conciliación Rápido */}
                 <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-1 space-y-6 flex flex-col justify-between">
                   <div className="space-y-4">
                     <h3 className="text-sm font-bold text-[#1C1C1A] pb-2 border-b border-[#E3E1D9]">
                       Diferencial de Carga
                     </h3>
 
-                    {/* Donut Chart visual con CSS Conic-Gradient */}
                     <div className="flex justify-center py-4">
                       <div
                         className="w-32 h-32 rounded-full flex items-center justify-center relative shadow-inner"
@@ -531,7 +1119,6 @@ function Dashboard() {
                           )`
                         }}
                       >
-                        {/* Círculo interno blanco */}
                         <div className="w-24 h-24 bg-white rounded-full flex flex-col items-center justify-center shadow">
                           <span className="text-lg font-bold text-[#1C1C1A]">
                             {dashboardData.kpis.avanceGeneral.toFixed(0)}%
@@ -565,7 +1152,7 @@ function Dashboard() {
               </div>
             )}
 
-            {/* VISTA 2: TABLA DE CONCILIACIÓN DE MATERIALES (Tab Activa: materiales) */}
+            {/* VISTA 2: TABLA DE CONCILIACIÓN */}
             {activeTab === 'materiales' && (
               <div className="bg-white border border-[#E3E1D9] rounded-2xl shadow-sm overflow-hidden space-y-4 p-6">
                 <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
@@ -619,7 +1206,7 @@ function Dashboard() {
               </div>
             )}
 
-            {/* VISTA 3: BITÁCORA DE INCIDENTES (Tab Activa: incidentes) */}
+            {/* VISTA 3: BITÁCORA DE INCIDENTES */}
             {activeTab === 'incidentes' && (
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
@@ -659,7 +1246,6 @@ function Dashboard() {
                               </span>
                             </div>
                             <p className="text-sm font-semibold text-[#1C1C1A]">{inc.descripcion}</p>
-                            
                             {inc.latitud && inc.longitud && (
                               <p className="text-[10px] text-[#8B8A84] font-medium">
                                 GPS: {inc.latitud.toFixed(4)}, {inc.longitud.toFixed(4)}
@@ -714,7 +1300,7 @@ function Dashboard() {
               </div>
             )}
 
-            {/* VISTA 4: BITÁCORA DE TIEMPOS MUERTOS (Tab Activa: tiempos) */}
+            {/* VISTA 4: BITÁCORA DE TIEMPOS MUERTOS */}
             {activeTab === 'tiempos' && (
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
@@ -768,6 +1354,162 @@ function Dashboard() {
           </div>
         )}
       </main>
+
+      {/* ================= MODALES DE EDICIÓN Y CREACIÓN ================= */}
+      
+      {/* MODAL: PROYECTO (CREAR / EDITAR) */}
+      {showProjectModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-[#E3E1D9] rounded-2xl w-full max-w-md overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-[#E3E1D9] flex justify-between items-center bg-[#F7F7F5]">
+              <h3 className="font-bold text-[#1C1C1A] text-sm">
+                {editingProject ? 'Editar Proyecto' : 'Crear Nuevo Proyecto'}
+              </h3>
+              <button onClick={() => setShowProjectModal(false)} className="text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveProject} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Nombre del Proyecto</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Torre Sur - Nivel 1"
+                  value={projectForm.nombre}
+                  onChange={(e) => setProjectForm({ ...projectForm, nombre: e.target.value })}
+                  className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Cliente</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Grupo Vega"
+                  value={projectForm.cliente}
+                  onChange={(e) => setProjectForm({ ...projectForm, cliente: e.target.value })}
+                  className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Fecha de Inicio</label>
+                  <input
+                    type="date"
+                    required
+                    value={projectForm.fechaInicio}
+                    onChange={(e) => setProjectForm({ ...projectForm, fechaInicio: e.target.value })}
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Fin Estimado</label>
+                  <input
+                    type="date"
+                    required
+                    value={projectForm.fechaFinEstimada}
+                    onChange={(e) => setProjectForm({ ...projectForm, fechaFinEstimada: e.target.value })}
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="w-full h-10 bg-[#1C1C1A] hover:bg-[#3E3D39] text-white text-xs font-bold rounded-xl cursor-pointer mt-2"
+              >
+                Guardar Proyecto
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: USUARIO (CREAR / EDITAR) */}
+      {showUserModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-[#E3E1D9] rounded-2xl w-full max-w-md overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-[#E3E1D9] flex justify-between items-center bg-[#F7F7F5]">
+              <h3 className="font-bold text-[#1C1C1A] text-sm">
+                {editingUser ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
+              </h3>
+              <button onClick={() => setShowUserModal(false)} className="text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveUser} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Nombre Completo</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Ana Torres"
+                  value={userForm.nombre}
+                  onChange={(e) => setUserForm({ ...userForm, nombre: e.target.value })}
+                  className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Correo Electrónico</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="Ej. supervisor@tecnogam.com"
+                  value={userForm.email}
+                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                  className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                  Contraseña {editingUser && <span className="text-[9px] text-[#8B8A84] font-normal">(Dejar en blanco para no cambiar)</span>}
+                </label>
+                <input
+                  type="password"
+                  required={!editingUser}
+                  placeholder={editingUser ? '••••••••' : 'Ingrese contraseña'}
+                  value={userForm.password}
+                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                  className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Perfil / Rol</label>
+                  <select
+                    value={userForm.rol}
+                    onChange={(e) => setUserForm({ ...userForm, rol: e.target.value })}
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs cursor-pointer"
+                  >
+                    <option value="administrador">Administrador</option>
+                    <option value="supervisor">Supervisor</option>
+                    <option value="trabajador">Trabajador</option>
+                    <option value="cliente">Cliente</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Estado de Acceso</label>
+                  <select
+                    value={userForm.activo ? 'true' : 'false'}
+                    onChange={(e) => setUserForm({ ...userForm, activo: e.target.value === 'true' })}
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs cursor-pointer"
+                  >
+                    <option value="true">Activo / Permitido</option>
+                    <option value="false">Inactivo / Bloqueado</option>
+                  </select>
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="w-full h-10 bg-[#1C1C1A] hover:bg-[#3E3D39] text-white text-xs font-bold rounded-xl cursor-pointer mt-2"
+              >
+                Guardar Usuario
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
