@@ -3,6 +3,8 @@ import { Building2, WifiOff, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-re
 
 type Role = 'administrador' | 'supervisor' | 'trabajador' | 'cliente';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,7 +21,7 @@ export default function Login() {
     setSuccess(false);
 
     try {
-      const response = await fetch('http://localhost:3000/auth/login', {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

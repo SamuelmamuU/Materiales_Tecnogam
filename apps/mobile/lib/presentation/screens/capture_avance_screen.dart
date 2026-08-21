@@ -1,6 +1,9 @@
+// ignore_for_file: prefer_final_fields, deprecated_member_use
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../data/sources/local_database.dart';
+import '../../data/sources/location_service.dart';
+import 'camera_capture_screen.dart';
 
 class CaptureAvanceScreen extends StatefulWidget {
   const CaptureAvanceScreen({super.key});
@@ -40,36 +43,48 @@ class _CaptureAvanceScreenState extends State<CaptureAvanceScreen> {
     super.dispose();
   }
 
-  // Simulación de lectura GPS
-  void _obtenerGps() {
+  // Obtener geolocalización física
+  Future<void> _obtenerGps() async {
     setState(() {
       _obtainingGps = true;
     });
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) {
+    try {
+      final pos = await LocationService.getCurrentLocation();
+      if (pos != null && mounted) {
         setState(() {
-          _latitud = 19.4326;
-          _longitud = -99.1332;
+          _latitud = pos.latitude;
+          _longitud = pos.longitude;
           _obtainingGps = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ubicación GPS obtenida con éxito')),
+        );
       }
-    });
-  }
-
-  // Simulación de toma fotográfica
-  void _tomarFoto() {
-    setState(() {
-      _takingPhoto = true;
-    });
-    Future.delayed(const Duration(milliseconds: 800), () {
+    } catch (e) {
       if (mounted) {
         setState(() {
-          // Asigna una url simulada de MinIO
-          _evidenciaUrl = 'http://localhost:9000/evidencias/mock_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          _takingPhoto = false;
+          _obtainingGps = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error GPS: $e'), backgroundColor: Colors.redAccent),
+        );
       }
-    });
+    }
+  }
+
+  // Capturar foto física con la cámara
+  Future<void> _tomarFoto() async {
+    final resultPath = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const CameraCaptureScreen()),
+    );
+    if (resultPath != null && mounted) {
+      setState(() {
+        _evidenciaUrl = resultPath;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Evidencia fotográfica capturada')),
+      );
+    }
   }
 
   Future<void> _guardarLocal() async {

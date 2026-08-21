@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../sources/local_database.dart';
@@ -116,6 +117,16 @@ class SyncService {
       final url = Uri.parse('http://10.0.2.2:3000/avances');
       final items = jsonDecode(row['items_json']);
 
+      String? evidenceUrl = row['evidencia_url'];
+      if (evidenceUrl != null && !evidenceUrl.startsWith('http')) {
+        final uploadedUrl = await _uploadLocalFile(evidenceUrl, token);
+        if (uploadedUrl != null) {
+          evidenceUrl = uploadedUrl;
+        } else {
+          return false; // Abort if upload of critical local file fails
+        }
+      }
+
       final response = await http.post(
         url,
         headers: {
@@ -129,7 +140,7 @@ class SyncService {
           'frente': row['frente'],
           'latitud': row['latitud'],
           'longitud': row['longitud'],
-          'evidenciaUrl': row['evidencia_url'],
+          'evidenciaUrl': evidenceUrl,
           'items': items,
         }),
       );
@@ -185,6 +196,17 @@ class SyncService {
   Future<bool> _uploadIncidente(Map<String, dynamic> row, String token, SharedPreferences prefs, {bool retried = false}) async {
     try {
       final url = Uri.parse('http://10.0.2.2:3000/incidentes');
+
+      String? evidenceUrl = row['evidencia_url'];
+      if (evidenceUrl != null && !evidenceUrl.startsWith('http')) {
+        final uploadedUrl = await _uploadLocalFile(evidenceUrl, token);
+        if (uploadedUrl != null) {
+          evidenceUrl = uploadedUrl;
+        } else {
+          return false;
+        }
+      }
+
       final response = await http.post(
         url,
         headers: {
@@ -199,7 +221,7 @@ class SyncService {
           'fecha': row['fecha'],
           'latitud': row['latitud'],
           'longitud': row['longitud'],
-          'evidenciaUrl': row['evidencia_url'],
+          'evidenciaUrl': evidenceUrl,
         }),
       );
 
@@ -214,5 +236,36 @@ class SyncService {
     } catch (_) {
       return false;
     }
+  }
+
+  // Sube un archivo local al backend /media/upload y obtiene su URL final de MinIO
+  Future<String?> _uploadLocalFile(String filePath, String token) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      return null;
+    }
+
+    try {
+      final url = Uri.parse('http://10.0.2.2:3000/media/upload');
+      final request = http.MultipartRequest('POST', url);
+      request.headers['Authorization'] = 'Bearer $token';
+
+      final multipartFile = await http.MultipartFile.fromPath(
+        'file',
+        filePath,
+      );
+      request.files.add(multipartFile);
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        return data['url'] as String?;
+      }
+    } catch (_) {
+      // Error al subir archivo
+    }
+    return null;
   }
 }

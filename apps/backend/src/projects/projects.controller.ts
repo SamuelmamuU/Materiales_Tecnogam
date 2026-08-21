@@ -10,7 +10,8 @@ import {
   Body,
 } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
-import { JwtAuthGuard, RequestWithUser } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { RequestWithUser } from '../auth/guards/jwt-auth.guard';
 import { ProjectGuard } from '../auth/guards/project.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -87,6 +88,31 @@ class UpdateHitoDto {
     required: false,
   })
   estatus?: 'pendiente' | 'completado' | 'atrasado';
+}
+
+class BulkMaterialItemDto {
+  @ApiProperty({ example: 'VL-2210' })
+  codigo!: string;
+
+  @ApiProperty({ example: 'Válvula de compuerta 4"' })
+  descripcion!: string;
+
+  @ApiProperty({ example: 'pza' })
+  unidad!: string;
+
+  @ApiProperty({ example: 'Válvulas', required: false })
+  categoria?: string;
+
+  @ApiProperty({ example: 15 })
+  cantidad!: number;
+}
+
+class AddMaterialDto {
+  @ApiProperty({ example: 'material-uuid-here' })
+  materialId!: string;
+
+  @ApiProperty({ example: 25 })
+  cantidad!: number;
 }
 
 @ApiTags('Proyectos')
@@ -271,5 +297,44 @@ export class ProjectsController {
   @ApiResponse({ status: 200, description: 'Hito eliminado.' })
   async deleteHito(@Param('hitoId') hitoId: string) {
     return this.projectsService.removeHito(hitoId);
+  }
+
+  @Post(':projectId/materials/bulk')
+  @Roles('administrador')
+  @ApiOperation({
+    summary: 'Importar listado de materiales en lote desde Excel/CSV (Solo Administrador)',
+  })
+  @ApiResponse({ status: 200, description: 'Materiales importados con éxito.' })
+  async bulkImportMaterials(
+    @Param('projectId') projectId: string,
+    @Body() items: BulkMaterialItemDto[],
+  ) {
+    return this.projectsService.bulkImportMaterials(projectId, items);
+  }
+
+  @Post(':projectId/materials')
+  @Roles('administrador')
+  @ApiOperation({
+    summary: 'Agregar un material del catálogo maestro al proyecto (Solo Administrador)',
+  })
+  @ApiResponse({ status: 200, description: 'Material agregado con éxito.' })
+  async addMaterial(
+    @Param('projectId') projectId: string,
+    @Body() dto: AddMaterialDto,
+  ) {
+    return this.projectsService.addMaterial(projectId, dto.materialId, dto.cantidad);
+  }
+
+  @Delete(':projectId/materials/:materialId')
+  @Roles('administrador')
+  @ApiOperation({
+    summary: 'Eliminar un material cotizado del proyecto (Solo Administrador)',
+  })
+  @ApiResponse({ status: 200, description: 'Material eliminado del proyecto.' })
+  async removeMaterial(
+    @Param('projectId') projectId: string,
+    @Param('materialId') materialId: string,
+  ) {
+    return this.projectsService.removeMaterial(projectId, materialId);
   }
 }

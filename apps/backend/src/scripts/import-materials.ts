@@ -1,10 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const adapter = new PrismaBetterSqlite3({ url: 'dev.db' });
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 const CORRUPT_WORDS_MAP: Record<string, string> = {
   Mdulos: 'Módulos',

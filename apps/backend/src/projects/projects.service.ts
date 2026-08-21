@@ -23,6 +23,11 @@ export class ProjectsService {
             },
           },
         },
+        materialesCotizados: {
+          include: {
+            material: true,
+          },
+        },
       },
     });
 
@@ -341,5 +346,92 @@ export class ProjectsService {
     return this.prisma.hito.delete({
       where: { id: hitoId },
     });
+  }
+
+  async bulkImportMaterials(proyectoId: string, items: {
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+    categoria?: string;
+    cantidad: number;
+  }[]) {
+    await this.findOne(proyectoId);
+
+    for (const item of items) {
+      // 1. Encontrar o crear el material en el catálogo maestro
+      let material = await this.prisma.material.findUnique({
+        where: { codigo: item.codigo },
+      });
+
+      if (!material) {
+        material = await this.prisma.material.create({
+          data: {
+            codigo: item.codigo,
+            descripcion: item.descripcion || 'Material Importado',
+            unidad: item.unidad || 'pza',
+            categoria: item.categoria || 'General',
+            activo: true,
+          },
+        });
+      }
+
+      // 2. Crear o actualizar la relación en el proyecto
+      await this.prisma.materialCotizado.upsert({
+        where: {
+          proyectoId_materialId: {
+            proyectoId,
+            materialId: material.id,
+          },
+        },
+        update: {
+          cantidad: item.cantidad,
+        },
+        create: {
+          proyectoId,
+          materialId: material.id,
+          cantidad: item.cantidad,
+        },
+      });
+    }
+
+    return this.findOne(proyectoId);
+  }
+
+  async addMaterial(proyectoId: string, materialId: string, cantidad: number) {
+    await this.findOne(proyectoId);
+    
+    await this.prisma.materialCotizado.upsert({
+      where: {
+        proyectoId_materialId: {
+          proyectoId,
+          materialId,
+        },
+      },
+      update: {
+        cantidad,
+      },
+      create: {
+        proyectoId,
+        materialId,
+        cantidad,
+      },
+    });
+
+    return this.findOne(proyectoId);
+  }
+
+  async removeMaterial(proyectoId: string, materialId: string) {
+    await this.findOne(proyectoId);
+    
+    await this.prisma.materialCotizado.delete({
+      where: {
+        proyectoId_materialId: {
+          proyectoId,
+          materialId,
+        },
+      },
+    });
+
+    return this.findOne(proyectoId);
   }
 }

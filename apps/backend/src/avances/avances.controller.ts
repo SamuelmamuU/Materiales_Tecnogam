@@ -9,7 +9,8 @@ import {
   Param,
 } from '@nestjs/common';
 import { AvancesService } from './avances.service';
-import { JwtAuthGuard, RequestWithUser } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { RequestWithUser } from '../auth/guards/jwt-auth.guard';
 import { ProjectGuard } from '../auth/guards/project.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';

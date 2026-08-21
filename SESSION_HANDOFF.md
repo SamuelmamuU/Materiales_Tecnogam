@@ -20,9 +20,9 @@ Crear una aplicación multiplataforma (**Android** + **Web de escritorio**) para
   * **Validación de Negocio:** Verificación en `POST /avances` de materiales de catálogo para planeados y manuales para no planeados (Tarea 5.3).
   * **Bitácora Histórica:** Filtros avanzados por tipo/rango de fecha y tabla detallada con fotos en frontend React (Tarea 5.4).
   * **Cálculo de Progreso:** Algoritmo en NestJS que calcula y proyecta la distribución diaria y acumulada real vs. planeada (Tarea 5.5).
-* **Fase 6 (App Móvil Offline):** **COMPLETADO/EN CURSO**.
+* **Fase 6 (App Móvil Offline):** **COMPLETADO**.
   * SQLite local configurado, pantallas de captura diaria (planeados, no planeados, incidentes, tiempos muertos) y sincronización con de-duplicación por UUID e idempotencia listas.
-  * *Pendiente:* Integrar plugin físico de cámara y GPS en Flutter (actualmente emulado por mocks).
+  * Integración de plugins físicos de cámara y GPS en Flutter con Geolocator y Camera API, con subida de fotos locales durante la sincronización offline.
 * **Fase 7 (Dashboards Tecnogam y Cliente):** **COMPLETADO**.
   * **Gráfico S-Curve:** Renderizador dinámico en SVG puro (sin dependencias externas) que muestra la curva acumulativa planeada vs. real (S-Curve) y gráficos de barras agrupadas para el modo diario (Tareas 7.3/7.4).
   * **Toggle General/Diario:** Control reactivo al inicio que reestructura los KPIs y gráficos según el modo seleccionado (Tarea 7.2).
@@ -44,7 +44,7 @@ Crear una aplicación multiplataforma (**Android** + **Web de escritorio**) para
 * [x] Reporte de Conciliación de Carga e Impresión optimizada a PDF.
 
 ### Pendientes:
-* [ ] Integrar el plugin físico de cámara y GPS en el cliente móvil (actualmente simulado).
+* [x] Integrar el plugin físico de cámara y GPS en el cliente móvil.
 * [ ] Configuración final de Staging en nube y pruebas E2E multi-usuario.
 
 ---

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 import {
   LogOut,
   User,
@@ -236,7 +238,7 @@ function Dashboard() {
   const fetchProjects = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:3000/projects', {
+      const response = await fetch(API_URL + '/projects', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -268,7 +270,7 @@ function Dashboard() {
     setError(null);
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:3000/projects/${projectId}/dashboard`, {
+      const response = await fetch(`${API_URL}/projects/${projectId}/dashboard`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -290,7 +292,7 @@ function Dashboard() {
   const fetchTimelineData = async (projectId: string) => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:3000/projects/${projectId}/avances/timeline`, {
+      const response = await fetch(`${API_URL}/projects/${projectId}/avances/timeline`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -306,7 +308,7 @@ function Dashboard() {
     setLoadingHistory(true);
     try {
       const token = localStorage.getItem('accessToken');
-      let url = `http://localhost:3000/projects/${projectId}/avances?`;
+      let url = `${API_URL}/projects/${projectId}/avances?`;
       if (filterTipo) url += `tipo=${filterTipo}&`;
       if (filterFechaInicio) url += `fechaInicio=${filterFechaInicio}&`;
       if (filterFechaFin) url += `fechaFin=${filterFechaFin}&`;
@@ -327,7 +329,7 @@ function Dashboard() {
   const fetchAdminData = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const usersRes = await fetch('http://localhost:3000/users', {
+      const usersRes = await fetch(API_URL + '/users', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (usersRes.ok) {
@@ -340,7 +342,7 @@ function Dashboard() {
   const fetchProjectDetailForAdmin = async (projectId: string) => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:3000/projects/${projectId}`, {
+      const response = await fetch(`${API_URL}/projects/${projectId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (response.ok) {
@@ -357,8 +359,8 @@ function Dashboard() {
       const token = localStorage.getItem('accessToken');
       const isEdit = !!editingProject;
       const url = isEdit 
-        ? `http://localhost:3000/projects/${editingProject.id}` 
-        : 'http://localhost:3000/projects';
+        ? `${API_URL}/projects/${editingProject.id}` 
+        : API_URL + '/projects';
       
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
@@ -389,7 +391,7 @@ function Dashboard() {
     if (!confirm('¿Está seguro de eliminar este proyecto y todos sus datos relacionados?')) return;
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:3000/projects/${projectId}`, {
+      const response = await fetch(`${API_URL}/projects/${projectId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -410,7 +412,7 @@ function Dashboard() {
     if (!selectedAdminProject) return;
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:3000/projects/${selectedAdminProject.id}/hitos`, {
+      const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/hitos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -435,7 +437,7 @@ function Dashboard() {
     if (!selectedAdminProject || !confirm('¿Eliminar este hito?')) return;
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:3000/projects/${selectedAdminProject.id}/hitos/${hitoId}`, {
+      const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/hitos/${hitoId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -452,7 +454,7 @@ function Dashboard() {
     if (!selectedAdminProject || !selectedMemberId) return;
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:3000/projects/${selectedAdminProject.id}/members`, {
+      const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/members`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -473,7 +475,7 @@ function Dashboard() {
     if (!selectedAdminProject || !confirm('¿Remover este miembro del proyecto?')) return;
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:3000/projects/${selectedAdminProject.id}/members/${userId}`, {
+      const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/members/${userId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -491,8 +493,8 @@ function Dashboard() {
       const token = localStorage.getItem('accessToken');
       const isEdit = !!editingUser;
       const url = isEdit 
-        ? `http://localhost:3000/users/${editingUser.id}` 
-        : 'http://localhost:3000/users';
+        ? `${API_URL}/users/${editingUser.id}` 
+        : API_URL + '/users';
       
       const payload: any = {
         nombre: userForm.nombre,
@@ -529,7 +531,7 @@ function Dashboard() {
     if (!confirm('¿Está seguro de eliminar este usuario?')) return;
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:3000/users/${userId}`, {
+      const response = await fetch(`${API_URL}/users/${userId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -544,7 +546,7 @@ function Dashboard() {
     setResolvingIncidentId(incidenteId);
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:3000/projects/incidentes/${incidenteId}/resolver`, {
+      const response = await fetch(`${API_URL}/projects/incidentes/${incidenteId}/resolver`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

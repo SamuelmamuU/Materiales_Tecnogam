@@ -46,8 +46,10 @@ export class AuthService {
 
     // Generate Access Token
     const accessToken = this.jwtService.sign(payload, {
-      secret: process.env.JWT_ACCESS_SECRET || 'super-secret-access-key',
-      expiresIn: process.env.JWT_ACCESS_EXPIRATION || '15m',
+      secret:
+        process.env.JWT_ACCESS_SECRET ||
+        'super-secret-access-key-control-materiales',
+      expiresIn: (process.env.JWT_ACCESS_EXPIRATION || '15m') as any,
     });
 
     // Generate Refresh Token
@@ -55,7 +57,7 @@ export class AuthService {
       { sub: user.id },
       {
         secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key',
-        expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d',
+        expiresIn: (process.env.JWT_REFRESH_EXPIRATION || '7d') as any,
       },
     );
 
@@ -95,15 +97,17 @@ export class AuthService {
       // Generate new pair
       const newPayload = { sub: user.id, email: user.email, rol: user.rol };
       const accessToken = this.jwtService.sign(newPayload, {
-        secret: process.env.JWT_ACCESS_SECRET || 'super-secret-access-key',
-        expiresIn: process.env.JWT_ACCESS_EXPIRATION || '15m',
+        secret:
+          process.env.JWT_ACCESS_SECRET ||
+          'super-secret-access-key-control-materiales',
+        expiresIn: (process.env.JWT_ACCESS_EXPIRATION || '15m') as any,
       });
 
       const refreshToken = this.jwtService.sign(
         { sub: user.id },
         {
           secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key',
-          expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d',
+          expiresIn: (process.env.JWT_REFRESH_EXPIRATION || '7d') as any,
         },
       );
 
