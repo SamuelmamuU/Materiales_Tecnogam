@@ -70,6 +70,18 @@ interface MemberDetail {
 interface ProjectDetail extends ProjectBrief {
   hitos: Hito[];
   miembros: MemberDetail[];
+  materialesCotizados: {
+    id: string;
+    materialId: string;
+    cantidad: number;
+    material: {
+      id: string;
+      codigo: string;
+      descripcion: string;
+      unidad: string;
+      categoria: string;
+    };
+  }[];
 }
 
 interface ReconciliationItem {
@@ -173,11 +185,48 @@ function Dashboard() {
 
   const [projects, setProjects] = useState<ProjectBrief[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  
+  // Estados para Registro de Avances en Web (Supervisor / Administrador)
+  const [showAvanceModal, setShowAvanceModal] = useState(false);
+  const [avanceForm, setAvanceForm] = useState({
+    frente: '',
+    fecha: new Date().toISOString().split('T')[0],
+    latitud: '',
+    longitud: '',
+    evidenciaUrl: ''
+  });
+  const [selectedEvidenciaFile, setSelectedEvidenciaFile] = useState<File | null>(null);
+  const [generalMaterials, setGeneralMaterials] = useState<{ id: string; codigo: string; descripcion: string; unidad: string }[]>([]);
+
+  interface LocalAvanceItem {
+    tipo: 'planeado' | 'no_planeado';
+    subtipo: 'retrabajo' | 'extra' | 'modificacion';
+    materialId: string;
+    materialCodigo: string;
+    materialDescripcion: string;
+    materialManual: string;
+    cantidad: number;
+  }
+  const [avanceItemsList, setAvanceItemsList] = useState<LocalAvanceItem[]>([]);
+  const [currentPlaneadoItem, setCurrentPlaneadoItem] = useState({ materialId: '', cantidad: '' });
+  const [currentNoPlaneadoItem, setCurrentNoPlaneadoItem] = useState({
+    subtipo: 'retrabajo' as 'retrabajo' | 'extra' | 'modificacion',
+    materialManual: '',
+    cantidad: ''
+  });
+
+  // Estados para gestión de BOM de materiales en admin
+  const [selectedBOMMaterialId, setSelectedBOMMaterialId] = useState('');
+  const [bomMaterialCantidad, setBomMaterialCantidad] = useState('');
+  const [bomImportMode, setBomImportMode] = useState<'individual' | 'excel'>('individual');
+  const [bomParsedPreview, setBomParsedPreview] = useState<any[]>([]);
+  const [isImportingBOM, setIsImportingBOM] = useState(false);
+
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolvingIncidentId, setResolvingIncidentId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'kpis' | 'materiales' | 'avances' | 'incidentes' | 'tiempos' | 'admin'>('kpis');
+  const [activeTab, setActiveTab] = useState<'kpis' | 'materiales' | 'avances' | 'incidentes' | 'tiempos' | 'bom' | 'admin'>('kpis');
 
   // Estados del Historial de Avances (Fase 5)
   const [avancesHistory, setAvancesHistory] = useState<AvanceRecord[]>([]);
@@ -483,6 +532,348 @@ function Dashboard() {
       await fetchProjectDetailForAdmin(selectedAdminProject.id);
     } catch (err: any) {
       alert(err.message);
+    }
+  };
+
+  const handleUploadEvidencia = async (file: File): Promise<string | null> => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_URL}/media/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al subir la imagen.');
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (err) {
+      console.error(err);
+      alert('No se pudo cargar la imagen de evidencia.');
+      return null;
+    }
+  };
+
+  const fetchGeneralMaterials = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_URL}/materials?limit=100`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setGeneralMaterials(data.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching materials:', err);
+    }
+  };
+
+  const handleAddPlaneadoItem = () => {
+    if (!currentPlaneadoItem.materialId) {
+      alert('Por favor seleccione un material.');
+      return;
+    }
+    const qty = parseFloat(currentPlaneadoItem.cantidad);
+    if (isNaN(qty) || qty <= 0) {
+      alert('Por favor ingrese una cantidad válida mayor que cero.');
+      return;
+    }
+
+    const projectMaterialsOptions = dashboardData?.reconciliation || [];
+    let mat = projectMaterialsOptions.find(o => o.materialId === currentPlaneadoItem.materialId);
+    let matDesc = '';
+    let matCodigo = '';
+    
+    if (mat) {
+      matDesc = mat.descripcion;
+      matCodigo = mat.codigo;
+    } else {
+      const genMat = generalMaterials.find(o => o.id === currentPlaneadoItem.materialId);
+      if (genMat) {
+        matDesc = genMat.descripcion;
+        matCodigo = genMat.codigo;
+      }
+    }
+
+    const newItem: LocalAvanceItem = {
+      tipo: 'planeado',
+      subtipo: 'retrabajo',
+      materialId: currentPlaneadoItem.materialId,
+      materialCodigo: matCodigo || 'N/A',
+      materialDescripcion: matDesc || 'Material',
+      materialManual: '',
+      cantidad: qty
+    };
+
+    setAvanceItemsList([...avanceItemsList, newItem]);
+    setCurrentPlaneadoItem({ materialId: '', cantidad: '' });
+  };
+
+  const handleAddNoPlaneadoItem = () => {
+    if (!currentNoPlaneadoItem.materialManual.trim()) {
+      alert('Por favor ingrese la descripción del material manual.');
+      return;
+    }
+    const qty = parseFloat(currentNoPlaneadoItem.cantidad);
+    if (isNaN(qty) || qty <= 0) {
+      alert('Por favor ingrese una cantidad válida mayor que cero.');
+      return;
+    }
+
+    const newItem: LocalAvanceItem = {
+      tipo: 'no_planeado',
+      subtipo: currentNoPlaneadoItem.subtipo,
+      materialId: '',
+      materialCodigo: 'MANUAL',
+      materialDescripcion: currentNoPlaneadoItem.materialManual.trim(),
+      materialManual: currentNoPlaneadoItem.materialManual.trim(),
+      cantidad: qty
+    };
+
+    setAvanceItemsList([...avanceItemsList, newItem]);
+    setCurrentNoPlaneadoItem({ subtipo: 'retrabajo', materialManual: '', cantidad: '' });
+  };
+
+  const handleSaveAvance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!avanceForm.frente.trim()) {
+      alert('Por favor especifique el frente de trabajo.');
+      return;
+    }
+    if (avanceItemsList.length === 0) {
+      alert('Por favor agregue al menos un item de avance.');
+      return;
+    }
+
+    const generateUUID = () => {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+      }
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    };
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      let finalEvidenciaUrl = avanceForm.evidenciaUrl;
+
+      if (selectedEvidenciaFile) {
+        const uploadedUrl = await handleUploadEvidencia(selectedEvidenciaFile);
+        if (uploadedUrl) {
+          finalEvidenciaUrl = uploadedUrl;
+        } else {
+          return;
+        }
+      }
+
+      const response = await fetch(`${API_URL}/avances`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: generateUUID(),
+          proyectoId: selectedProjectId,
+          fecha: new Date(avanceForm.fecha).toISOString(),
+          frente: avanceForm.frente.trim(),
+          latitud: avanceForm.latitud ? parseFloat(avanceForm.latitud) : null,
+          longitud: avanceForm.longitud ? parseFloat(avanceForm.longitud) : null,
+          evidenciaUrl: finalEvidenciaUrl || null,
+          items: avanceItemsList.map(it => ({
+            tipo: it.tipo,
+            subtipo: it.tipo === 'no_planeado' ? it.subtipo : undefined,
+            materialId: it.tipo === 'planeado' ? it.materialId : undefined,
+            materialManual: it.tipo === 'no_planeado' ? it.materialManual : undefined,
+            cantidad: parseFloat(it.cantidad.toString())
+          }))
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || 'Error al guardar el reporte de avance.');
+      }
+
+      setShowAvanceModal(false);
+      setAvanceForm({ frente: '', fecha: new Date().toISOString().split('T')[0], latitud: '', longitud: '', evidenciaUrl: '' });
+      setSelectedEvidenciaFile(null);
+      setAvanceItemsList([]);
+      
+      if (selectedProjectId) {
+        await fetchAvancesHistory(selectedProjectId);
+        await fetchDashboardData(selectedProjectId);
+        await fetchTimelineData(selectedProjectId);
+      }
+      
+      alert('Reporte de avance guardado exitosamente.');
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  // --- CRUD BOM / Materiales Cotizados ---
+  const parseCSVFile = (csvText: string) => {
+    const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length <= 1) return [];
+    
+    const parseCSVLine = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+
+    const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+    const codeIdx = headers.findIndex(h => h.includes('codigo') || h.includes('modelo') || h.includes('code'));
+    const descIdx = headers.findIndex(h => h.includes('descripcion') || h.includes('nombre') || h.includes('desc'));
+    const textIdx = headers.findIndex(h => h.includes('unidad') || h.includes('unit'));
+    const qtyIdx = headers.findIndex(h => h.includes('cantidad') || h.includes('qty') || h.includes('cant') || h.includes('cotizado'));
+    const catIdx = headers.findIndex(h => h.includes('categoria') || h.includes('tipo') || h.includes('category'));
+
+    const parsedItems: any[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const row = parseCSVLine(lines[i]);
+      if (row.length < 2) continue;
+
+      const codigo = codeIdx !== -1 ? row[codeIdx] : '';
+      const descripcion = descIdx !== -1 ? row[descIdx] : '';
+      const unidad = textIdx !== -1 ? row[textIdx] : 'pza';
+      const cantidadStr = qtyIdx !== -1 ? row[qtyIdx] : '';
+      const categoria = catIdx !== -1 ? row[catIdx] : 'General';
+      const cantidad = parseFloat(cantidadStr);
+
+      if (!codigo || isNaN(cantidad)) continue;
+
+      parsedItems.push({
+        codigo,
+        descripcion: descripcion || 'Material Importado',
+        unidad: unidad || 'pza',
+        categoria: categoria || 'General',
+        cantidad
+      });
+    }
+
+    return parsedItems;
+  };
+
+  const handleAddBOMMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAdminProject || !selectedBOMMaterialId) return;
+    const qty = parseFloat(bomMaterialCantidad);
+    if (isNaN(qty) || qty <= 0) {
+      alert('Ingrese una cantidad válida mayor a cero.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/materials`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          materialId: selectedBOMMaterialId,
+          cantidad: qty,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('No se pudo vincular el material.');
+      }
+
+      setSelectedBOMMaterialId('');
+      setBomMaterialCantidad('');
+      await fetchProjectDetailForAdmin(selectedAdminProject.id);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteBOMMaterial = async (materialId: string) => {
+    if (!selectedAdminProject || !confirm('¿Eliminar este material del presupuesto del proyecto?')) return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/materials/${materialId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('No se pudo desvincular el material.');
+      await fetchProjectDetailForAdmin(selectedAdminProject.id);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleFileUploadBOM = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      const parsed = parseCSVFile(text);
+      setBomParsedPreview(parsed);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleConfirmImportBOM = async () => {
+    if (!selectedAdminProject || bomParsedPreview.length === 0) return;
+    setIsImportingBOM(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/materials/bulk`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(bomParsedPreview),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al importar la lista de materiales.');
+      }
+
+      setBomParsedPreview([]);
+      const fileInput = document.getElementById('bom-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      
+      await fetchProjectDetailForAdmin(selectedAdminProject.id);
+      alert('Materiales importados con éxito.');
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsImportingBOM(false);
     }
   };
 
@@ -796,15 +1187,31 @@ function Dashboard() {
               Tiempos Muertos
             </button>
             {isAdmin && (
-              <button
-                onClick={() => setActiveTab('admin')}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                  activeTab === 'admin' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
-                }`}
-              >
-                <Settings className="w-4 h-4" />
-                Panel Administración
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    setActiveTab('bom');
+                    if (selectedProjectId) {
+                      fetchProjectDetailForAdmin(selectedProjectId);
+                    }
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                    activeTab === 'bom' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
+                  }`}
+                >
+                  <FileText className="w-4 h-4" />
+                  Presupuesto BOM
+                </button>
+                <button
+                  onClick={() => setActiveTab('admin')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                    activeTab === 'admin' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                  Panel Administración
+                </button>
+              </>
             )}
           </nav>
         </div>
@@ -1199,6 +1606,224 @@ function Dashboard() {
               </div>
             )}
           </div>
+        ) : activeTab === 'bom' && isAdmin ? (
+          <div className="space-y-6">
+            {!selectedAdminProject ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm">
+                <RefreshCw className="w-10 h-10 text-[#0C447C] animate-spin mb-4" />
+                <p className="text-sm font-medium text-[#5F5E5A]">Cargando presupuesto de materiales (BOM)...</p>
+              </div>
+            ) : (
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-6">
+                <div className="border-b border-[#E3E1D9] pb-3 flex flex-wrap justify-between items-center gap-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#1C1C1A]">Presupuesto Original del Proyecto (BOM de Materiales)</h3>
+                    <p className="text-xs text-[#5F5E5A]">
+                      Defina los materiales cotizados y sus cantidades contratadas para el proyecto activo: <b>{selectedAdminProject.nombre}</b>.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 bg-[#F1EFE8] p-1 rounded-xl text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBomImportMode('individual');
+                        setBomParsedPreview([]);
+                      }}
+                      className={`h-7 px-3 rounded-lg font-semibold transition-all cursor-pointer ${
+                        bomImportMode === 'individual' ? 'bg-white text-[#1C1C1A] shadow-xs' : 'text-[#5F5E5A] hover:text-[#1C1C1A]'
+                      }`}
+                    >
+                      Vincular Catálogo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBomImportMode('excel');
+                        setBomParsedPreview([]);
+                      }}
+                      className={`h-7 px-3 rounded-lg font-semibold transition-all cursor-pointer ${
+                        bomImportMode === 'excel' ? 'bg-white text-[#1C1C1A] shadow-xs' : 'text-[#5F5E5A] hover:text-[#1C1C1A]'
+                      }`}
+                    >
+                      Importar Excel / CSV
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Panel Izquierdo: Carga de Datos */}
+                  <div className="lg:col-span-1 p-4 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl space-y-4">
+                    {bomImportMode === 'individual' ? (
+                      <form onSubmit={handleAddBOMMaterial} className="space-y-3">
+                        <span className="block text-xs font-bold text-[#1C1C1A]">Vincular Material desde Catálogo</span>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Material</label>
+                          <select
+                            required
+                            value={selectedBOMMaterialId}
+                            onChange={(e) => setSelectedBOMMaterialId(e.target.value)}
+                            className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs cursor-pointer"
+                          >
+                            <option value="">Seleccione un material...</option>
+                            {generalMaterials
+                              .filter(m => !(selectedAdminProject.materialesCotizados || []).some((c: any) => c.materialId === m.id))
+                              .map(m => (
+                                <option key={m.id} value={m.id}>
+                                  {m.codigo} - {m.descripcion} ({m.unidad})
+                                </option>
+                              ))
+                            }
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Cantidad Presupuestada (Cotizada)</label>
+                          <input
+                            type="number"
+                            step="any"
+                            required
+                            placeholder="Ej. 100"
+                            value={bomMaterialCantidad}
+                            onChange={(e) => setBomMaterialCantidad(e.target.value)}
+                            className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          className="w-full h-9 bg-[#1C1C1A] hover:bg-[#3E3D39] text-white text-xs font-bold rounded-lg cursor-pointer"
+                        >
+                          Agregar Material
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="space-y-4">
+                        <span className="block text-xs font-bold text-[#1C1C1A]">Carga de Archivo Excel / CSV</span>
+                        <p className="text-[10px] text-[#5F5E5A]">
+                          Suba un archivo con columnas correspondientes a: <b>Codigo/Modelo</b>, <b>Descripcion</b>, <b>Unidad</b> y <b>Cantidad/Cotizado</b>.
+                        </p>
+
+                        <div className="space-y-2">
+                          <input
+                            type="file"
+                            id="bom-file-input"
+                            accept=".csv,.txt"
+                            onChange={handleFileUploadBOM}
+                            className="w-full text-xs text-[#5F5E5A]
+                              file:mr-2 file:py-1 file:px-3
+                              file:rounded-lg file:border-0
+                              file:text-xs file:font-semibold
+                              file:bg-[#F1EFE8] file:text-[#1C1C1A]
+                              hover:file:bg-[#E3E1D9]
+                              cursor-pointer"
+                          />
+                        </div>
+
+                        {bomParsedPreview.length > 0 && (
+                          <div className="space-y-2 pt-2 border-t border-[#E3E1D9]">
+                            <span className="text-[10px] font-bold text-[#27500A] block">
+                              Se leyeron {bomParsedPreview.length} materiales.
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleConfirmImportBOM}
+                              disabled={isImportingBOM}
+                              className="w-full h-9 bg-[#27500A] hover:bg-[#1E3F07] text-white text-xs font-bold rounded-lg cursor-pointer disabled:bg-gray-400"
+                            >
+                              {isImportingBOM ? 'Importando...' : 'Confirmar e Importar al Proyecto'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Panel Derecho: Lista de Materiales Cotizados */}
+                  <div className="lg:col-span-2 space-y-3">
+                    <span className="block text-xs font-bold text-[#1C1C1A]">
+                      Materiales Cotizados en el Proyecto ({(selectedAdminProject.materialesCotizados || []).length})
+                    </span>
+
+                    {/* Si hay vista previa de importación */}
+                    {bomImportMode === 'excel' && bomParsedPreview.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-[#BA7517] uppercase">Vista Previa de Importación</span>
+                          <button
+                            type="button"
+                            onClick={() => setBomParsedPreview([])}
+                            className="text-[10px] text-red-600 hover:underline font-semibold"
+                          >
+                            Limpiar vista previa
+                          </button>
+                        </div>
+                        <div className="border border-[#E3E1D9] rounded-xl overflow-hidden max-h-96 overflow-y-auto">
+                          <table className="w-full text-left border-collapse text-[11px]">
+                            <thead>
+                              <tr className="bg-[#FCF4E6] border-b border-[#E3E1D9] text-[#BA7517] font-semibold">
+                                <th className="p-2">Código</th>
+                                <th className="p-2">Descripción</th>
+                                <th className="p-2 text-center">Unidad</th>
+                                <th className="p-2 text-right">Cantidad</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#E3E1D9] bg-white">
+                              {bomParsedPreview.map((item, idx) => (
+                                <tr key={idx} className="hover:bg-[#F7F7F5]/30">
+                                  <td className="p-2 font-bold text-[#1C1C1A]">{item.codigo}</td>
+                                  <td className="p-2 text-[#5F5E5A] truncate max-w-xs">{item.descripcion}</td>
+                                  <td className="p-2 text-center text-[#8B8A84] uppercase">{item.unidad}</td>
+                                  <td className="p-2 text-right font-bold text-[#1C1C1A]">{item.cantidad.toLocaleString()}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : (selectedAdminProject.materialesCotizados || []).length === 0 ? (
+                      <div className="text-center py-12 border border-dashed border-[#C9C7BD] rounded-xl text-xs text-[#8B8A84] bg-[#F7F7F5]">
+                        No hay materiales cargados en el presupuesto de este proyecto. Use los controles de la izquierda para vincular o importar.
+                      </div>
+                    ) : (
+                      <div className="border border-[#E3E1D9] rounded-xl overflow-hidden max-h-96 overflow-y-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-[#F7F7F5] border-b border-[#E3E1D9] text-[#5F5E5A] font-semibold">
+                              <th className="p-2.5">Código</th>
+                              <th className="p-2.5">Descripción</th>
+                              <th className="p-2.5 text-center">Unidad</th>
+                              <th className="p-2.5 text-right">Cotizado</th>
+                              <th className="p-2.5 text-center">Acción</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E3E1D9] bg-white">
+                            {(selectedAdminProject.materialesCotizados || []).map((cot: any) => (
+                              <tr key={cot.id} className="hover:bg-[#F7F7F5]/30">
+                                <td className="p-2.5 font-bold text-[#1C1C1A]">{cot.material.codigo}</td>
+                                <td className="p-2.5 text-[#5F5E5A] truncate max-w-xs" title={cot.material.descripcion}>
+                                  {cot.material.descripcion}
+                                </td>
+                                <td className="p-2.5 text-center text-[#8B8A84] uppercase">{cot.material.unidad}</td>
+                                <td className="p-2.5 text-right font-bold text-[#1C1C1A]">{cot.cantidad.toLocaleString()}</td>
+                                <td className="p-2.5 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteBOMMaterial(cot.materialId)}
+                                    className="text-red-600 hover:text-red-800 p-1 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-4 h-4 mx-auto" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         ) : dashboardData ? (
           // ================= VISTAS ESTÁNDAR DEL DASHBOARD DE PROYECTO =================
           <div className="space-y-6">
@@ -1443,9 +2068,23 @@ function Dashboard() {
             {/* VISTA 3: HISTORIAL DE AVANCES (Tab Activa: avances / Fase 5) */}
             {activeTab === 'avances' && (
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
-                <div className="pb-2 border-b border-[#E3E1D9]">
-                  <h3 className="text-sm font-bold text-[#1C1C1A]">Bitácora Histórica de Avances Diarios</h3>
-                  <p className="text-xs text-[#5F5E5A]">Listado de capturas de campo y materiales instalados en obra.</p>
+                <div className="pb-2 border-b border-[#E3E1D9] flex justify-between items-center">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#1C1C1A]">Bitácora Histórica de Avances Diarios</h3>
+                    <p className="text-xs text-[#5F5E5A]">Listado de capturas de campo y materiales instalados en obra.</p>
+                  </div>
+                  {isAdminOrSupervisor && (
+                    <button
+                      onClick={() => {
+                        setShowAvanceModal(true);
+                        fetchGeneralMaterials();
+                      }}
+                      className="flex items-center gap-2 h-9 px-4 bg-[#1C1C1A] text-white hover:bg-black rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Registrar Avance
+                    </button>
+                  )}
                 </div>
 
                 {/* Filtros de Historial (Tarea 5.4) */}
@@ -1858,6 +2497,296 @@ function Dashboard() {
               >
                 Guardar Usuario
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: REPORTAR AVANCE DIARIO */}
+      {showAvanceModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white border border-[#E3E1D9] rounded-2xl w-full max-w-2xl overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200 my-8">
+            <div className="p-6 border-b border-[#E3E1D9] flex justify-between items-center bg-[#F7F7F5]">
+              <div>
+                <h3 className="font-bold text-[#1C1C1A] text-sm">Registrar Reporte de Avance Diario</h3>
+                <p className="text-[10px] text-[#5F5E5A]">Registrar avance planeado y no planeado simultáneamente para el proyecto.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAvanceModal(false);
+                  setAvanceItemsList([]);
+                }}
+                className="text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveAvance} className="p-6 space-y-5">
+              {/* Encabezado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Frente de Trabajo *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Frente Norte - Nivel 4"
+                    value={avanceForm.frente}
+                    onChange={(e) => setAvanceForm({ ...avanceForm, frente: e.target.value })}
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Fecha de Captura *</label>
+                  <input
+                    type="date"
+                    required
+                    value={avanceForm.fecha}
+                    onChange={(e) => setAvanceForm({ ...avanceForm, fecha: e.target.value })}
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* GPS y Foto */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Latitud (GPS opcional)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="Ej. 19.4326"
+                    value={avanceForm.latitud}
+                    onChange={(e) => setAvanceForm({ ...avanceForm, latitud: e.target.value })}
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Longitud (GPS opcional)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="Ej. -99.1332"
+                    value={avanceForm.longitud}
+                    onChange={(e) => setAvanceForm({ ...avanceForm, longitud: e.target.value })}
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Evidencia Fotográfica</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setSelectedEvidenciaFile(e.target.files[0]);
+                      }
+                    }}
+                    className="w-full text-xs text-[#5F5E5A]
+                      file:mr-2 file:py-1 file:px-3
+                      file:rounded-full file:border-0
+                      file:text-xs file:font-semibold
+                      file:bg-[#F1EFE8] file:text-[#1C1C1A]
+                      hover:file:bg-[#E3E1D9]
+                      cursor-pointer mt-1.5"
+                  />
+                </div>
+              </div>
+
+              {/* Secciones de Carga */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-3 border-t border-[#E3E1D9]">
+                {/* Apartado A: Avance Planeado */}
+                <div className="space-y-3 p-4 bg-[#F7F7F5] rounded-xl border border-[#E3E1D9]/60">
+                  <h4 className="text-xs font-bold text-[#0C447C] flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Apartado A: Avance Planeado
+                  </h4>
+                  <p className="text-[10px] text-[#5F5E5A]">Seleccione un material de catálogo e indique cantidad.</p>
+                  
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Material de Catálogo</label>
+                      <select
+                        value={currentPlaneadoItem.materialId}
+                        onChange={(e) => setCurrentPlaneadoItem({ ...currentPlaneadoItem, materialId: e.target.value })}
+                        className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                      >
+                        <option value="">-- Seleccionar Material --</option>
+                        <optgroup label="Materiales del Proyecto (BOM)">
+                          {(dashboardData?.reconciliation || []).map(m => (
+                            <option key={m.materialId} value={m.materialId}>
+                              {m.codigo} - {m.descripcion} ({m.unidad})
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Otros Materiales del Catálogo Maestro">
+                          {generalMaterials
+                            .filter(g => !(dashboardData?.reconciliation || []).some(p => p.materialId === g.id))
+                            .map(m => (
+                              <option key={m.id} value={m.id}>
+                                {m.codigo} - {m.descripcion} ({m.unidad})
+                              </option>
+                            ))
+                          }
+                        </optgroup>
+                      </select>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Cantidad</label>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="Ej. 10"
+                          value={currentPlaneadoItem.cantidad}
+                          onChange={(e) => setCurrentPlaneadoItem({ ...currentPlaneadoItem, cantidad: e.target.value })}
+                          className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddPlaneadoItem}
+                        className="self-end h-9 px-3 bg-[#0C447C] text-white rounded-lg text-xs font-bold hover:bg-[#093561] cursor-pointer"
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Apartado B: Avance No Planeado */}
+                <div className="space-y-3 p-4 bg-[#FCF4E6]/50 rounded-xl border border-[#BA7517]/30">
+                  <h4 className="text-xs font-bold text-[#BA7517] flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Apartado B: Avance No Planeado
+                  </h4>
+                  <p className="text-[10px] text-[#5F5E5A]">Para retrabajos, extras o modificaciones con descripción libre.</p>
+                  
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Subtipo</label>
+                        <select
+                          value={currentNoPlaneadoItem.subtipo}
+                          onChange={(e) => setCurrentNoPlaneadoItem({ ...currentNoPlaneadoItem, subtipo: e.target.value as any })}
+                          className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                        >
+                          <option value="retrabajo">Retrabajo</option>
+                          <option value="extra">Trabajo Extra</option>
+                          <option value="modificacion">Modificación</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Cantidad</label>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="Ej. 5"
+                          value={currentNoPlaneadoItem.cantidad}
+                          onChange={(e) => setCurrentNoPlaneadoItem({ ...currentNoPlaneadoItem, cantidad: e.target.value })}
+                          className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Descripción del Material (Texto Libre)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Ej. Soporte metálico a medida de 4 pulgadas"
+                          value={currentNoPlaneadoItem.materialManual}
+                          onChange={(e) => setCurrentNoPlaneadoItem({ ...currentNoPlaneadoItem, materialManual: e.target.value })}
+                          className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddNoPlaneadoItem}
+                          className="h-9 px-3 bg-[#BA7517] text-white rounded-lg text-xs font-bold hover:bg-[#965E12] cursor-pointer"
+                        >
+                          Agregar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Listado de Items Agregados */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-[#1C1C1A]">Detalle de Avances a Reportar ({avanceItemsList.length})</label>
+                {avanceItemsList.length === 0 ? (
+                  <div className="text-center py-6 border border-dashed border-[#C9C7BD] rounded-xl text-xs text-[#8B8A84] bg-[#F7F7F5]">
+                    No se han agregado materiales al reporte. Use los controles de arriba para añadir items planeados o no planeados.
+                  </div>
+                ) : (
+                  <div className="border border-[#E3E1D9] rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-[#F7F7F5] border-b border-[#E3E1D9] text-[#5F5E5A] font-semibold">
+                          <th className="p-2.5">Tipo</th>
+                          <th className="p-2.5">Código / Material</th>
+                          <th className="p-2.5 text-right">Cantidad</th>
+                          <th className="p-2.5 text-center">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E3E1D9]">
+                        {avanceItemsList.map((it, idx) => (
+                          <tr key={idx} className="hover:bg-[#F7F7F5]/40 transition-colors">
+                            <td className="p-2.5">
+                              <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
+                                it.tipo === 'planeado' ? 'bg-[#E6F1FB] text-[#0C447C]' : 'bg-[#FCF4E6] text-[#BA7517]'
+                              }`}>
+                                {it.tipo === 'planeado' ? 'Planeado' : `No Plan. (${it.subtipo})`}
+                              </span>
+                            </td>
+                            <td className="p-2.5">
+                              <span className="font-bold text-[#1C1C1A] mr-2">{it.materialCodigo}</span>
+                              <span className="text-[#5F5E5A]">{it.materialDescripcion}</span>
+                            </td>
+                            <td className="p-2.5 text-right font-bold text-[#27500A]">
+                              +{it.cantidad}
+                            </td>
+                            <td className="p-2.5 text-center">
+                              <button
+                                type="button"
+                                onClick={() => setAvanceItemsList(avanceItemsList.filter((_, i) => i !== idx))}
+                                className="text-red-600 hover:text-red-800 p-1 cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4 mx-auto" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Botón de Envío */}
+              <div className="flex gap-3 justify-end pt-3 border-t border-[#E3E1D9]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAvanceModal(false);
+                    setAvanceItemsList([]);
+                  }}
+                  className="h-10 px-4 border border-[#C9C7BD] text-[#1C1C1A] hover:bg-[#F7F7F5] text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={avanceItemsList.length === 0}
+                  className={`h-10 px-6 text-white text-xs font-bold rounded-xl cursor-pointer ${
+                    avanceItemsList.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#1C1C1A] hover:bg-[#3E3D39]'
+                  }`}
+                >
+                  Guardar Reporte de Avance
+                </button>
+              </div>
             </form>
           </div>
         </div>
