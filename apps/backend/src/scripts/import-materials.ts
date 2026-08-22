@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -272,8 +273,7 @@ async function main() {
   console.log('\nInsertando registros en la base de datos...');
 
   // Realizar inserción masiva (o uno por uno si es necesario para evitar colisiones en la BD)
-  // Utilizaremos transacciones en lotes de 100 para eficiencia
-  const batchSize = 100;
+  const batchSize = 50;
   for (let i = 0; i < batchData.length; i += batchSize) {
     const currentBatch = batchData.slice(i, i + batchSize);
 
@@ -290,6 +290,9 @@ async function main() {
           create: item,
         }),
       ),
+      {
+        timeout: 30000,
+      },
     );
 
     importedCount += currentBatch.length;

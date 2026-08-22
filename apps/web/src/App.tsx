@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Login from './pages/Login';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -178,6 +178,7 @@ interface DashboardData {
 }
 
 function Dashboard() {
+  const navigate = useNavigate();
   const userJson = localStorage.getItem('user');
   const user = userJson ? JSON.parse(userJson) : { email: 'usuario@tecnogam.com', rol: 'usuario', nombre: 'Usuario' };
   const isAdmin = user.rol === 'administrador';
@@ -960,7 +961,7 @@ function Dashboard() {
 
   const handleLogout = () => {
     localStorage.clear();
-    window.location.href = '/login';
+    navigate('/login');
   };
 
   const handlePrint = () => {
