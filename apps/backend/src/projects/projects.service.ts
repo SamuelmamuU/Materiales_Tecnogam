@@ -358,40 +358,57 @@ export class ProjectsService {
     await this.findOne(proyectoId);
 
     for (const item of items) {
-      // 1. Encontrar o crear el material en el catálogo maestro
-      let material = await this.prisma.material.findUnique({
-        where: { codigo: item.codigo },
-      });
+      try {
+        const cleanedCodigo = item.codigo ? item.codigo.trim() : '';
+        if (!cleanedCodigo) continue;
 
-      if (!material) {
-        material = await this.prisma.material.create({
-          data: {
-            codigo: item.codigo,
-            descripcion: item.descripcion || 'Material Importado',
-            unidad: item.unidad || 'pza',
-            categoria: item.categoria || 'General',
-            activo: true,
-          },
+        // 1. Encontrar o crear el material en el catálogo maestro
+        let material = await this.prisma.material.findUnique({
+          where: { codigo: cleanedCodigo },
         });
-      }
 
-      // 2. Crear o actualizar la relación en el proyecto
-      await this.prisma.materialCotizado.upsert({
-        where: {
-          proyectoId_materialId: {
+        if (!material) {
+          material = await this.prisma.material.create({
+            data: {
+              codigo: cleanedCodigo,
+              descripcion: item.descripcion?.trim() || 'Material Importado',
+              unidad: item.unidad?.trim() || 'pza',
+              categoria: item.categoria?.trim() || 'General',
+              activo: true,
+            },
+          });
+        } else {
+          // Si el material existe pero difiere en descripción/unidad, lo actualizamos con los datos del CSV
+          material = await this.prisma.material.update({
+            where: { id: material.id },
+            data: {
+              descripcion: item.descripcion?.trim() || material.descripcion,
+              unidad: item.unidad?.trim() || material.unidad,
+              categoria: item.categoria?.trim() || material.categoria,
+            },
+          });
+        }
+
+        // 2. Crear o actualizar la relación en el proyecto
+        await this.prisma.materialCotizado.upsert({
+          where: {
+            proyectoId_materialId: {
+              proyectoId,
+              materialId: material.id,
+            },
+          },
+          update: {
+            cantidad: Number(item.cantidad),
+          },
+          create: {
             proyectoId,
             materialId: material.id,
+            cantidad: Number(item.cantidad),
           },
-        },
-        update: {
-          cantidad: item.cantidad,
-        },
-        create: {
-          proyectoId,
-          materialId: material.id,
-          cantidad: item.cantidad,
-        },
-      });
+        });
+      } catch (err) {
+        console.error(`Error importando material ${item.codigo}:`, err);
+      }
     }
 
     return this.findOne(proyectoId);
