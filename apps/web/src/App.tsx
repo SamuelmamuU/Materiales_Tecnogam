@@ -285,6 +285,14 @@ function Dashboard() {
     }
   }, [activeTab]);
 
+  // Cargar catálogo de materiales general cuando se abre el modal de avance o la pestaña BOM
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (token && (activeTab === 'bom' || showAvanceModal)) {
+      fetchGeneralMaterials();
+    }
+  }, [activeTab, showAvanceModal]);
+
   const fetchProjects = async () => {
     try {
       const token = localStorage.getItem('accessToken');
@@ -574,9 +582,14 @@ function Dashboard() {
       if (response.ok) {
         const data = await response.json();
         setGeneralMaterials(data.data || []);
+      } else {
+        const errText = await response.text();
+        console.error('Failed to fetch materials:', response.status, errText);
+        alert(`Error al obtener materiales del catálogo: ${response.status} ${errText}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching materials:', err);
+      alert(`Error de red al obtener materiales: ${err.message}`);
     }
   };
 
