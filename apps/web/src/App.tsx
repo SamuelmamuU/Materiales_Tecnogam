@@ -268,14 +268,14 @@ function Dashboard() {
     fetchProjects();
   }, []);
 
-  // Cargar datos de dashboard cuando cambia el proyecto seleccionado
+  // Cargar datos de dashboard cuando cambia el proyecto seleccionado o se cambia de pestaña
   useEffect(() => {
     if (selectedProjectId) {
       fetchDashboardData(selectedProjectId);
       fetchTimelineData(selectedProjectId);
       fetchAvancesHistory(selectedProjectId);
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, activeTab]);
 
   // Cargar avances si se modifican los filtros
   useEffect(() => {
@@ -857,6 +857,10 @@ function Dashboard() {
       setBomMaterialCantidad('');
       setBomSearchQuery('');
       await fetchProjectDetailForAdmin(selectedAdminProject.id);
+      if (selectedProjectId) {
+        fetchDashboardData(selectedProjectId);
+        fetchTimelineData(selectedProjectId);
+      }
     } catch (err: any) {
       alert(err.message);
     }
@@ -872,6 +876,10 @@ function Dashboard() {
       });
       if (!response.ok) throw new Error('No se pudo desvincular el material.');
       await fetchProjectDetailForAdmin(selectedAdminProject.id);
+      if (selectedProjectId) {
+        fetchDashboardData(selectedProjectId);
+        fetchTimelineData(selectedProjectId);
+      }
     } catch (err: any) {
       alert(err.message);
     }
@@ -923,6 +931,10 @@ function Dashboard() {
       if (fileInput) fileInput.value = '';
       
       await fetchProjectDetailForAdmin(selectedAdminProject.id);
+      if (selectedProjectId) {
+        await fetchDashboardData(selectedProjectId);
+        await fetchTimelineData(selectedProjectId);
+      }
       alert('Materiales importados con éxito.');
     } catch (err: any) {
       alert(err.message);
