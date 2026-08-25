@@ -223,6 +223,12 @@ function Dashboard() {
   const [bomParsedPreview, setBomParsedPreview] = useState<any[]>([]);
   const [isImportingBOM, setIsImportingBOM] = useState(false);
 
+  // Estados para autocompletar búsquedas de materiales
+  const [bomSearchQuery, setBomSearchQuery] = useState('');
+  const [showBomDropdown, setShowBomDropdown] = useState(false);
+  const [avanceSearchQuery, setAvanceSearchQuery] = useState('');
+  const [showAvanceDropdown, setShowAvanceDropdown] = useState(false);
+
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -285,13 +291,27 @@ function Dashboard() {
     }
   }, [activeTab]);
 
-  // Cargar catálogo de materiales general cuando se abre el modal de avance o la pestaña BOM
+  // Cargar catálogo de materiales general con debounce para búsqueda en BOM
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
-    if (token && (activeTab === 'bom' || showAvanceModal)) {
-      fetchGeneralMaterials();
+    if (token && activeTab === 'bom') {
+      const delayDebounceFn = setTimeout(() => {
+        fetchGeneralMaterials(bomSearchQuery);
+      }, 300);
+      return () => clearTimeout(delayDebounceFn);
     }
-  }, [activeTab, showAvanceModal]);
+  }, [bomSearchQuery, activeTab]);
+
+  // Cargar catálogo de materiales general con debounce para búsqueda en Avances
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (token && showAvanceModal) {
+      const delayDebounceFn = setTimeout(() => {
+        fetchGeneralMaterials(avanceSearchQuery);
+      }, 300);
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [avanceSearchQuery, showAvanceModal]);
 
   const fetchProjects = async () => {
     try {
@@ -571,10 +591,14 @@ function Dashboard() {
     }
   };
 
-  const fetchGeneralMaterials = async () => {
+  const fetchGeneralMaterials = async (search?: string) => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/materials?limit=100`, {
+      let url = `${API_URL}/materials?limit=100`;
+      if (search) {
+        url += `&search=${encodeURIComponent(search)}`;
+      }
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -585,11 +609,9 @@ function Dashboard() {
       } else {
         const errText = await response.text();
         console.error('Failed to fetch materials:', response.status, errText);
-        alert(`Error al obtener materiales del catálogo: ${response.status} ${errText}`);
       }
     } catch (err: any) {
       console.error('Error fetching materials:', err);
-      alert(`Error de red al obtener materiales: ${err.message}`);
     }
   };
 
@@ -632,6 +654,7 @@ function Dashboard() {
 
     setAvanceItemsList([...avanceItemsList, newItem]);
     setCurrentPlaneadoItem({ materialId: '', cantidad: '' });
+    setAvanceSearchQuery('');
   };
 
   const handleAddNoPlaneadoItem = () => {
@@ -727,6 +750,7 @@ function Dashboard() {
       setAvanceForm({ frente: '', fecha: new Date().toISOString().split('T')[0], latitud: '', longitud: '', evidenciaUrl: '' });
       setSelectedEvidenciaFile(null);
       setAvanceItemsList([]);
+      setAvanceSearchQuery('');
       
       if (selectedProjectId) {
         await fetchAvancesHistory(selectedProjectId);
@@ -826,6 +850,7 @@ function Dashboard() {
 
       setSelectedBOMMaterialId('');
       setBomMaterialCantidad('');
+      setBomSearchQuery('');
       await fetchProjectDetailForAdmin(selectedAdminProject.id);
     } catch (err: any) {
       alert(err.message);
@@ -1631,7 +1656,7 @@ function Dashboard() {
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-6">
                 <div className="border-b border-[#E3E1D9] pb-3 flex flex-wrap justify-between items-center gap-4">
                   <div>
-                    <h3 className="text-sm font-bold text-[#1C1C1A]">Presupuesto Original del Proyecto (BOM de Materiales)</h3>
+                    <h3 className="text-sm font-bold text-[#1C1C1A]">BOM de Materiales del Proyecto</h3>
                     <p className="text-xs text-[#5F5E5A]">
                       Defina los materiales cotizados y sus cantidades contratadas para el proyecto activo: <b>{selectedAdminProject.nombre}</b>.
                     </p>
@@ -1670,25 +1695,53 @@ function Dashboard() {
                   <div className="lg:col-span-1 p-4 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl space-y-4">
                     {bomImportMode === 'individual' ? (
                       <form onSubmit={handleAddBOMMaterial} className="space-y-3">
-                        <span className="block text-xs font-bold text-[#1C1C1A]">Vincular Material desde Catálogo</span>
+                        <span className="block text-xs font-bold text-[#1C1C1A]">Vincular Material desde BD Mat Tecnogam</span>
                         <div>
                           <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Material</label>
-                          <select
-                            required
-                            value={selectedBOMMaterialId}
-                            onChange={(e) => setSelectedBOMMaterialId(e.target.value)}
-                            className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs cursor-pointer"
-                          >
-                            <option value="">Seleccione un material...</option>
-                            {generalMaterials
-                              .filter(m => !(selectedAdminProject.materialesCotizados || []).some((c: any) => c.materialId === m.id))
-                              .map(m => (
-                                <option key={m.id} value={m.id}>
-                                  {m.codigo} - {m.descripcion} ({m.unidad})
-                                </option>
-                              ))
-                            }
-                          </select>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              placeholder="Escribe para buscar y filtrar catálogo..."
+                              value={bomSearchQuery}
+                              onChange={(e) => {
+                                setBomSearchQuery(e.target.value);
+                                setSelectedBOMMaterialId('');
+                                setShowBomDropdown(true);
+                              }}
+                              onFocus={() => setShowBomDropdown(true)}
+                              onBlur={() => setTimeout(() => setShowBomDropdown(false), 200)}
+                              className="w-full h-9 px-3 bg-white border border-[#C9C7BD] rounded-lg text-xs animate-in fade-in duration-200"
+                            />
+                            {showBomDropdown && (
+                              <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-[#E3E1D9] rounded-xl shadow-lg z-50 divide-y divide-[#E3E1D9]">
+                                {generalMaterials
+                                  .filter(m => !(selectedAdminProject.materialesCotizados || []).some((c: any) => c.materialId === m.id))
+                                  .length === 0 ? (
+                                    <div className="p-3 text-xs text-[#8B8A84] text-center bg-[#F7F7F5]">
+                                      No se encontraron materiales. Escribe algo para buscar.
+                                    </div>
+                                  ) : (
+                                    generalMaterials
+                                      .filter(m => !(selectedAdminProject.materialesCotizados || []).some((c: any) => c.materialId === m.id))
+                                      .map(m => (
+                                        <button
+                                          key={m.id}
+                                          type="button"
+                                          onMouseDown={() => {
+                                            setSelectedBOMMaterialId(m.id);
+                                            setBomSearchQuery(`${m.codigo} - ${m.descripcion}`);
+                                            setShowBomDropdown(false);
+                                          }}
+                                          className="w-full text-left p-2.5 hover:bg-[#F7F7F5] transition-colors text-xs flex flex-col cursor-pointer"
+                                        >
+                                          <span className="font-bold text-[#1C1C1A]">{m.codigo}</span>
+                                          <span className="text-[#5F5E5A] truncate">{m.descripcion} ({m.unidad})</span>
+                                        </button>
+                                      ))
+                                  )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div>
                           <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Cantidad Presupuestada (Cotizada)</label>
@@ -2529,6 +2582,7 @@ function Dashboard() {
                 onClick={() => {
                   setShowAvanceModal(false);
                   setAvanceItemsList([]);
+                  setAvanceSearchQuery('');
                 }}
                 className="text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer"
               >
@@ -2620,30 +2674,96 @@ function Dashboard() {
                   <div className="space-y-2">
                     <div>
                       <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Material de Catálogo</label>
-                      <select
-                        value={currentPlaneadoItem.materialId}
-                        onChange={(e) => setCurrentPlaneadoItem({ ...currentPlaneadoItem, materialId: e.target.value })}
-                        className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs"
-                      >
-                        <option value="">-- Seleccionar Material --</option>
-                        <optgroup label="Materiales del Proyecto (BOM)">
-                          {(dashboardData?.reconciliation || []).map(m => (
-                            <option key={m.materialId} value={m.materialId}>
-                              {m.codigo} - {m.descripcion} ({m.unidad})
-                            </option>
-                          ))}
-                        </optgroup>
-                        <optgroup label="Otros Materiales del Catálogo Maestro">
-                          {generalMaterials
-                            .filter(g => !(dashboardData?.reconciliation || []).some(p => p.materialId === g.id))
-                            .map(m => (
-                              <option key={m.id} value={m.id}>
-                                {m.codigo} - {m.descripcion} ({m.unidad})
-                              </option>
-                            ))
-                          }
-                        </optgroup>
-                      </select>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Escribe para buscar y filtrar catálogo..."
+                          value={avanceSearchQuery}
+                          onChange={(e) => {
+                            setAvanceSearchQuery(e.target.value);
+                            setCurrentPlaneadoItem({ ...currentPlaneadoItem, materialId: '' });
+                            setShowAvanceDropdown(true);
+                          }}
+                          onFocus={() => setShowAvanceDropdown(true)}
+                          onBlur={() => setTimeout(() => setShowAvanceDropdown(false), 200)}
+                          className="w-full h-9 px-3 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                        />
+                        {showAvanceDropdown && (
+                          <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-[#E3E1D9] rounded-xl shadow-lg z-50 divide-y divide-[#E3E1D9]">
+                            {/* 1. Materiales de Proyecto (BOM) */}
+                            {(dashboardData?.reconciliation || [])
+                              .filter(m => 
+                                m.codigo.toLowerCase().includes(avanceSearchQuery.toLowerCase()) || 
+                                m.descripcion.toLowerCase().includes(avanceSearchQuery.toLowerCase())
+                              ).length > 0 && (
+                                <div>
+                                  <div className="bg-[#F7F7F5] px-3 py-1.5 text-[9px] font-bold text-[#0C447C] uppercase tracking-wider">
+                                    Materiales del Proyecto (BOM)
+                                  </div>
+                                  {(dashboardData?.reconciliation || [])
+                                    .filter(m => 
+                                      m.codigo.toLowerCase().includes(avanceSearchQuery.toLowerCase()) || 
+                                      m.descripcion.toLowerCase().includes(avanceSearchQuery.toLowerCase())
+                                    )
+                                    .map(m => (
+                                      <button
+                                        key={m.materialId}
+                                        type="button"
+                                        onMouseDown={() => {
+                                          setCurrentPlaneadoItem({ ...currentPlaneadoItem, materialId: m.materialId });
+                                          setAvanceSearchQuery(`${m.codigo} - ${m.descripcion}`);
+                                          setShowAvanceDropdown(false);
+                                        }}
+                                        className="w-full text-left p-2.5 hover:bg-[#F7F7F5] transition-colors text-xs flex flex-col cursor-pointer"
+                                      >
+                                        <span className="font-bold text-[#1C1C1A]">{m.codigo}</span>
+                                        <span className="text-[#5F5E5A] truncate">{m.descripcion} ({m.unidad})</span>
+                                      </button>
+                                    ))
+                                  }
+                                </div>
+                              )
+                            }
+
+                            {/* 2. Otros Materiales del Catálogo Maestro */}
+                            {generalMaterials
+                              .filter(g => !(dashboardData?.reconciliation || []).some(p => p.materialId === g.id))
+                              .length > 0 && (
+                                <div>
+                                  <div className="bg-[#F7F7F5] px-3 py-1.5 text-[9px] font-bold text-[#BA7517] uppercase tracking-wider">
+                                    Otros Materiales del Catálogo Maestro
+                                  </div>
+                                  {generalMaterials
+                                    .filter(g => !(dashboardData?.reconciliation || []).some(p => p.materialId === g.id))
+                                    .map(m => (
+                                      <button
+                                        key={m.id}
+                                        type="button"
+                                        onMouseDown={() => {
+                                          setCurrentPlaneadoItem({ ...currentPlaneadoItem, materialId: m.id });
+                                          setAvanceSearchQuery(`${m.codigo} - ${m.descripcion}`);
+                                          setShowAvanceDropdown(false);
+                                        }}
+                                        className="w-full text-left p-2.5 hover:bg-[#F7F7F5] transition-colors text-xs flex flex-col cursor-pointer"
+                                      >
+                                        <span className="font-bold text-[#1C1C1A]">{m.codigo}</span>
+                                        <span className="text-[#5F5E5A] truncate">{m.descripcion} ({m.unidad})</span>
+                                      </button>
+                                    ))
+                                  }
+                                </div>
+                              )
+                            }
+
+                            {/* Si está vacío */}
+                            {generalMaterials.length === 0 && (dashboardData?.reconciliation || []).length === 0 && (
+                              <div className="p-3 text-xs text-[#8B8A84] text-center bg-[#F7F7F5]">
+                                No se encontraron materiales. Escribe algo para buscar.
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="flex gap-2">
@@ -2786,6 +2906,7 @@ function Dashboard() {
                   onClick={() => {
                     setShowAvanceModal(false);
                     setAvanceItemsList([]);
+                    setAvanceSearchQuery('');
                   }}
                   className="h-10 px-4 border border-[#C9C7BD] text-[#1C1C1A] hover:bg-[#F7F7F5] text-xs font-bold rounded-xl cursor-pointer"
                 >
