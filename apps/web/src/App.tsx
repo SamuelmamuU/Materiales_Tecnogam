@@ -764,10 +764,15 @@ function Dashboard() {
     }
   };
 
-  // --- CRUD BOM / Materiales Cotizados ---
   const parseCSVFile = (csvText: string) => {
     const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
     if (lines.length <= 1) return [];
+
+    // Auto-detect separator: comma (,) or semicolon (;)
+    const firstLine = lines[0];
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const semicolonCount = (firstLine.match(/;/g) || []).length;
+    const separator = semicolonCount > commaCount ? ';' : ',';
     
     const parseCSVLine = (line: string): string[] => {
       const result: string[] = [];
@@ -777,7 +782,7 @@ function Dashboard() {
         const char = line[i];
         if (char === '"') {
           inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
+        } else if (char === separator && !inQuotes) {
           result.push(current.trim());
           current = '';
         } else {
@@ -876,10 +881,20 @@ function Dashboard() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Check if the file is binary (e.g. .xlsx)
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      alert("El sistema no soporta archivos de Excel binarios (.xlsx / .xls) de forma directa. Por favor, abre tu archivo en Excel y guárdalo como 'CSV (delimitado por comas) (*.csv)' para poder importarlo.");
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (evt) => {
       const text = evt.target?.result as string;
       const parsed = parseCSVFile(text);
+      if (parsed.length === 0) {
+        alert("No se pudieron leer filas válidas del archivo CSV. Verifica que contenga las columnas requeridas (Código/Modelo, Descripción, Unidad, Cantidad) y no esté vacío.");
+      }
       setBomParsedPreview(parsed);
     };
     reader.readAsText(file);
@@ -1673,7 +1688,7 @@ function Dashboard() {
                         bomImportMode === 'individual' ? 'bg-white text-[#1C1C1A] shadow-xs' : 'text-[#5F5E5A] hover:text-[#1C1C1A]'
                       }`}
                     >
-                      Vincular Catálogo
+                      Vincular BD Mat TG
                     </button>
                     <button
                       type="button"
