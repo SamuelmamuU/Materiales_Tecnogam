@@ -32,11 +32,26 @@ class CreateProjectDto {
   @ApiProperty({ example: 'Grupo Vega' })
   cliente!: string;
 
+  @ApiProperty({ example: 'https://...', required: false })
+  logoCliente?: string;
+
+  @ApiProperty({ example: 'Ing. Carlos Mendez', required: false })
+  liderCliente?: string;
+
+  @ApiProperty({ example: 'Ing. Roberto Sanchez', required: false })
+  liderTecnogam?: string;
+
   @ApiProperty({ example: '2026-09-01T00:00:00Z' })
   fechaInicio!: string;
 
   @ApiProperty({ example: '2027-03-01T00:00:00Z' })
   fechaFinEstimada!: string;
+
+  @ApiProperty({ example: '2027-02-28T00:00:00Z', required: false })
+  fechaCulminacion?: string;
+
+  @ApiProperty({ example: 7, required: false, default: 7 })
+  diasAlertaHito?: number;
 }
 
 class UpdateProjectDto {
@@ -46,11 +61,26 @@ class UpdateProjectDto {
   @ApiProperty({ example: 'Grupo Vega Inc.', required: false })
   cliente?: string;
 
+  @ApiProperty({ example: 'https://...', required: false })
+  logoCliente?: string;
+
+  @ApiProperty({ example: 'Ing. Carlos Mendez', required: false })
+  liderCliente?: string;
+
+  @ApiProperty({ example: 'Ing. Roberto Sanchez', required: false })
+  liderTecnogam?: string;
+
   @ApiProperty({ example: '2026-09-01T00:00:00Z', required: false })
   fechaInicio?: string;
 
   @ApiProperty({ example: '2027-04-01T00:00:00Z', required: false })
   fechaFinEstimada?: string;
+
+  @ApiProperty({ example: '2027-02-28T00:00:00Z', required: false })
+  fechaCulminacion?: string;
+
+  @ApiProperty({ example: 7, required: false })
+  diasAlertaHito?: number;
 }
 
 class AssignMemberDto {
@@ -71,6 +101,9 @@ class CreateHitoDto {
     required: false,
   })
   estatus?: 'pendiente' | 'completado' | 'atrasado';
+
+  @ApiProperty({ example: 7, required: false, default: 7 })
+  diasAlerta?: number;
 }
 
 class UpdateHitoDto {
@@ -88,6 +121,14 @@ class UpdateHitoDto {
     required: false,
   })
   estatus?: 'pendiente' | 'completado' | 'atrasado';
+
+  @ApiProperty({ example: 7, required: false })
+  diasAlerta?: number;
+}
+
+class BulkDeleteMaterialsDto {
+  @ApiProperty({ example: ['mat-uuid-1', 'mat-uuid-2'] })
+  materialIds!: string[];
 }
 
 class BulkMaterialItemDto {
@@ -143,15 +184,25 @@ export class ProjectsController {
     return this.projectsService.create({
       nombre: dto.nombre,
       cliente: dto.cliente,
+      logoCliente: dto.logoCliente,
+      liderCliente: dto.liderCliente,
+      liderTecnogam: dto.liderTecnogam,
       fechaInicio: new Date(dto.fechaInicio),
       fechaFinEstimada: new Date(dto.fechaFinEstimada),
+      fechaCulminacion: dto.fechaCulminacion
+        ? new Date(dto.fechaCulminacion)
+        : null,
+      diasAlertaHito:
+        dto.diasAlertaHito !== undefined ? Number(dto.diasAlertaHito) : 7,
     });
   }
 
   @Put(':projectId')
-  @Roles('administrador')
+  @Roles('administrador', 'supervisor')
+  @UseGuards(ProjectGuard)
   @ApiOperation({
-    summary: 'Actualizar un proyecto existente (Solo Administrador)',
+    summary:
+      'Actualizar un proyecto existente (Administrador o Supervisor asignado)',
   })
   @ApiResponse({ status: 200, description: 'Proyecto actualizado con éxito.' })
   @ApiResponse({ status: 404, description: 'El proyecto no existe.' })
@@ -160,11 +211,24 @@ export class ProjectsController {
     @Body() dto: UpdateProjectDto,
   ) {
     const updateData: Partial<Prisma.ProyectoUpdateInput> = {};
-    if (dto.nombre) updateData.nombre = dto.nombre;
-    if (dto.cliente) updateData.cliente = dto.cliente;
+    if (dto.nombre !== undefined) updateData.nombre = dto.nombre;
+    if (dto.cliente !== undefined) updateData.cliente = dto.cliente;
+    if (dto.logoCliente !== undefined) updateData.logoCliente = dto.logoCliente;
+    if (dto.liderCliente !== undefined)
+      updateData.liderCliente = dto.liderCliente;
+    if (dto.liderTecnogam !== undefined)
+      updateData.liderTecnogam = dto.liderTecnogam;
     if (dto.fechaInicio) updateData.fechaInicio = new Date(dto.fechaInicio);
     if (dto.fechaFinEstimada)
       updateData.fechaFinEstimada = new Date(dto.fechaFinEstimada);
+    if (dto.fechaCulminacion !== undefined) {
+      updateData.fechaCulminacion = dto.fechaCulminacion
+        ? new Date(dto.fechaCulminacion)
+        : null;
+    }
+    if (dto.diasAlertaHito !== undefined) {
+      updateData.diasAlertaHito = Number(dto.diasAlertaHito);
+    }
     return this.projectsService.update(projectId, updateData);
   }
 
@@ -277,9 +341,10 @@ export class ProjectsController {
   }
 
   @Put(':projectId/hitos/:hitoId')
-  @Roles('administrador')
+  @Roles('administrador', 'supervisor')
+  @UseGuards(ProjectGuard)
   @ApiOperation({
-    summary: 'Actualizar un hito existente (Solo Administrador)',
+    summary: 'Actualizar un hito existente (Administrador o Supervisor)',
   })
   @ApiResponse({ status: 200, description: 'Hito actualizado con éxito.' })
   async updateHito(
@@ -302,7 +367,8 @@ export class ProjectsController {
   @Post(':projectId/materials/bulk')
   @Roles('administrador')
   @ApiOperation({
-    summary: 'Importar listado de materiales en lote desde Excel/CSV (Solo Administrador)',
+    summary:
+      'Importar listado de materiales en lote desde Excel/CSV (Solo Administrador)',
   })
   @ApiResponse({ status: 200, description: 'Materiales importados con éxito.' })
   async bulkImportMaterials(
@@ -315,14 +381,59 @@ export class ProjectsController {
   @Post(':projectId/materials')
   @Roles('administrador')
   @ApiOperation({
-    summary: 'Agregar un material del catálogo maestro al proyecto (Solo Administrador)',
+    summary:
+      'Agregar un material del catálogo maestro al proyecto (Solo Administrador)',
   })
   @ApiResponse({ status: 200, description: 'Material agregado con éxito.' })
   async addMaterial(
     @Param('projectId') projectId: string,
     @Body() dto: AddMaterialDto,
   ) {
-    return this.projectsService.addMaterial(projectId, dto.materialId, dto.cantidad);
+    return this.projectsService.addMaterial(
+      projectId,
+      dto.materialId,
+      dto.cantidad,
+    );
+  }
+
+  @Post(':projectId/materials/bulk-delete')
+  @Roles('administrador')
+  @ApiOperation({
+    summary:
+      'Eliminar múltiples materiales cotizados del proyecto (Solo Administrador)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Materiales eliminados del proyecto.',
+  })
+  async removeMultipleMaterials(
+    @Param('projectId') projectId: string,
+    @Body() dto: BulkDeleteMaterialsDto,
+  ) {
+    return this.projectsService.removeMultipleMaterials(
+      projectId,
+      dto.materialIds,
+    );
+  }
+
+  @Delete(':projectId/materials')
+  @Roles('administrador')
+  @ApiOperation({
+    summary:
+      'Eliminar múltiples materiales cotizados del proyecto (Solo Administrador)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Materiales eliminados del proyecto.',
+  })
+  async removeMultipleMaterialsDelete(
+    @Param('projectId') projectId: string,
+    @Body() dto: BulkDeleteMaterialsDto,
+  ) {
+    return this.projectsService.removeMultipleMaterials(
+      projectId,
+      dto.materialIds,
+    );
   }
 
   @Delete(':projectId/materials/:materialId')

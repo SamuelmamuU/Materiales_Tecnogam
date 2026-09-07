@@ -184,10 +184,22 @@ export class MaterialsService {
     const where: Prisma.MaterialWhereInput = {};
 
     if (filters.search) {
-      where.OR = [
-        { codigo: { contains: filters.search } },
-        { descripcion: { contains: filters.search } },
-      ];
+      const searchWords = filters.search.trim().split(/\s+/).filter(Boolean);
+      if (searchWords.length === 1) {
+        where.OR = [
+          { codigo: { contains: searchWords[0], mode: 'insensitive' } },
+          { descripcion: { contains: searchWords[0], mode: 'insensitive' } },
+          { categoria: { contains: searchWords[0], mode: 'insensitive' } },
+        ];
+      } else if (searchWords.length > 1) {
+        where.AND = searchWords.map((word) => ({
+          OR: [
+            { codigo: { contains: word, mode: 'insensitive' } },
+            { descripcion: { contains: word, mode: 'insensitive' } },
+            { categoria: { contains: word, mode: 'insensitive' } },
+          ],
+        }));
+      }
     }
 
     if (filters.category) {

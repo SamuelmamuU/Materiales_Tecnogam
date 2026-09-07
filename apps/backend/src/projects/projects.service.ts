@@ -195,8 +195,13 @@ export class ProjectsService {
         id: project.id,
         nombre: project.nombre,
         cliente: project.cliente,
+        logoCliente: project.logoCliente,
+        liderCliente: project.liderCliente,
+        liderTecnogam: project.liderTecnogam,
         fechaInicio: project.fechaInicio,
         fechaFinEstimada: project.fechaFinEstimada,
+        fechaCulminacion: project.fechaCulminacion,
+        diasAlertaHito: project.diasAlertaHito,
       },
       kpis: {
         totalCotizado,
@@ -299,6 +304,7 @@ export class ProjectsService {
       nombre: string;
       fechaObjetivo: string;
       estatus?: 'pendiente' | 'completado' | 'atrasado';
+      diasAlerta?: number;
     },
   ) {
     await this.findOne(projectId);
@@ -307,6 +313,7 @@ export class ProjectsService {
         nombre: data.nombre,
         fechaObjetivo: new Date(data.fechaObjetivo),
         estatus: data.estatus || 'pendiente',
+        diasAlerta: data.diasAlerta !== undefined ? Number(data.diasAlerta) : 7,
         proyectoId: projectId,
       },
     });
@@ -318,6 +325,7 @@ export class ProjectsService {
       nombre?: string;
       fechaObjetivo?: string;
       estatus?: 'pendiente' | 'completado' | 'atrasado';
+      diasAlerta?: number;
     },
   ) {
     const existing = await this.prisma.hito.findUnique({
@@ -330,6 +338,8 @@ export class ProjectsService {
     if (data.fechaObjetivo)
       updateData.fechaObjetivo = new Date(data.fechaObjetivo);
     if (data.estatus) updateData.estatus = data.estatus;
+    if (data.diasAlerta !== undefined)
+      updateData.diasAlerta = Number(data.diasAlerta);
 
     return this.prisma.hito.update({
       where: { id: hitoId },
@@ -348,13 +358,16 @@ export class ProjectsService {
     });
   }
 
-  async bulkImportMaterials(proyectoId: string, items: {
-    codigo: string;
-    descripcion: string;
-    unidad: string;
-    categoria?: string;
-    cantidad: number;
-  }[]) {
+  async bulkImportMaterials(
+    proyectoId: string,
+    items: {
+      codigo: string;
+      descripcion: string;
+      unidad: string;
+      categoria?: string;
+      cantidad: number;
+    }[],
+  ) {
     await this.findOne(proyectoId);
 
     for (const item of items) {
@@ -416,7 +429,7 @@ export class ProjectsService {
 
   async addMaterial(proyectoId: string, materialId: string, cantidad: number) {
     await this.findOne(proyectoId);
-    
+
     await this.prisma.materialCotizado.upsert({
       where: {
         proyectoId_materialId: {
@@ -439,7 +452,7 @@ export class ProjectsService {
 
   async removeMaterial(proyectoId: string, materialId: string) {
     await this.findOne(proyectoId);
-    
+
     await this.prisma.materialCotizado.delete({
       where: {
         proyectoId_materialId: {
@@ -448,6 +461,21 @@ export class ProjectsService {
         },
       },
     });
+
+    return this.findOne(proyectoId);
+  }
+
+  async removeMultipleMaterials(proyectoId: string, materialIds: string[]) {
+    await this.findOne(proyectoId);
+
+    if (Array.isArray(materialIds) && materialIds.length > 0) {
+      await this.prisma.materialCotizado.deleteMany({
+        where: {
+          proyectoId,
+          materialId: { in: materialIds },
+        },
+      });
+    }
 
     return this.findOne(proyectoId);
   }

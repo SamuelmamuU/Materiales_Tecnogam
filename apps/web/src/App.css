@@ -6,9 +6,9 @@
     color: #000000 !important;
     font-family: 'Inter', system-ui, sans-serif !important;
   }
-  
+
   /* Ocultar barra lateral y botones de control en impresión */
-  aside, 
+  aside,
   header,
   button,
   select,
@@ -42,7 +42,7 @@
     page-break-inside: auto !important;
     width: 100% !important;
   }
-  
+
   tr {
     page-break-inside: avoid !important;
     page-break-after: auto !important;

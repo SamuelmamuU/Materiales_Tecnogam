@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, WifiOff, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { WifiOff, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 type Role = 'administrador' | 'supervisor' | 'trabajador' | 'cliente';
 
@@ -45,13 +45,14 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(data.user));
 
       setSuccess(true);
-      
+
       // Simular redirección
       setTimeout(() => {
         window.location.href = '/';
       }, 1000);
-    } catch (err: any) {
-      setError(err.message || 'Error de conexión con el servidor.');
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message || 'Error de conexión con el servidor.');
     } finally {
       setLoading(false);
     }
@@ -61,18 +62,18 @@ export default function Login() {
     <div className="min-h-screen bg-[#F7F7F5] flex flex-col justify-center items-center p-4">
       {/* Container principal con estética premium minimalista */}
       <div className="w-full max-w-[380px] bg-[#F1EFE8] border border-[#E3E1D9] rounded-2xl p-8 shadow-sm transition-all duration-300 hover:shadow-md">
-        
         {/* Encabezado */}
         <div className="flex flex-col items-center mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Building2 className="w-6 h-6 text-[#0C447C]" />
-            <span className="text-lg font-semibold text-[#1C1C1A] tracking-tight">
-              Control de materiales
-            </span>
-          </div>
-          <p className="text-xs text-[#5F5E5A] text-center">
-            Inicia sesión para continuar
-          </p>
+          <img
+            src="/TG.png"
+            alt="Tecnogam"
+            className="h-16 w-auto object-contain mb-3 rounded-xl shadow-xs"
+          />
+          <span className="text-lg font-bold text-[#1C1C1A] tracking-tight">Tecnogam</span>
+          <span className="text-xs font-semibold text-[#0C447C] tracking-wide uppercase mt-0.5">
+            Control de Materiales y Avances
+          </span>
+          <p className="text-xs text-[#5F5E5A] text-center mt-1">Inicia sesión para continuar</p>
         </div>
 
         {/* Notificación de Error */}
@@ -109,9 +110,7 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#5F5E5A] mb-1">
-              Contraseña
-            </label>
+            <label className="block text-xs font-medium text-[#5F5E5A] mb-1">Contraseña</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -134,9 +133,7 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#5F5E5A] mb-1">
-              Perfil
-            </label>
+            <label className="block text-xs font-medium text-[#5F5E5A] mb-1">Perfil</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as Role)}
@@ -171,7 +168,6 @@ export default function Login() {
           <WifiOff className="w-3.5 h-3.5" />
           <span>Funciona también sin conexión</span>
         </div>
-
       </div>
     </div>
   );

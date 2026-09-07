@@ -92,7 +92,7 @@ describe('MaterialsService', () => {
       expect(result.meta.limit).toBe(5);
     });
 
-    it('debería aplicar filtros de búsqueda por texto', async () => {
+    it('debería aplicar filtros de búsqueda por texto con coincidencia insensible a mayúsculas', async () => {
       mockPrisma.material.count.mockResolvedValue(1);
       mockPrisma.material.findMany.mockResolvedValue([]);
 
@@ -102,8 +102,53 @@ describe('MaterialsService', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             OR: [
-              { codigo: { contains: 'Ducto' } },
-              { descripcion: { contains: 'Ducto' } },
+              { codigo: { contains: 'Ducto', mode: 'insensitive' } },
+              { descripcion: { contains: 'Ducto', mode: 'insensitive' } },
+              { categoria: { contains: 'Ducto', mode: 'insensitive' } },
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('debería aplicar búsqueda por coincidencia de múltiples palabras', async () => {
+      mockPrisma.material.count.mockResolvedValue(1);
+      mockPrisma.material.findMany.mockResolvedValue([]);
+
+      await service.findAll({ search: 'tubo galvanizado 1/2' });
+
+      expect(prismaService.material.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: [
+              {
+                OR: [
+                  { codigo: { contains: 'tubo', mode: 'insensitive' } },
+                  { descripcion: { contains: 'tubo', mode: 'insensitive' } },
+                  { categoria: { contains: 'tubo', mode: 'insensitive' } },
+                ],
+              },
+              {
+                OR: [
+                  { codigo: { contains: 'galvanizado', mode: 'insensitive' } },
+                  {
+                    descripcion: {
+                      contains: 'galvanizado',
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    categoria: { contains: 'galvanizado', mode: 'insensitive' },
+                  },
+                ],
+              },
+              {
+                OR: [
+                  { codigo: { contains: '1/2', mode: 'insensitive' } },
+                  { descripcion: { contains: '1/2', mode: 'insensitive' } },
+                  { categoria: { contains: '1/2', mode: 'insensitive' } },
+                ],
+              },
             ],
           }),
         }),

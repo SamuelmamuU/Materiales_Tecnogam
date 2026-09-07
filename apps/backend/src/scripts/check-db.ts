@@ -9,24 +9,24 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log("Checking DB Connection and Materials Count...");
+  console.log('Checking DB Connection and Materials Count...');
   const count = await prisma.material.count();
   console.log(`Total materials: ${count}`);
 
   const activeCount = await prisma.material.count({
-    where: { activo: true }
+    where: { activo: true },
   });
   console.log(`Active materials: ${activeCount}`);
 
   const sample = await prisma.material.findMany({
-    take: 5
+    take: 5,
   });
-  console.log("Sample materials:", JSON.stringify(sample, null, 2));
+  console.log('Sample materials:', JSON.stringify(sample, null, 2));
 }
 
 main()
-  .catch(err => {
-    console.error("Error checking database:", err);
+  .catch((err) => {
+    console.error('Error checking database:', err);
   })
   .finally(async () => {
     await prisma.$disconnect();

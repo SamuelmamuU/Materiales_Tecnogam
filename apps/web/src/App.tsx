@@ -28,7 +28,8 @@ import {
   Edit,
   X,
   Camera,
-  MapPin
+  Upload,
+  MapPin,
 } from 'lucide-react';
 
 // Componente simple para proteger rutas privadas
@@ -46,6 +47,7 @@ interface Hito {
   nombre: string;
   fechaObjetivo: string;
   estatus: 'pendiente' | 'completado' | 'atrasado';
+  diasAlerta?: number | null;
 }
 
 interface UserDetail {
@@ -119,8 +121,68 @@ interface ProjectBrief {
   id: string;
   nombre: string;
   cliente: string;
+  logoCliente?: string | null;
+  liderCliente?: string | null;
+  liderTecnogam?: string | null;
   fechaInicio: string;
   fechaFinEstimada: string;
+  fechaCulminacion?: string | null;
+  diasAlertaHito?: number | null;
+}
+
+function matchesAllWords(text: string, query: string): boolean {
+  if (!query || !query.trim()) return true;
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const target = (text || '').toLowerCase();
+  return words.every((w) => target.includes(w));
+}
+
+function getHitoSemaforo(hito: Hito, defaultAlertDays: number = 7) {
+  if (hito.estatus === 'completado') {
+    return {
+      color: 'verde',
+      label: 'Completado',
+      badgeClass: 'bg-[#EAF3DE] text-[#27500A] border border-[#C0DD9D]',
+      dotClass: 'bg-[#27500A]',
+      daysRemaining: null,
+    };
+  }
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const target = new Date(hito.fechaObjetivo);
+  target.setHours(0, 0, 0, 0);
+
+  const diffMs = target.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const threshold =
+    hito.diasAlerta !== undefined && hito.diasAlerta !== null ? hito.diasAlerta : defaultAlertDays;
+
+  if (diffDays < 0) {
+    return {
+      color: 'rojo',
+      label: `Vencido (${Math.abs(diffDays)}d)`,
+      badgeClass: 'bg-[#FDE8E8] text-[#C23939] border border-[#F8B4B4]',
+      dotClass: 'bg-[#C23939]',
+      daysRemaining: diffDays,
+    };
+  } else if (diffDays <= threshold) {
+    return {
+      color: 'naranja',
+      label: diffDays === 0 ? 'Vence hoy' : `Próximo (${diffDays}d)`,
+      badgeClass: 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]',
+      dotClass: 'bg-[#D97706]',
+      daysRemaining: diffDays,
+    };
+  } else {
+    return {
+      color: 'verde',
+      label: `En tiempo (${diffDays}d)`,
+      badgeClass: 'bg-[#EAF3DE] text-[#27500A] border border-[#C0DD9D]',
+      dotClass: 'bg-[#27500A]',
+      daysRemaining: diffDays,
+    };
+  }
 }
 
 interface AvanceItem {
@@ -180,13 +242,15 @@ interface DashboardData {
 function Dashboard() {
   const navigate = useNavigate();
   const userJson = localStorage.getItem('user');
-  const user = userJson ? JSON.parse(userJson) : { email: 'usuario@tecnogam.com', rol: 'usuario', nombre: 'Usuario' };
+  const user = userJson
+    ? JSON.parse(userJson)
+    : { email: 'usuario@tecnogam.com', rol: 'usuario', nombre: 'Usuario' };
   const isAdmin = user.rol === 'administrador';
   const isAdminOrSupervisor = user.rol === 'administrador' || user.rol === 'supervisor';
 
   const [projects, setProjects] = useState<ProjectBrief[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  
+
   // Estados para Registro de Avances en Web (Supervisor / Administrador)
   const [showAvanceModal, setShowAvanceModal] = useState(false);
   const [avanceForm, setAvanceForm] = useState({
@@ -194,10 +258,12 @@ function Dashboard() {
     fecha: new Date().toISOString().split('T')[0],
     latitud: '',
     longitud: '',
-    evidenciaUrl: ''
+    evidenciaUrl: '',
   });
   const [selectedEvidenciaFile, setSelectedEvidenciaFile] = useState<File | null>(null);
-  const [generalMaterials, setGeneralMaterials] = useState<{ id: string; codigo: string; descripcion: string; unidad: string }[]>([]);
+  const [generalMaterials, setGeneralMaterials] = useState<
+    { id: string; codigo: string; descripcion: string; unidad: string; categoria?: string }[]
+  >([]);
 
   interface LocalAvanceItem {
     tipo: 'planeado' | 'no_planeado';
@@ -213,7 +279,7 @@ function Dashboard() {
   const [currentNoPlaneadoItem, setCurrentNoPlaneadoItem] = useState({
     subtipo: 'retrabajo' as 'retrabajo' | 'extra' | 'modificacion',
     materialManual: '',
-    cantidad: ''
+    cantidad: '',
   });
 
   // Estados para gestión de BOM de materiales en admin
@@ -233,7 +299,9 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolvingIncidentId, setResolvingIncidentId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'kpis' | 'materiales' | 'avances' | 'incidentes' | 'tiempos' | 'bom' | 'admin'>('kpis');
+  const [activeTab, setActiveTab] = useState<
+    'kpis' | 'materiales' | 'avances' | 'incidentes' | 'tiempos' | 'bom' | 'admin'
+  >('kpis');
 
   // Estados del Historial de Avances (Fase 5)
   const [avancesHistory, setAvancesHistory] = useState<AvanceRecord[]>([]);
@@ -250,18 +318,43 @@ function Dashboard() {
   const [adminSubTab, setAdminSubTab] = useState<'proyectos' | 'usuarios'>('proyectos');
   const [allUsers, setAllUsers] = useState<UserDetail[]>([]);
   const [selectedAdminProject, setSelectedAdminProject] = useState<ProjectDetail | null>(null);
-  
+
   // Modales y Formularios
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectBrief | null>(null);
-  const [projectForm, setProjectForm] = useState({ nombre: '', cliente: '', fechaInicio: '', fechaFinEstimada: '' });
+  const [projectForm, setProjectForm] = useState({
+    nombre: '',
+    cliente: '',
+    logoCliente: '',
+    liderCliente: '',
+    liderTecnogam: '',
+    fechaInicio: '',
+    fechaFinEstimada: '',
+    fechaCulminacion: '',
+    diasAlertaHito: 7,
+  });
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserDetail | null>(null);
-  const [userForm, setUserForm] = useState({ nombre: '', email: '', password: '', rol: 'trabajador', activo: true });
+  const [userForm, setUserForm] = useState({
+    nombre: '',
+    email: '',
+    password: '',
+    rol: 'trabajador',
+    activo: true,
+  });
 
-  const [hitoForm, setHitoForm] = useState({ nombre: '', fechaObjetivo: '', estatus: 'pendiente' });
+  const [hitoForm, setHitoForm] = useState({
+    nombre: '',
+    fechaObjetivo: '',
+    estatus: 'pendiente' as 'pendiente' | 'completado' | 'atrasado',
+    diasAlerta: 7,
+  });
   const [selectedMemberId, setSelectedMemberId] = useState('');
+
+  // Selección múltiple para eliminar materiales del BOM
+  const [selectedBOMMaterialIds, setSelectedBOMMaterialIds] = useState<string[]>([]);
 
   // Cargar proyectos al iniciar
   useEffect(() => {
@@ -318,7 +411,7 @@ function Dashboard() {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(API_URL + '/projects', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -350,7 +443,7 @@ function Dashboard() {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`${API_URL}/projects/${projectId}/dashboard`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -372,7 +465,7 @@ function Dashboard() {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`${API_URL}/projects/${projectId}/avances/timeline`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       if (response.ok) {
@@ -393,7 +486,7 @@ function Dashboard() {
 
       const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       if (response.ok) {
@@ -408,7 +501,7 @@ function Dashboard() {
     try {
       const token = localStorage.getItem('accessToken');
       const usersRes = await fetch(API_URL + '/users', {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (usersRes.ok) {
         const usersData = await usersRes.json();
@@ -421,7 +514,7 @@ function Dashboard() {
     try {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`${API_URL}/projects/${projectId}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
         const data = await response.json();
@@ -431,26 +524,105 @@ function Dashboard() {
   };
 
   // --- CRUD Proyectos ---
+  const handleOpenProjectEdit = (proj: ProjectBrief) => {
+    setEditingProject(proj);
+    setProjectForm({
+      nombre: proj.nombre,
+      cliente: proj.cliente,
+      logoCliente: proj.logoCliente || '',
+      liderCliente: proj.liderCliente || '',
+      liderTecnogam: proj.liderTecnogam || '',
+      fechaInicio: proj.fechaInicio ? proj.fechaInicio.split('T')[0] : '',
+      fechaFinEstimada: proj.fechaFinEstimada ? proj.fechaFinEstimada.split('T')[0] : '',
+      fechaCulminacion: proj.fechaCulminacion ? proj.fechaCulminacion.split('T')[0] : '',
+      diasAlertaHito: proj.diasAlertaHito || 7,
+    });
+    setShowProjectModal(true);
+  };
+
+  const handleOpenCreateProject = () => {
+    setEditingProject(null);
+    setProjectForm({
+      nombre: '',
+      cliente: '',
+      logoCliente: '',
+      liderCliente: '',
+      liderTecnogam: '',
+      fechaInicio: '',
+      fechaFinEstimada: '',
+      fechaCulminacion: '',
+      diasAlertaHito: 7,
+    });
+    setShowProjectModal(true);
+  };
+
+  const handleUploadImage = async (file: File): Promise<string | null> => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_URL}/media/upload`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al subir la imagen.');
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (err) {
+      console.error(err);
+      alert('No se pudo subir la imagen.');
+      return null;
+    }
+  };
+
+  const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const url = await handleUploadImage(file);
+      if (url) {
+        setProjectForm((prev) => ({ ...prev, logoCliente: url }));
+      }
+    } finally {
+      setUploadingLogo(false);
+      e.target.value = '';
+    }
+  };
+
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('accessToken');
       const isEdit = !!editingProject;
-      const url = isEdit 
-        ? `${API_URL}/projects/${editingProject.id}` 
-        : API_URL + '/projects';
-      
+      const url = isEdit ? `${API_URL}/projects/${editingProject.id}` : API_URL + '/projects';
+
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           nombre: projectForm.nombre,
           cliente: projectForm.cliente,
+          logoCliente: projectForm.logoCliente || null,
+          liderCliente: projectForm.liderCliente || null,
+          liderTecnogam: projectForm.liderTecnogam || null,
           fechaInicio: new Date(projectForm.fechaInicio).toISOString(),
           fechaFinEstimada: new Date(projectForm.fechaFinEstimada).toISOString(),
+          fechaCulminacion: projectForm.fechaCulminacion
+            ? new Date(projectForm.fechaCulminacion).toISOString()
+            : null,
+          diasAlertaHito: Number(projectForm.diasAlertaHito) || 7,
         }),
       });
 
@@ -458,8 +630,25 @@ function Dashboard() {
 
       setShowProjectModal(false);
       setEditingProject(null);
-      setProjectForm({ nombre: '', cliente: '', fechaInicio: '', fechaFinEstimada: '' });
+      setProjectForm({
+        nombre: '',
+        cliente: '',
+        logoCliente: '',
+        liderCliente: '',
+        liderTecnogam: '',
+        fechaInicio: '',
+        fechaFinEstimada: '',
+        fechaCulminacion: '',
+        diasAlertaHito: 7,
+      });
       await fetchProjects();
+      if (selectedProjectId) {
+        await fetchDashboardData(selectedProjectId);
+      }
+      if (selectedAdminProject) {
+        await fetchProjectDetailForAdmin(selectedAdminProject.id);
+      }
+      alert(isEdit ? 'Proyecto actualizado con éxito.' : 'Proyecto creado con éxito.');
     } catch (err: any) {
       alert(err.message);
     }
@@ -471,7 +660,7 @@ function Dashboard() {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`${API_URL}/projects/${projectId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('No se pudo eliminar el proyecto.');
       if (selectedProjectId === projectId) {
@@ -494,18 +683,49 @@ function Dashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           nombre: hitoForm.nombre,
           fechaObjetivo: new Date(hitoForm.fechaObjetivo).toISOString(),
           estatus: hitoForm.estatus,
+          diasAlerta: Number(hitoForm.diasAlerta) || 7,
         }),
       });
 
       if (!response.ok) throw new Error('No se pudo agregar el hito.');
-      setHitoForm({ nombre: '', fechaObjetivo: '', estatus: 'pendiente' });
+      setHitoForm({ nombre: '', fechaObjetivo: '', estatus: 'pendiente', diasAlerta: 7 });
       await fetchProjectDetailForAdmin(selectedAdminProject.id);
+      if (selectedProjectId) {
+        await fetchDashboardData(selectedProjectId);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleToggleHitoStatus = async (hito: Hito) => {
+    const currentProjId =
+      selectedAdminProject?.id || selectedProjectId || dashboardData?.proyecto?.id;
+    if (!currentProjId) return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      const newStatus = hito.estatus === 'completado' ? 'pendiente' : 'completado';
+      const response = await fetch(`${API_URL}/projects/${currentProjId}/hitos/${hito.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ estatus: newStatus }),
+      });
+      if (!response.ok) throw new Error('No se pudo actualizar el estatus del hito.');
+      if (selectedAdminProject) {
+        await fetchProjectDetailForAdmin(selectedAdminProject.id);
+      }
+      if (selectedProjectId) {
+        await fetchDashboardData(selectedProjectId);
+      }
     } catch (err: any) {
       alert(err.message);
     }
@@ -515,12 +735,18 @@ function Dashboard() {
     if (!selectedAdminProject || !confirm('¿Eliminar este hito?')) return;
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/hitos/${hitoId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `${API_URL}/projects/${selectedAdminProject.id}/hitos/${hitoId}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (!response.ok) throw new Error('No se pudo eliminar el hito.');
       await fetchProjectDetailForAdmin(selectedAdminProject.id);
+      if (selectedProjectId) {
+        await fetchDashboardData(selectedProjectId);
+      }
     } catch (err: any) {
       alert(err.message);
     }
@@ -536,7 +762,7 @@ function Dashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ usuarioId: selectedMemberId }),
       });
@@ -553,10 +779,13 @@ function Dashboard() {
     if (!selectedAdminProject || !confirm('¿Remover este miembro del proyecto?')) return;
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/members/${userId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `${API_URL}/projects/${selectedAdminProject.id}/members/${userId}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (!response.ok) throw new Error('No se pudo remover el miembro.');
       await fetchProjectDetailForAdmin(selectedAdminProject.id);
     } catch (err: any) {
@@ -573,7 +802,7 @@ function Dashboard() {
       const response = await fetch(`${API_URL}/media/upload`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
@@ -600,7 +829,7 @@ function Dashboard() {
       }
       const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       if (response.ok) {
@@ -627,15 +856,17 @@ function Dashboard() {
     }
 
     const projectMaterialsOptions = dashboardData?.reconciliation || [];
-    let mat = projectMaterialsOptions.find(o => o.materialId === currentPlaneadoItem.materialId);
+    const mat = projectMaterialsOptions.find(
+      (o) => o.materialId === currentPlaneadoItem.materialId,
+    );
     let matDesc = '';
     let matCodigo = '';
-    
+
     if (mat) {
       matDesc = mat.descripcion;
       matCodigo = mat.codigo;
     } else {
-      const genMat = generalMaterials.find(o => o.id === currentPlaneadoItem.materialId);
+      const genMat = generalMaterials.find((o) => o.id === currentPlaneadoItem.materialId);
       if (genMat) {
         matDesc = genMat.descripcion;
         matCodigo = genMat.codigo;
@@ -649,7 +880,7 @@ function Dashboard() {
       materialCodigo: matCodigo || 'N/A',
       materialDescripcion: matDesc || 'Material',
       materialManual: '',
-      cantidad: qty
+      cantidad: qty,
     };
 
     setAvanceItemsList([...avanceItemsList, newItem]);
@@ -675,7 +906,7 @@ function Dashboard() {
       materialCodigo: 'MANUAL',
       materialDescripcion: currentNoPlaneadoItem.materialManual.trim(),
       materialManual: currentNoPlaneadoItem.materialManual.trim(),
-      cantidad: qty
+      cantidad: qty,
     };
 
     setAvanceItemsList([...avanceItemsList, newItem]);
@@ -697,9 +928,9 @@ function Dashboard() {
       if (typeof crypto !== 'undefined' && crypto.randomUUID) {
         return crypto.randomUUID();
       }
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
         return v.toString(16);
       });
     };
@@ -721,7 +952,7 @@ function Dashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           id: generateUUID(),
@@ -731,13 +962,13 @@ function Dashboard() {
           latitud: avanceForm.latitud ? parseFloat(avanceForm.latitud) : null,
           longitud: avanceForm.longitud ? parseFloat(avanceForm.longitud) : null,
           evidenciaUrl: finalEvidenciaUrl || null,
-          items: avanceItemsList.map(it => ({
+          items: avanceItemsList.map((it) => ({
             tipo: it.tipo,
             subtipo: it.tipo === 'no_planeado' ? it.subtipo : undefined,
             materialId: it.tipo === 'planeado' ? it.materialId : undefined,
             materialManual: it.tipo === 'no_planeado' ? it.materialManual : undefined,
-            cantidad: parseFloat(it.cantidad.toString())
-          }))
+            cantidad: parseFloat(it.cantidad.toString()),
+          })),
         }),
       });
 
@@ -747,17 +978,23 @@ function Dashboard() {
       }
 
       setShowAvanceModal(false);
-      setAvanceForm({ frente: '', fecha: new Date().toISOString().split('T')[0], latitud: '', longitud: '', evidenciaUrl: '' });
+      setAvanceForm({
+        frente: '',
+        fecha: new Date().toISOString().split('T')[0],
+        latitud: '',
+        longitud: '',
+        evidenciaUrl: '',
+      });
       setSelectedEvidenciaFile(null);
       setAvanceItemsList([]);
       setAvanceSearchQuery('');
-      
+
       if (selectedProjectId) {
         await fetchAvancesHistory(selectedProjectId);
         await fetchDashboardData(selectedProjectId);
         await fetchTimelineData(selectedProjectId);
       }
-      
+
       alert('Reporte de avance guardado exitosamente.');
     } catch (err: any) {
       alert(err.message);
@@ -765,7 +1002,7 @@ function Dashboard() {
   };
 
   const parseCSVFile = (csvText: string) => {
-    const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    const lines = csvText.split(/\r?\n/).filter((line) => line.trim().length > 0);
     if (lines.length <= 1) return [];
 
     // Auto-detect separator: comma (,) or semicolon (;)
@@ -773,7 +1010,7 @@ function Dashboard() {
     const commaCount = (firstLine.match(/,/g) || []).length;
     const semicolonCount = (firstLine.match(/;/g) || []).length;
     const separator = semicolonCount > commaCount ? ';' : ',';
-    
+
     const parseCSVLine = (line: string): string[] => {
       const result: string[] = [];
       let current = '';
@@ -793,12 +1030,21 @@ function Dashboard() {
       return result;
     };
 
-    const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
-    const codeIdx = headers.findIndex(h => h.includes('codigo') || h.includes('modelo') || h.includes('code'));
-    const descIdx = headers.findIndex(h => h.includes('descripcion') || h.includes('nombre') || h.includes('desc'));
-    const textIdx = headers.findIndex(h => h.includes('unidad') || h.includes('unit'));
-    const qtyIdx = headers.findIndex(h => h.includes('cantidad') || h.includes('qty') || h.includes('cant') || h.includes('cotizado'));
-    const catIdx = headers.findIndex(h => h.includes('categoria') || h.includes('tipo') || h.includes('category'));
+    const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().trim());
+    const codeIdx = headers.findIndex(
+      (h) => h.includes('codigo') || h.includes('modelo') || h.includes('code'),
+    );
+    const descIdx = headers.findIndex(
+      (h) => h.includes('descripcion') || h.includes('nombre') || h.includes('desc'),
+    );
+    const textIdx = headers.findIndex((h) => h.includes('unidad') || h.includes('unit'));
+    const qtyIdx = headers.findIndex(
+      (h) =>
+        h.includes('cantidad') || h.includes('qty') || h.includes('cant') || h.includes('cotizado'),
+    );
+    const catIdx = headers.findIndex(
+      (h) => h.includes('categoria') || h.includes('tipo') || h.includes('category'),
+    );
 
     const parsedItems: any[] = [];
     for (let i = 1; i < lines.length; i++) {
@@ -819,7 +1065,7 @@ function Dashboard() {
         descripcion: descripcion || 'Material Importado',
         unidad: unidad || 'pza',
         categoria: categoria || 'General',
-        cantidad
+        cantidad,
       });
     }
 
@@ -841,7 +1087,7 @@ function Dashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           materialId: selectedBOMMaterialId,
@@ -867,19 +1113,60 @@ function Dashboard() {
   };
 
   const handleDeleteBOMMaterial = async (materialId: string) => {
-    if (!selectedAdminProject || !confirm('¿Eliminar este material del presupuesto del proyecto?')) return;
+    if (!selectedAdminProject || !confirm('¿Eliminar este material del presupuesto del proyecto?'))
+      return;
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/materials/${materialId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `${API_URL}/projects/${selectedAdminProject.id}/materials/${materialId}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (!response.ok) throw new Error('No se pudo desvincular el material.');
+      setSelectedBOMMaterialIds((prev) => prev.filter((id) => id !== materialId));
       await fetchProjectDetailForAdmin(selectedAdminProject.id);
       if (selectedProjectId) {
         fetchDashboardData(selectedProjectId);
         fetchTimelineData(selectedProjectId);
       }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteMultipleBOMMaterials = async () => {
+    if (!selectedAdminProject || selectedBOMMaterialIds.length === 0) return;
+    if (
+      !confirm(
+        `¿Está seguro de eliminar los ${selectedBOMMaterialIds.length} materiales seleccionados del presupuesto?`,
+      )
+    )
+      return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(
+        `${API_URL}/projects/${selectedAdminProject.id}/materials/bulk-delete`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            materialIds: selectedBOMMaterialIds,
+          }),
+        },
+      );
+      if (!response.ok) throw new Error('No se pudieron eliminar los materiales seleccionados.');
+      setSelectedBOMMaterialIds([]);
+      await fetchProjectDetailForAdmin(selectedAdminProject.id);
+      if (selectedProjectId) {
+        await fetchDashboardData(selectedProjectId);
+        await fetchTimelineData(selectedProjectId);
+      }
+      alert('Materiales eliminados con éxito del presupuesto.');
     } catch (err: any) {
       alert(err.message);
     }
@@ -891,7 +1178,9 @@ function Dashboard() {
 
     // Check if the file is binary (e.g. .xlsx)
     if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-      alert("El sistema no soporta archivos de Excel binarios (.xlsx / .xls) de forma directa. Por favor, abre tu archivo en Excel y guárdalo como 'CSV (delimitado por comas) (*.csv)' para poder importarlo.");
+      alert(
+        "El sistema no soporta archivos de Excel binarios (.xlsx / .xls) de forma directa. Por favor, abre tu archivo en Excel y guárdalo como 'CSV (delimitado por comas) (*.csv)' para poder importarlo.",
+      );
       e.target.value = '';
       return;
     }
@@ -901,7 +1190,9 @@ function Dashboard() {
       const text = evt.target?.result as string;
       const parsed = parseCSVFile(text);
       if (parsed.length === 0) {
-        alert("No se pudieron leer filas válidas del archivo CSV. Verifica que contenga las columnas requeridas (Código/Modelo, Descripción, Unidad, Cantidad) y no esté vacío.");
+        alert(
+          'No se pudieron leer filas válidas del archivo CSV. Verifica que contenga las columnas requeridas (Código/Modelo, Descripción, Unidad, Cantidad) y no esté vacío.',
+        );
       }
       setBomParsedPreview(parsed);
     };
@@ -913,14 +1204,17 @@ function Dashboard() {
     setIsImportingBOM(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/materials/bulk`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+      const response = await fetch(
+        `${API_URL}/projects/${selectedAdminProject.id}/materials/bulk`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(bomParsedPreview),
         },
-        body: JSON.stringify(bomParsedPreview),
-      });
+      );
 
       if (!response.ok) {
         throw new Error('Error al importar la lista de materiales.');
@@ -929,7 +1223,7 @@ function Dashboard() {
       setBomParsedPreview([]);
       const fileInput = document.getElementById('bom-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
-      
+
       await fetchProjectDetailForAdmin(selectedAdminProject.id);
       if (selectedProjectId) {
         await fetchDashboardData(selectedProjectId);
@@ -949,10 +1243,8 @@ function Dashboard() {
     try {
       const token = localStorage.getItem('accessToken');
       const isEdit = !!editingUser;
-      const url = isEdit 
-        ? `${API_URL}/users/${editingUser.id}` 
-        : API_URL + '/users';
-      
+      const url = isEdit ? `${API_URL}/users/${editingUser.id}` : API_URL + '/users';
+
       const payload: any = {
         nombre: userForm.nombre,
         email: userForm.email,
@@ -968,7 +1260,7 @@ function Dashboard() {
         method: isEdit ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -990,7 +1282,7 @@ function Dashboard() {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`${API_URL}/users/${userId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('No se pudo eliminar el usuario.');
       await fetchAdminData();
@@ -1006,7 +1298,7 @@ function Dashboard() {
       const response = await fetch(`${API_URL}/projects/incidentes/${incidenteId}/resolver`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -1042,13 +1334,14 @@ function Dashboard() {
     const padding = 40;
 
     // Obtener valores máximos
-    const maxVal = Math.max(
-      ...timelineData.map((d) => 
-        viewMode === 'acumulado' 
-          ? Math.max(d.acumuladoPlaneado, d.acumuladoReal) 
-          : Math.max(d.diarioPlaneado, d.diarioReal)
-      )
-    ) || 100;
+    const maxVal =
+      Math.max(
+        ...timelineData.map((d) =>
+          viewMode === 'acumulado'
+            ? Math.max(d.acumuladoPlaneado, d.acumuladoReal)
+            : Math.max(d.diarioPlaneado, d.diarioReal),
+        ),
+      ) || 100;
 
     const pointsCount = timelineData.length;
 
@@ -1065,25 +1358,58 @@ function Dashboard() {
       // 2. Generar línea de Real (Verde)
       // Solo graficar hasta donde haya avances (evitando caer a cero si es futuro)
       // Buscamos el último punto reportado que tenga avance o sea antes de hoy
-      const lastReportedIndex = timelineData.map((d) => d.diarioReal).reduce((lastIdx, val, idx) => val > 0 ? idx : lastIdx, 0);
+      const lastReportedIndex = timelineData
+        .map((d) => d.diarioReal)
+        .reduce((lastIdx, val, idx) => (val > 0 ? idx : lastIdx), 0);
       const realTimelinePoints = timelineData.slice(0, lastReportedIndex + 1);
-      
+
       const realPoints = realTimelinePoints
         .map((p, i) => `${getX(i).toFixed(1)},${getY(p.acumuladoReal).toFixed(1)}`)
         .join(' ');
 
       // Generar área sombreada real
-      const realAreaPoints = realTimelinePoints.length > 0 
-        ? `${getX(0).toFixed(1)},${(height - padding).toFixed(1)} ` + realPoints + ` ${getX(realTimelinePoints.length - 1).toFixed(1)},${(height - padding).toFixed(1)}`
-        : '';
+      const realAreaPoints =
+        realTimelinePoints.length > 0
+          ? `${getX(0).toFixed(1)},${(height - padding).toFixed(1)} ` +
+            realPoints +
+            ` ${getX(realTimelinePoints.length - 1).toFixed(1)},${(height - padding).toFixed(1)}`
+          : '';
 
       return (
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
           {/* Ejes y cuadrículas */}
-          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#E3E1D9" strokeWidth="1" />
-          <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#E3E1D9" strokeWidth="1" />
-          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#F1EFE8" strokeDasharray="3" />
-          <line x1={padding} y1={height/2} x2={width - padding} y2={height/2} stroke="#F1EFE8" strokeDasharray="3" />
+          <line
+            x1={padding}
+            y1={height - padding}
+            x2={width - padding}
+            y2={height - padding}
+            stroke="#E3E1D9"
+            strokeWidth="1"
+          />
+          <line
+            x1={padding}
+            y1={padding}
+            x2={padding}
+            y2={height - padding}
+            stroke="#E3E1D9"
+            strokeWidth="1"
+          />
+          <line
+            x1={padding}
+            y1={padding}
+            x2={width - padding}
+            y2={padding}
+            stroke="#F1EFE8"
+            strokeDasharray="3"
+          />
+          <line
+            x1={padding}
+            y1={height / 2}
+            x2={width - padding}
+            y2={height / 2}
+            stroke="#F1EFE8"
+            strokeDasharray="3"
+          />
 
           {/* Área sombreada real */}
           {realAreaPoints && (
@@ -1092,7 +1418,13 @@ function Dashboard() {
 
           {/* Línea Planeado */}
           {plannedPoints && (
-            <polyline points={plannedPoints} fill="none" stroke="#8B8A84" strokeWidth="2.5" strokeDasharray="4" />
+            <polyline
+              points={plannedPoints}
+              fill="none"
+              stroke="#8B8A84"
+              strokeWidth="2.5"
+              strokeDasharray="4"
+            />
           )}
 
           {/* Línea Real */}
@@ -1104,7 +1436,13 @@ function Dashboard() {
           <text x={padding} y={padding - 10} fill="#5F5E5A" fontSize="9" fontWeight="bold">
             {maxVal.toFixed(0)} u.
           </text>
-          <text x={width - padding} y={height - padding + 15} fill="#5F5E5A" fontSize="9" textAnchor="end">
+          <text
+            x={width - padding}
+            y={height - padding + 15}
+            fill="#5F5E5A"
+            fontSize="9"
+            textAnchor="end"
+          >
             Final de Proyecto
           </text>
           <text x={padding} y={height - padding + 15} fill="#5F5E5A" fontSize="9">
@@ -1126,8 +1464,22 @@ function Dashboard() {
 
       return (
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
-          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#E3E1D9" strokeWidth="1" />
-          <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#E3E1D9" strokeWidth="1" />
+          <line
+            x1={padding}
+            y1={height - padding}
+            x2={width - padding}
+            y2={height - padding}
+            stroke="#E3E1D9"
+            strokeWidth="1"
+          />
+          <line
+            x1={padding}
+            y1={padding}
+            x2={padding}
+            y2={height - padding}
+            stroke="#E3E1D9"
+            strokeWidth="1"
+          />
 
           {timelineData.map((d, i) => {
             const xPlanned = getX(i) - barWidth;
@@ -1191,12 +1543,16 @@ function Dashboard() {
         <div>
           {/* Logo */}
           <div className="p-6 border-b border-[#E3E1D9] flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#1C1C1A] flex items-center justify-center text-white">
-              <Layers className="w-5 h-5" />
-            </div>
+            <img
+              src="/TG.png"
+              alt="Tecnogam"
+              className="w-9 h-9 rounded-xl object-contain border border-[#E3E1D9] bg-white p-0.5 shrink-0 shadow-xs"
+            />
             <div>
               <span className="font-bold text-[#1C1C1A] text-sm tracking-tight">Tecnogam</span>
-              <span className="block text-[10px] text-[#5F5E5A] font-medium leading-none">Gestor de Materiales</span>
+              <span className="block text-[10px] text-[#5F5E5A] font-medium leading-none">
+                Gestor de Materiales
+              </span>
             </div>
           </div>
 
@@ -1205,7 +1561,9 @@ function Dashboard() {
             <button
               onClick={() => setActiveTab('kpis')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                activeTab === 'kpis' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
+                activeTab === 'kpis'
+                  ? 'bg-[#F1EFE8] text-[#1C1C1A]'
+                  : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
               }`}
             >
               <BarChart3 className="w-4 h-4" />
@@ -1214,7 +1572,9 @@ function Dashboard() {
             <button
               onClick={() => setActiveTab('materiales')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                activeTab === 'materiales' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
+                activeTab === 'materiales'
+                  ? 'bg-[#F1EFE8] text-[#1C1C1A]'
+                  : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
               }`}
             >
               <FileText className="w-4 h-4" />
@@ -1223,7 +1583,9 @@ function Dashboard() {
             <button
               onClick={() => setActiveTab('avances')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                activeTab === 'avances' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
+                activeTab === 'avances'
+                  ? 'bg-[#F1EFE8] text-[#1C1C1A]'
+                  : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
               }`}
             >
               <Activity className="w-4 h-4" />
@@ -1232,7 +1594,9 @@ function Dashboard() {
             <button
               onClick={() => setActiveTab('incidentes')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                activeTab === 'incidentes' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
+                activeTab === 'incidentes'
+                  ? 'bg-[#F1EFE8] text-[#1C1C1A]'
+                  : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
               }`}
             >
               <AlertTriangle className="w-4 h-4" />
@@ -1246,7 +1610,9 @@ function Dashboard() {
             <button
               onClick={() => setActiveTab('tiempos')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                activeTab === 'tiempos' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
+                activeTab === 'tiempos'
+                  ? 'bg-[#F1EFE8] text-[#1C1C1A]'
+                  : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
               }`}
             >
               <Clock className="w-4 h-4" />
@@ -1262,7 +1628,9 @@ function Dashboard() {
                     }
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                    activeTab === 'bom' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
+                    activeTab === 'bom'
+                      ? 'bg-[#F1EFE8] text-[#1C1C1A]'
+                      : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
                   }`}
                 >
                   <FileText className="w-4 h-4" />
@@ -1271,7 +1639,9 @@ function Dashboard() {
                 <button
                   onClick={() => setActiveTab('admin')}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                    activeTab === 'admin' ? 'bg-[#F1EFE8] text-[#1C1C1A]' : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
+                    activeTab === 'admin'
+                      ? 'bg-[#F1EFE8] text-[#1C1C1A]'
+                      : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
                   }`}
                 >
                   <Settings className="w-4 h-4" />
@@ -1289,7 +1659,9 @@ function Dashboard() {
               <User className="w-4 h-4" />
             </div>
             <div className="overflow-hidden">
-              <span className="block text-xs font-semibold text-[#1C1C1A] truncate">{user.nombre}</span>
+              <span className="block text-xs font-semibold text-[#1C1C1A] truncate">
+                {user.nombre}
+              </span>
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#E6F1FB] text-[#0C447C] text-[9px] font-bold capitalize">
                 <Shield className="w-2.5 h-2.5" />
                 {user.rol}
@@ -1308,12 +1680,15 @@ function Dashboard() {
 
       {/* 2. CONTENIDO PRINCIPAL */}
       <main className="flex-1 overflow-y-auto p-8 flex flex-col gap-6 print:p-0">
-        
         {/* Cabecera superior (Oculto en Impresión) */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-[#E3E1D9] print:hidden">
           <div>
-            <span className="text-xs text-[#5F5E5A] font-semibold tracking-wider uppercase">Panel Administrativo</span>
-            <h1 className="text-2xl font-bold text-[#1C1C1A] mt-0.5">Control de Materiales y Avances</h1>
+            <span className="text-xs text-[#5F5E5A] font-semibold tracking-wider uppercase">
+              Panel Administrativo
+            </span>
+            <h1 className="text-2xl font-bold text-[#1C1C1A] mt-0.5">
+              Control de Materiales y Avances
+            </h1>
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto">
@@ -1348,18 +1723,26 @@ function Dashboard() {
         {/* Cabecera del Reporte para Impresión (Solo Visible en PDF) */}
         <div className="hidden print:block border-b-2 border-black pb-4 mb-6">
           <div className="flex justify-between items-end">
-            <div>
-              <h1 className="text-2xl font-bold text-black uppercase">Reporte de Conciliación e Ingeniería</h1>
-              <p className="text-sm text-gray-700 mt-1">Empresa: Tecnogam S.A. de C.V.</p>
-              {dashboardData && (
-                <p className="text-sm text-black font-bold mt-2">
-                  Proyecto: {dashboardData.proyecto.nombre} | Cliente: {dashboardData.proyecto.cliente}
-                </p>
-              )}
+            <div className="flex items-center gap-4">
+              <img src="/TG.png" alt="Tecnogam" className="h-14 w-auto object-contain" />
+              <div>
+                <h1 className="text-2xl font-bold text-black uppercase">
+                  Reporte de Conciliación e Ingeniería
+                </h1>
+                <p className="text-sm text-gray-700 mt-0.5">Empresa: Tecnogam S.A. de C.V.</p>
+                {dashboardData && (
+                  <p className="text-sm text-black font-bold mt-1">
+                    Proyecto: {dashboardData.proyecto.nombre} | Cliente:{' '}
+                    {dashboardData.proyecto.cliente}
+                  </p>
+                )}
+              </div>
             </div>
             <div className="text-right text-xs text-gray-500">
               <p>Fecha de Emisión: {new Date().toLocaleDateString()}</p>
-              <p>Generado por: {user.nombre} ({user.rol})</p>
+              <p>
+                Generado por: {user.nombre} ({user.rol})
+              </p>
             </div>
           </div>
         </div>
@@ -1367,16 +1750,23 @@ function Dashboard() {
         {loading && activeTab !== 'admin' && activeTab !== 'avances' ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20">
             <RefreshCw className="w-10 h-10 text-[#0C447C] animate-spin mb-4" />
-            <p className="text-sm font-medium text-[#5F5E5A]">Cargando información consolidada...</p>
+            <p className="text-sm font-medium text-[#5F5E5A]">
+              Cargando información consolidada...
+            </p>
           </div>
         ) : activeTab === 'admin' ? (
           // ================= PANELES DE ADMINISTRACIÓN (SOLO ADMIN) =================
           <div className="space-y-6">
             <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 shadow-sm flex gap-4">
               <button
-                onClick={() => { setAdminSubTab('proyectos'); setSelectedAdminProject(null); }}
+                onClick={() => {
+                  setAdminSubTab('proyectos');
+                  setSelectedAdminProject(null);
+                }}
                 className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
-                  adminSubTab === 'proyectos' ? 'bg-[#1C1C1A] text-white' : 'text-[#5F5E5A] hover:bg-[#F7F7F5]'
+                  adminSubTab === 'proyectos'
+                    ? 'bg-[#1C1C1A] text-white'
+                    : 'text-[#5F5E5A] hover:bg-[#F7F7F5]'
                 }`}
               >
                 Proyectos e Hitos
@@ -1384,7 +1774,9 @@ function Dashboard() {
               <button
                 onClick={() => setAdminSubTab('usuarios')}
                 className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
-                  adminSubTab === 'usuarios' ? 'bg-[#1C1C1A] text-white' : 'text-[#5F5E5A] hover:bg-[#F7F7F5]'
+                  adminSubTab === 'usuarios'
+                    ? 'bg-[#1C1C1A] text-white'
+                    : 'text-[#5F5E5A] hover:bg-[#F7F7F5]'
                 }`}
               >
                 Usuarios y Roles
@@ -1397,15 +1789,13 @@ function Dashboard() {
                 <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
                   <div>
                     <h3 className="text-sm font-bold text-[#1C1C1A]">Catálogo de Proyectos</h3>
-                    <p className="text-xs text-[#5F5E5A]">Administre la lista global de proyectos vigentes.</p>
+                    <p className="text-xs text-[#5F5E5A]">
+                      Administre la lista global de proyectos vigentes.
+                    </p>
                   </div>
                   <button
-                    onClick={() => {
-                      setEditingProject(null);
-                      setProjectForm({ nombre: '', cliente: '', fechaInicio: '', fechaFinEstimada: '' });
-                      setShowProjectModal(true);
-                    }}
-                    className="flex items-center gap-1.5 h-9 px-3 bg-[#27500A] text-white hover:bg-[#3E5C1B] rounded-lg text-xs font-bold cursor-pointer transition-all"
+                    onClick={handleOpenCreateProject}
+                    className="flex items-center gap-1.5 h-9 px-3 bg-[#27500A] text-white hover:bg-[#3E5C1B] rounded-lg text-xs font-bold cursor-pointer transition-all shadow-xs"
                   >
                     <Plus className="w-4 h-4" /> Crear Proyecto
                   </button>
@@ -1416,19 +1806,66 @@ function Dashboard() {
                     <thead>
                       <tr className="border-b border-[#E3E1D9] bg-[#F7F7F5] text-[#5F5E5A]">
                         <th className="p-3 font-semibold">Proyecto</th>
-                        <th className="p-3 font-semibold">Cliente</th>
-                        <th className="p-3 font-semibold">Inicio</th>
-                        <th className="p-3 font-semibold">Fin Estimado</th>
+                        <th className="p-3 font-semibold">Cliente & Líderes</th>
+                        <th className="p-3 font-semibold">Plazos</th>
+                        <th className="p-3 font-semibold">Culminación</th>
                         <th className="p-3 font-semibold text-center">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#E3E1D9]">
                       {projects.map((proj) => (
                         <tr key={proj.id} className="hover:bg-[#F7F7F5]/50">
-                          <td className="p-3 font-bold text-[#1C1C1A]">{proj.nombre}</td>
-                          <td className="p-3 text-[#5F5E5A] font-semibold">{proj.cliente}</td>
-                          <td className="p-3 text-[#5F5E5A]">{new Date(proj.fechaInicio).toLocaleDateString()}</td>
-                          <td className="p-3 text-[#5F5E5A]">{new Date(proj.fechaFinEstimada).toLocaleDateString()}</td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2.5">
+                              {proj.logoCliente ? (
+                                <img
+                                  src={proj.logoCliente}
+                                  alt={proj.cliente}
+                                  className="w-8 h-8 rounded-lg object-contain border border-[#E3E1D9] bg-white p-0.5 shrink-0"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg bg-[#F1EFE8] flex items-center justify-center text-[#5F5E5A] shrink-0 font-bold text-[10px]">
+                                  {proj.nombre.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <span className="font-bold text-[#1C1C1A] block">
+                                  {proj.nombre}
+                                </span>
+                                <span className="text-[10px] text-[#5F5E5A]">{proj.cliente}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="text-[11px] text-[#5F5E5A] space-y-0.5">
+                              <div>
+                                Líder Cli:{' '}
+                                <b className="text-[#1C1C1A]">{proj.liderCliente || '—'}</b>
+                              </div>
+                              <div>
+                                Líder TG:{' '}
+                                <b className="text-[#0C447C]">{proj.liderTecnogam || '—'}</b>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="text-[11px] text-[#5F5E5A]">
+                              <div>Ini: {new Date(proj.fechaInicio).toLocaleDateString()}</div>
+                              <div>Est: {new Date(proj.fechaFinEstimada).toLocaleDateString()}</div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            {proj.fechaCulminacion ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#EAF3DE] text-[#27500A]">
+                                <CheckCircle className="w-3 h-3" />
+                                {new Date(proj.fechaCulminacion).toLocaleDateString()}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-[#8B8A84] italic">
+                                En ejecución
+                              </span>
+                            )}
+                          </td>
                           <td className="p-3">
                             <div className="flex justify-center gap-2">
                               <button
@@ -1438,23 +1875,16 @@ function Dashboard() {
                                 Gestionar Hitos/Miembros
                               </button>
                               <button
-                                onClick={() => {
-                                  setEditingProject(proj);
-                                  setProjectForm({
-                                    nombre: proj.nombre,
-                                    cliente: proj.cliente,
-                                    fechaInicio: proj.fechaInicio.split('T')[0],
-                                    fechaFinEstimada: proj.fechaFinEstimada.split('T')[0],
-                                  });
-                                  setShowProjectModal(true);
-                                }}
+                                onClick={() => handleOpenProjectEdit(proj)}
                                 className="h-7 w-7 border border-[#C9C7BD] hover:bg-[#F1EFE8] flex items-center justify-center rounded text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer"
+                                title="Editar Proyecto"
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => handleDeleteProject(proj.id)}
                                 className="h-7 w-7 border border-[#F8B4B4] hover:bg-[#FDE8E8] flex items-center justify-center rounded text-[#C23939] cursor-pointer"
+                                title="Eliminar Proyecto"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1480,37 +1910,91 @@ function Dashboard() {
                       >
                         &larr; Volver al listado de proyectos
                       </button>
-                      <h2 className="text-xl font-bold text-[#1C1C1A]">{selectedAdminProject.nombre}</h2>
-                      <p className="text-xs text-[#5F5E5A]">Cliente: {selectedAdminProject.cliente}</p>
+                      <h2 className="text-xl font-bold text-[#1C1C1A]">
+                        {selectedAdminProject.nombre}
+                      </h2>
+                      <p className="text-xs text-[#5F5E5A]">
+                        Cliente: {selectedAdminProject.cliente}
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold text-[#1C1C1A] pb-2 border-b border-[#E3E1D9]">Hitos de Cronograma</h3>
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                      {selectedAdminProject.hitos.map((hito) => (
-                        <div key={hito.id} className="p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl flex justify-between items-center text-xs">
-                          <div>
-                            <span className="font-bold text-[#1C1C1A] block">{hito.nombre}</span>
-                            <span className="text-[10px] text-[#5F5E5A]">
-                              Plazo: {new Date(hito.fechaObjetivo).toLocaleDateString()} | Estatus: {hito.estatus.toUpperCase()}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => handleDeleteHito(hito.id)}
-                            className="h-7 w-7 text-[#C23939] hover:bg-[#FDE8E8] rounded flex items-center justify-center transition-all cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
+                    <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
+                      <h3 className="text-sm font-bold text-[#1C1C1A]">Hitos de Cronograma</h3>
+                      <span className="text-[10px] text-[#5F5E5A]">
+                        Semáforo por fecha y alerta
+                      </span>
                     </div>
 
-                    <form onSubmit={handleAddHito} className="pt-4 border-t border-[#E3E1D9] space-y-3">
-                      <span className="block text-xs font-semibold text-[#1C1C1A]">Agregar Hito</span>
-                      <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {selectedAdminProject.hitos.map((hito) => {
+                        const sem = getHitoSemaforo(hito, selectedAdminProject.diasAlertaHito || 7);
+                        return (
+                          <div
+                            key={hito.id}
+                            className="p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl flex justify-between items-center text-xs"
+                          >
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-[#1C1C1A] truncate">
+                                  {hito.nombre}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase shrink-0 flex items-center gap-1 ${sem.badgeClass}`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${sem.dotClass}`}
+                                  ></span>
+                                  {sem.label}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-[#5F5E5A] block">
+                                Plazo: {new Date(hito.fechaObjetivo).toLocaleDateString()} | Alerta
+                                preventiva:{' '}
+                                {hito.diasAlerta ?? (selectedAdminProject.diasAlertaHito || 7)} días
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleHitoStatus(hito)}
+                                title={
+                                  hito.estatus === 'completado'
+                                    ? 'Marcar como pendiente'
+                                    : 'Marcar como completado'
+                                }
+                                className={`h-7 px-2 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                                  hito.estatus === 'completado'
+                                    ? 'bg-[#EAF3DE] text-[#27500A] hover:bg-[#D5EAC3]'
+                                    : 'bg-white border border-[#C9C7BD] text-[#1C1C1A] hover:bg-[#F1EFE8]'
+                                }`}
+                              >
+                                {hito.estatus === 'completado' ? '✓ Completado' : 'Completar'}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteHito(hito.id)}
+                                className="h-7 w-7 text-[#C23939] hover:bg-[#FDE8E8] rounded flex items-center justify-center transition-all cursor-pointer"
+                                title="Eliminar Hito"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <form
+                      onSubmit={handleAddHito}
+                      className="pt-4 border-t border-[#E3E1D9] space-y-3"
+                    >
+                      <span className="block text-xs font-semibold text-[#1C1C1A]">
+                        Agregar Hito
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <input
                           type="text"
                           placeholder="Nombre del Hito"
@@ -1523,13 +2007,27 @@ function Dashboard() {
                           type="date"
                           required
                           value={hitoForm.fechaObjetivo}
-                          onChange={(e) => setHitoForm({ ...hitoForm, fechaObjetivo: e.target.value })}
+                          onChange={(e) =>
+                            setHitoForm({ ...hitoForm, fechaObjetivo: e.target.value })
+                          }
                           className="h-9 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs"
+                        />
+                        <input
+                          type="number"
+                          min={1}
+                          max={60}
+                          placeholder="Días alerta naranja (ej. 7)"
+                          title="Días previos a la fecha objetivo para cambiar el semáforo a naranja"
+                          value={hitoForm.diasAlerta}
+                          onChange={(e) =>
+                            setHitoForm({ ...hitoForm, diasAlerta: parseInt(e.target.value) || 7 })
+                          }
+                          className="h-9 px-2 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs"
                         />
                       </div>
                       <button
                         type="submit"
-                        className="w-full h-9 bg-[#1C1C1A] hover:bg-[#3E3D39] text-white text-xs font-bold rounded-lg cursor-pointer"
+                        className="w-full h-9 bg-[#1C1C1A] hover:bg-[#3E3D39] text-white text-xs font-bold rounded-lg cursor-pointer shadow-xs"
                       >
                         Guardar Hito
                       </button>
@@ -1537,12 +2035,19 @@ function Dashboard() {
                   </div>
 
                   <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold text-[#1C1C1A] pb-2 border-b border-[#E3E1D9]">Miembros de Obra</h3>
+                    <h3 className="text-sm font-bold text-[#1C1C1A] pb-2 border-b border-[#E3E1D9]">
+                      Miembros de Obra
+                    </h3>
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                       {selectedAdminProject.miembros.map((memb) => (
-                        <div key={memb.id} className="p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl flex justify-between items-center text-xs">
+                        <div
+                          key={memb.id}
+                          className="p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl flex justify-between items-center text-xs"
+                        >
                           <div>
-                            <span className="font-bold text-[#1C1C1A] block">{memb.usuario.nombre}</span>
+                            <span className="font-bold text-[#1C1C1A] block">
+                              {memb.usuario.nombre}
+                            </span>
                             <span className="text-[10px] text-[#5F5E5A] capitalize">
                               {memb.usuario.rol} ({memb.usuario.email})
                             </span>
@@ -1557,8 +2062,13 @@ function Dashboard() {
                       ))}
                     </div>
 
-                    <form onSubmit={handleAddMember} className="pt-4 border-t border-[#E3E1D9] space-y-3">
-                      <span className="block text-xs font-semibold text-[#1C1C1A]">Vincular Miembro</span>
+                    <form
+                      onSubmit={handleAddMember}
+                      className="pt-4 border-t border-[#E3E1D9] space-y-3"
+                    >
+                      <span className="block text-xs font-semibold text-[#1C1C1A]">
+                        Vincular Miembro
+                      </span>
                       <div className="flex gap-2">
                         <select
                           required
@@ -1571,9 +2081,7 @@ function Dashboard() {
                             .filter(
                               (u) =>
                                 u.activo &&
-                                !selectedAdminProject.miembros.some(
-                                  (m) => m.usuarioId === u.id,
-                                ),
+                                !selectedAdminProject.miembros.some((m) => m.usuarioId === u.id),
                             )
                             .map((u) => (
                               <option key={u.id} value={u.id}>
@@ -1600,12 +2108,20 @@ function Dashboard() {
                 <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
                   <div>
                     <h3 className="text-sm font-bold text-[#1C1C1A]">Catálogo de Usuarios</h3>
-                    <p className="text-xs text-[#5F5E5A]">Gestione el acceso al sistema y asigne perfiles.</p>
+                    <p className="text-xs text-[#5F5E5A]">
+                      Gestione el acceso al sistema y asigne perfiles.
+                    </p>
                   </div>
                   <button
                     onClick={() => {
                       setEditingUser(null);
-                      setUserForm({ nombre: '', email: '', password: '', rol: 'trabajador', activo: true });
+                      setUserForm({
+                        nombre: '',
+                        email: '',
+                        password: '',
+                        rol: 'trabajador',
+                        activo: true,
+                      });
                       setShowUserModal(true);
                     }}
                     className="flex items-center gap-1.5 h-9 px-3 bg-[#27500A] text-white hover:bg-[#3E5C1B] rounded-lg text-xs font-bold cursor-pointer transition-all"
@@ -1632,9 +2148,13 @@ function Dashboard() {
                           <td className="p-3 text-[#5F5E5A] font-semibold">{u.email}</td>
                           <td className="p-3 text-[#0C447C] font-bold capitalize">{u.rol}</td>
                           <td className="p-3 text-center">
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                              u.activo ? 'bg-[#EAF3DE] text-[#27500A]' : 'bg-gray-100 text-gray-500'
-                            }`}>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                                u.activo
+                                  ? 'bg-[#EAF3DE] text-[#27500A]'
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}
+                            >
                               {u.activo ? 'Activo' : 'Inactivo'}
                             </span>
                           </td>
@@ -1677,15 +2197,20 @@ function Dashboard() {
             {!selectedAdminProject ? (
               <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm">
                 <RefreshCw className="w-10 h-10 text-[#0C447C] animate-spin mb-4" />
-                <p className="text-sm font-medium text-[#5F5E5A]">Cargando presupuesto de materiales (BOM)...</p>
+                <p className="text-sm font-medium text-[#5F5E5A]">
+                  Cargando presupuesto de materiales (BOM)...
+                </p>
               </div>
             ) : (
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-6">
                 <div className="border-b border-[#E3E1D9] pb-3 flex flex-wrap justify-between items-center gap-4">
                   <div>
-                    <h3 className="text-sm font-bold text-[#1C1C1A]">BOM de Materiales del Proyecto</h3>
+                    <h3 className="text-sm font-bold text-[#1C1C1A]">
+                      BOM de Materiales del Proyecto
+                    </h3>
                     <p className="text-xs text-[#5F5E5A]">
-                      Defina los materiales cotizados y sus cantidades contratadas para el proyecto activo: <b>{selectedAdminProject.nombre}</b>.
+                      Defina los materiales cotizados y sus cantidades contratadas para el proyecto
+                      activo: <b>{selectedAdminProject.nombre}</b>.
                     </p>
                   </div>
 
@@ -1697,7 +2222,9 @@ function Dashboard() {
                         setBomParsedPreview([]);
                       }}
                       className={`h-7 px-3 rounded-lg font-semibold transition-all cursor-pointer ${
-                        bomImportMode === 'individual' ? 'bg-white text-[#1C1C1A] shadow-xs' : 'text-[#5F5E5A] hover:text-[#1C1C1A]'
+                        bomImportMode === 'individual'
+                          ? 'bg-white text-[#1C1C1A] shadow-xs'
+                          : 'text-[#5F5E5A] hover:text-[#1C1C1A]'
                       }`}
                     >
                       Vincular BD Mat TG
@@ -1709,7 +2236,9 @@ function Dashboard() {
                         setBomParsedPreview([]);
                       }}
                       className={`h-7 px-3 rounded-lg font-semibold transition-all cursor-pointer ${
-                        bomImportMode === 'excel' ? 'bg-white text-[#1C1C1A] shadow-xs' : 'text-[#5F5E5A] hover:text-[#1C1C1A]'
+                        bomImportMode === 'excel'
+                          ? 'bg-white text-[#1C1C1A] shadow-xs'
+                          : 'text-[#5F5E5A] hover:text-[#1C1C1A]'
                       }`}
                     >
                       Importar Excel / CSV
@@ -1722,9 +2251,13 @@ function Dashboard() {
                   <div className="lg:col-span-1 p-4 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl space-y-4">
                     {bomImportMode === 'individual' ? (
                       <form onSubmit={handleAddBOMMaterial} className="space-y-3">
-                        <span className="block text-xs font-bold text-[#1C1C1A]">Vincular Material desde BD Mat Tecnogam</span>
+                        <span className="block text-xs font-bold text-[#1C1C1A]">
+                          Vincular Material desde BD Mat Tecnogam
+                        </span>
                         <div>
-                          <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Material</label>
+                          <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                            Material
+                          </label>
                           <div className="relative">
                             <input
                               type="text"
@@ -1742,36 +2275,62 @@ function Dashboard() {
                             {showBomDropdown && (
                               <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-[#E3E1D9] rounded-xl shadow-lg z-50 divide-y divide-[#E3E1D9]">
                                 {generalMaterials
-                                  .filter(m => !(selectedAdminProject.materialesCotizados || []).some((c: any) => c.materialId === m.id))
-                                  .length === 0 ? (
-                                    <div className="p-3 text-xs text-[#8B8A84] text-center bg-[#F7F7F5]">
-                                      No se encontraron materiales. Escribe algo para buscar.
-                                    </div>
-                                  ) : (
-                                    generalMaterials
-                                      .filter(m => !(selectedAdminProject.materialesCotizados || []).some((c: any) => c.materialId === m.id))
-                                      .map(m => (
-                                        <button
-                                          key={m.id}
-                                          type="button"
-                                          onMouseDown={() => {
-                                            setSelectedBOMMaterialId(m.id);
-                                            setBomSearchQuery(`${m.codigo} - ${m.descripcion}`);
-                                            setShowBomDropdown(false);
-                                          }}
-                                          className="w-full text-left p-2.5 hover:bg-[#F7F7F5] transition-colors text-xs flex flex-col cursor-pointer"
-                                        >
-                                          <span className="font-bold text-[#1C1C1A]">{m.codigo}</span>
-                                          <span className="text-[#5F5E5A] truncate">{m.descripcion} ({m.unidad})</span>
-                                        </button>
-                                      ))
-                                  )}
+                                  .filter(
+                                    (m) =>
+                                      !(selectedAdminProject.materialesCotizados || []).some(
+                                        (c: any) => c.materialId === m.id,
+                                      ),
+                                  )
+                                  .filter((m) =>
+                                    matchesAllWords(
+                                      `${m.codigo} ${m.descripcion} ${m.categoria || ''}`,
+                                      bomSearchQuery,
+                                    ),
+                                  ).length === 0 ? (
+                                  <div className="p-3 text-xs text-[#8B8A84] text-center bg-[#F7F7F5]">
+                                    No se encontraron materiales. Escribe palabras clave para
+                                    buscar.
+                                  </div>
+                                ) : (
+                                  generalMaterials
+                                    .filter(
+                                      (m) =>
+                                        !(selectedAdminProject.materialesCotizados || []).some(
+                                          (c: any) => c.materialId === m.id,
+                                        ),
+                                    )
+                                    .filter((m) =>
+                                      matchesAllWords(
+                                        `${m.codigo} ${m.descripcion} ${m.categoria || ''}`,
+                                        bomSearchQuery,
+                                      ),
+                                    )
+                                    .map((m) => (
+                                      <button
+                                        key={m.id}
+                                        type="button"
+                                        onMouseDown={() => {
+                                          setSelectedBOMMaterialId(m.id);
+                                          setBomSearchQuery(`${m.codigo} - ${m.descripcion}`);
+                                          setShowBomDropdown(false);
+                                        }}
+                                        className="w-full text-left p-2.5 hover:bg-[#F7F7F5] transition-colors text-xs flex flex-col cursor-pointer"
+                                      >
+                                        <span className="font-bold text-[#1C1C1A]">{m.codigo}</span>
+                                        <span className="text-[#5F5E5A] truncate">
+                                          {m.descripcion} ({m.unidad})
+                                        </span>
+                                      </button>
+                                    ))
+                                )}
                               </div>
                             )}
                           </div>
                         </div>
                         <div>
-                          <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Cantidad Presupuestada (Cotizada)</label>
+                          <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                            Cantidad Presupuestada (Cotizada)
+                          </label>
                           <input
                             type="number"
                             step="any"
@@ -1791,9 +2350,12 @@ function Dashboard() {
                       </form>
                     ) : (
                       <div className="space-y-4">
-                        <span className="block text-xs font-bold text-[#1C1C1A]">Carga de Archivo Excel / CSV</span>
+                        <span className="block text-xs font-bold text-[#1C1C1A]">
+                          Carga de Archivo Excel / CSV
+                        </span>
                         <p className="text-[10px] text-[#5F5E5A]">
-                          Suba un archivo con columnas correspondientes a: <b>Codigo/Modelo</b>, <b>Descripcion</b>, <b>Unidad</b> y <b>Cantidad/Cotizado</b>.
+                          Suba un archivo con columnas correspondientes a: <b>Codigo/Modelo</b>,{' '}
+                          <b>Descripcion</b>, <b>Unidad</b> y <b>Cantidad/Cotizado</b>.
                         </p>
 
                         <div className="space-y-2">
@@ -1823,7 +2385,9 @@ function Dashboard() {
                               disabled={isImportingBOM}
                               className="w-full h-9 bg-[#27500A] hover:bg-[#1E3F07] text-white text-xs font-bold rounded-lg cursor-pointer disabled:bg-gray-400"
                             >
-                              {isImportingBOM ? 'Importando...' : 'Confirmar e Importar al Proyecto'}
+                              {isImportingBOM
+                                ? 'Importando...'
+                                : 'Confirmar e Importar al Proyecto'}
                             </button>
                           </div>
                         )}
@@ -1833,15 +2397,42 @@ function Dashboard() {
 
                   {/* Panel Derecho: Lista de Materiales Cotizados */}
                   <div className="lg:col-span-2 space-y-3">
-                    <span className="block text-xs font-bold text-[#1C1C1A]">
-                      Materiales Cotizados en el Proyecto ({(selectedAdminProject.materialesCotizados || []).length})
-                    </span>
+                    <div className="flex flex-wrap justify-between items-center gap-2">
+                      <span className="block text-xs font-bold text-[#1C1C1A]">
+                        Materiales Cotizados en el Proyecto (
+                        {(selectedAdminProject.materialesCotizados || []).length})
+                      </span>
+                      {selectedBOMMaterialIds.length > 0 && (
+                        <div className="flex items-center gap-2 bg-red-50 border border-red-200 px-3 py-1 rounded-xl text-xs animate-in fade-in">
+                          <span className="font-bold text-red-700">
+                            {selectedBOMMaterialIds.length} seleccionados
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleDeleteMultipleBOMMaterials}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Eliminar Seleccionados
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedBOMMaterialIds([])}
+                            className="text-gray-500 hover:text-black underline text-[11px] cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Si hay vista previa de importación */}
                     {bomImportMode === 'excel' && bomParsedPreview.length > 0 ? (
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-[#BA7517] uppercase">Vista Previa de Importación</span>
+                          <span className="text-[10px] font-bold text-[#BA7517] uppercase">
+                            Vista Previa de Importación
+                          </span>
                           <button
                             type="button"
                             onClick={() => setBomParsedPreview([])}
@@ -1864,9 +2455,15 @@ function Dashboard() {
                               {bomParsedPreview.map((item, idx) => (
                                 <tr key={idx} className="hover:bg-[#F7F7F5]/30">
                                   <td className="p-2 font-bold text-[#1C1C1A]">{item.codigo}</td>
-                                  <td className="p-2 text-[#5F5E5A] truncate max-w-xs">{item.descripcion}</td>
-                                  <td className="p-2 text-center text-[#8B8A84] uppercase">{item.unidad}</td>
-                                  <td className="p-2 text-right font-bold text-[#1C1C1A]">{item.cantidad.toLocaleString()}</td>
+                                  <td className="p-2 text-[#5F5E5A] truncate max-w-xs">
+                                    {item.descripcion}
+                                  </td>
+                                  <td className="p-2 text-center text-[#8B8A84] uppercase">
+                                    {item.unidad}
+                                  </td>
+                                  <td className="p-2 text-right font-bold text-[#1C1C1A]">
+                                    {item.cantidad.toLocaleString()}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1875,13 +2472,37 @@ function Dashboard() {
                       </div>
                     ) : (selectedAdminProject.materialesCotizados || []).length === 0 ? (
                       <div className="text-center py-12 border border-dashed border-[#C9C7BD] rounded-xl text-xs text-[#8B8A84] bg-[#F7F7F5]">
-                        No hay materiales cargados en el presupuesto de este proyecto. Use los controles de la izquierda para vincular o importar.
+                        No hay materiales cargados en el presupuesto de este proyecto. Use los
+                        controles de la izquierda para vincular o importar.
                       </div>
                     ) : (
                       <div className="border border-[#E3E1D9] rounded-xl overflow-hidden max-h-96 overflow-y-auto">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-[#F7F7F5] border-b border-[#E3E1D9] text-[#5F5E5A] font-semibold">
+                              <th className="p-2.5 w-10 text-center">
+                                <input
+                                  type="checkbox"
+                                  className="cursor-pointer rounded border-[#C9C7BD]"
+                                  title="Seleccionar todos los materiales"
+                                  checked={
+                                    (selectedAdminProject.materialesCotizados || []).length > 0 &&
+                                    selectedBOMMaterialIds.length ===
+                                      (selectedAdminProject.materialesCotizados || []).length
+                                  }
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedBOMMaterialIds(
+                                        (selectedAdminProject.materialesCotizados || []).map(
+                                          (c: any) => c.materialId,
+                                        ),
+                                      );
+                                    } else {
+                                      setSelectedBOMMaterialIds([]);
+                                    }
+                                  }}
+                                />
+                              </th>
                               <th className="p-2.5">Código</th>
                               <th className="p-2.5">Descripción</th>
                               <th className="p-2.5 text-center">Unidad</th>
@@ -1891,18 +2512,52 @@ function Dashboard() {
                           </thead>
                           <tbody className="divide-y divide-[#E3E1D9] bg-white">
                             {(selectedAdminProject.materialesCotizados || []).map((cot: any) => (
-                              <tr key={cot.id} className="hover:bg-[#F7F7F5]/30">
-                                <td className="p-2.5 font-bold text-[#1C1C1A]">{cot.material.codigo}</td>
-                                <td className="p-2.5 text-[#5F5E5A] truncate max-w-xs" title={cot.material.descripcion}>
+                              <tr
+                                key={cot.id}
+                                className={`hover:bg-[#F7F7F5]/30 ${selectedBOMMaterialIds.includes(cot.materialId) ? 'bg-red-50/40' : ''}`}
+                              >
+                                <td className="p-2.5 text-center">
+                                  <input
+                                    type="checkbox"
+                                    className="cursor-pointer rounded border-[#C9C7BD]"
+                                    checked={selectedBOMMaterialIds.includes(cot.materialId)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedBOMMaterialIds([
+                                          ...selectedBOMMaterialIds,
+                                          cot.materialId,
+                                        ]);
+                                      } else {
+                                        setSelectedBOMMaterialIds(
+                                          selectedBOMMaterialIds.filter(
+                                            (id) => id !== cot.materialId,
+                                          ),
+                                        );
+                                      }
+                                    }}
+                                  />
+                                </td>
+                                <td className="p-2.5 font-bold text-[#1C1C1A]">
+                                  {cot.material.codigo}
+                                </td>
+                                <td
+                                  className="p-2.5 text-[#5F5E5A] truncate max-w-xs"
+                                  title={cot.material.descripcion}
+                                >
                                   {cot.material.descripcion}
                                 </td>
-                                <td className="p-2.5 text-center text-[#8B8A84] uppercase">{cot.material.unidad}</td>
-                                <td className="p-2.5 text-right font-bold text-[#1C1C1A]">{cot.cantidad.toLocaleString()}</td>
+                                <td className="p-2.5 text-center text-[#8B8A84] uppercase">
+                                  {cot.material.unidad}
+                                </td>
+                                <td className="p-2.5 text-right font-bold text-[#1C1C1A]">
+                                  {cot.cantidad.toLocaleString()}
+                                </td>
                                 <td className="p-2.5 text-center">
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteBOMMaterial(cot.materialId)}
                                     className="text-red-600 hover:text-red-800 p-1 cursor-pointer"
+                                    title="Eliminar material"
                                   >
                                     <Trash2 className="w-4 h-4 mx-auto" />
                                   </button>
@@ -1921,36 +2576,126 @@ function Dashboard() {
         ) : dashboardData ? (
           // ================= VISTAS ESTÁNDAR DEL DASHBOARD DE PROYECTO =================
           <div className="space-y-6">
-            
             {/* FICHA TÉCNICA DEL PROYECTO SELECCIONADO */}
-            <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between gap-6">
-              <div className="space-y-1">
-                <span className="text-[10px] bg-[#EAF3DE] text-[#27500A] font-bold px-2 py-0.5 rounded-full uppercase">
-                  Proyecto Activo
-                </span>
-                <h2 className="text-lg font-bold text-[#1C1C1A]">{dashboardData.proyecto.nombre}</h2>
-                <p className="text-sm text-[#5F5E5A] flex items-center gap-1.5">
-                  <Building className="w-4 h-4 text-[#8B8A84]" />
-                  Cliente: <span className="font-semibold text-[#1C1C1A]">{dashboardData.proyecto.cliente}</span>
-                </p>
+            <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+              <div className="flex items-start sm:items-center gap-4 min-w-0">
+                {/* Logo Cliente o Sin Logo */}
+                {dashboardData.proyecto.logoCliente ? (
+                  <div className="h-16 w-24 sm:w-28 shrink-0 bg-white border border-[#E3E1D9] rounded-xl p-1.5 flex items-center justify-center overflow-hidden shadow-2xs">
+                    <img
+                      src={dashboardData.proyecto.logoCliente}
+                      alt={dashboardData.proyecto.cliente}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-16 w-24 sm:w-28 shrink-0 bg-[#F7F7F5] border border-dashed border-[#C9C7BD] rounded-xl flex flex-col items-center justify-center text-[#8B8A84] p-1 shadow-2xs">
+                    <Building className="w-5 h-5 mb-0.5 opacity-40" />
+                    <span className="text-[10px] font-medium">Sin Logo</span>
+                  </div>
+                )}
+
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {dashboardData.proyecto.fechaCulminacion ? (
+                      <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3 text-emerald-600" />
+                        Proyecto Culminado
+                      </span>
+                    ) : (
+                      <span className="text-[10px] bg-[#EAF3DE] text-[#27500A] font-bold px-2.5 py-0.5 rounded-full uppercase">
+                        Proyecto En Ejecución
+                      </span>
+                    )}
+                  </div>
+
+                  <h2 className="text-xl font-bold text-[#1C1C1A] tracking-tight truncate">
+                    {dashboardData.proyecto.nombre}
+                  </h2>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#5F5E5A]">
+                    <span className="flex items-center gap-1.5">
+                      <Building className="w-3.5 h-3.5 text-[#8B8A84]" />
+                      Cliente:{' '}
+                      <b className="text-[#1C1C1A] font-semibold">
+                        {dashboardData.proyecto.cliente}
+                      </b>
+                    </span>
+                    <span className="text-[#C9C7BD] hidden sm:inline">•</span>
+                    <span>
+                      Líder Cliente:{' '}
+                      <b className="text-[#1C1C1A] font-semibold">
+                        {dashboardData.proyecto.liderCliente || 'No asignado'}
+                      </b>
+                    </span>
+                    <span className="text-[#C9C7BD] hidden sm:inline">•</span>
+                    <span>
+                      Líder Tecnogam:{' '}
+                      <b className="text-[#1C1C1A] font-semibold">
+                        {dashboardData.proyecto.liderTecnogam || 'No asignado'}
+                      </b>
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-4 text-xs">
-                <div className="bg-[#F7F7F5] border border-[#E3E1D9] p-3 rounded-xl min-w-32">
-                  <span className="block text-[#5F5E5A] mb-1 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" /> Fecha Inicio
+
+              {/* Fechas y Botón Editar */}
+              <div className="flex flex-wrap items-center gap-3 text-xs w-full lg:w-auto justify-start sm:justify-end">
+                <div className="bg-[#F7F7F5] border border-[#E3E1D9] px-3.5 py-2 rounded-xl min-w-28">
+                  <span className="block text-[10px] text-[#5F5E5A] mb-0.5 flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-[#8B8A84]" /> Fecha Inicio
                   </span>
                   <span className="font-bold text-[#1C1C1A]">
                     {new Date(dashboardData.proyecto.fechaInicio).toLocaleDateString()}
                   </span>
                 </div>
-                <div className="bg-[#F7F7F5] border border-[#E3E1D9] p-3 rounded-xl min-w-32">
-                  <span className="block text-[#5F5E5A] mb-1 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" /> Fecha Estimada
+
+                <div className="bg-[#F7F7F5] border border-[#E3E1D9] px-3.5 py-2 rounded-xl min-w-28">
+                  <span className="block text-[10px] text-[#5F5E5A] mb-0.5 flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-[#8B8A84]" /> Fin Estimado
                   </span>
                   <span className="font-bold text-[#1C1C1A]">
                     {new Date(dashboardData.proyecto.fechaFinEstimada).toLocaleDateString()}
                   </span>
                 </div>
+
+                <div
+                  className={`border px-3.5 py-2 rounded-xl min-w-28 ${
+                    dashboardData.proyecto.fechaCulminacion
+                      ? 'bg-emerald-50/70 border-emerald-200'
+                      : 'bg-[#F7F7F5] border-[#E3E1D9]'
+                  }`}
+                >
+                  <span className="block text-[10px] text-[#5F5E5A] mb-0.5 flex items-center gap-1">
+                    <CheckCircle
+                      className={`w-3 h-3 ${dashboardData.proyecto.fechaCulminacion ? 'text-emerald-600' : 'text-[#8B8A84]'}`}
+                    />{' '}
+                    Culminación
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      dashboardData.proyecto.fechaCulminacion
+                        ? 'text-emerald-700'
+                        : 'text-[#8B8A84]'
+                    }`}
+                  >
+                    {dashboardData.proyecto.fechaCulminacion
+                      ? new Date(dashboardData.proyecto.fechaCulminacion).toLocaleDateString()
+                      : 'En proceso'}
+                  </span>
+                </div>
+
+                {isAdminOrSupervisor && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenProjectEdit(dashboardData.proyecto)}
+                    className="flex items-center gap-1.5 h-10 px-3.5 bg-white hover:bg-[#F7F7F5] text-[#1C1C1A] border border-[#C9C7BD] hover:border-[#1C1C1A] rounded-xl text-xs font-bold cursor-pointer transition-all shadow-2xs"
+                    title="Editar datos de la ficha técnica, logos, líderes y fecha de culminación"
+                  >
+                    <Edit className="w-3.5 h-3.5 text-[#0C447C]" />
+                    <span>Editar Ficha</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1979,25 +2724,36 @@ function Dashboard() {
                   <Layers className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="block text-xs font-semibold text-[#5F5E5A]">Instalado / Cotizado</span>
+                  <span className="block text-xs font-semibold text-[#5F5E5A]">
+                    Instalado / Cotizado
+                  </span>
                   <span className="block text-lg font-bold text-[#1C1C1A] mt-1">
-                    {dashboardData.kpis.totalInstalado.toLocaleString()} / {dashboardData.kpis.totalCotizado.toLocaleString()}
+                    {dashboardData.kpis.totalInstalado.toLocaleString()} /{' '}
+                    {dashboardData.kpis.totalCotizado.toLocaleString()}
                   </span>
                   <span className="block text-[10px] text-[#5F5E5A]">Cantidad de materiales</span>
                 </div>
               </div>
 
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-                  dashboardData.kpis.openIncidentes > 0 ? 'bg-[#FDE8E8] text-[#C23939]' : 'bg-[#EAF3DE] text-[#27500A]'
-                }`}>
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                    dashboardData.kpis.openIncidentes > 0
+                      ? 'bg-[#FDE8E8] text-[#C23939]'
+                      : 'bg-[#EAF3DE] text-[#27500A]'
+                  }`}
+                >
                   <AlertTriangle className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="block text-xs font-semibold text-[#5F5E5A]">Incidentes Activos</span>
-                  <span className={`block text-2xl font-bold leading-none mt-1 ${
-                    dashboardData.kpis.openIncidentes > 0 ? 'text-[#C23939]' : 'text-[#27500A]'
-                  }`}>
+                  <span className="block text-xs font-semibold text-[#5F5E5A]">
+                    Incidentes Activos
+                  </span>
+                  <span
+                    className={`block text-2xl font-bold leading-none mt-1 ${
+                      dashboardData.kpis.openIncidentes > 0 ? 'text-[#C23939]' : 'text-[#27500A]'
+                    }`}
+                  >
                     {dashboardData.kpis.openIncidentes}
                   </span>
                   <span className="block text-[10px] text-[#5F5E5A] mt-1">
@@ -2011,7 +2767,9 @@ function Dashboard() {
                   <Clock className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="block text-xs font-semibold text-[#5F5E5A]">Tiempos Muertos</span>
+                  <span className="block text-xs font-semibold text-[#5F5E5A]">
+                    Tiempos Muertos
+                  </span>
                   <span className="block text-2xl font-bold text-[#1C1C1A] leading-none mt-1">
                     {dashboardData.kpis.totalTiemposMuertosHoras.toFixed(1)} hrs
                   </span>
@@ -2027,15 +2785,21 @@ function Dashboard() {
                 <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-2 space-y-4">
                   <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
                     <div>
-                      <h3 className="text-sm font-bold text-[#1C1C1A]">Curva S de Avance Planeado vs Real</h3>
-                      <p className="text-[10px] text-[#5F5E5A]">Progreso acumulado y diario a lo largo del cronograma de obra.</p>
+                      <h3 className="text-sm font-bold text-[#1C1C1A]">
+                        Curva S de Avance Planeado vs Real
+                      </h3>
+                      <p className="text-[10px] text-[#5F5E5A]">
+                        Progreso acumulado y diario a lo largo del cronograma de obra.
+                      </p>
                     </div>
                     {/* Toggle general / diario (Tarea 7.2) */}
                     <div className="flex bg-[#F7F7F5] border border-[#E3E1D9] p-1 rounded-xl text-[10px] font-bold">
                       <button
                         onClick={() => setViewMode('acumulado')}
                         className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
-                          viewMode === 'acumulado' ? 'bg-[#1C1C1A] text-white shadow-sm' : 'text-[#5F5E5A]'
+                          viewMode === 'acumulado'
+                            ? 'bg-[#1C1C1A] text-white shadow-sm'
+                            : 'text-[#5F5E5A]'
                         }`}
                       >
                         Acumulado
@@ -2043,7 +2807,9 @@ function Dashboard() {
                       <button
                         onClick={() => setViewMode('diario')}
                         className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
-                          viewMode === 'diario' ? 'bg-[#1C1C1A] text-white shadow-sm' : 'text-[#5F5E5A]'
+                          viewMode === 'diario'
+                            ? 'bg-[#1C1C1A] text-white shadow-sm'
+                            : 'text-[#5F5E5A]'
                         }`}
                       >
                         Diario
@@ -2056,7 +2822,9 @@ function Dashboard() {
                     {timelineData.length > 0 ? (
                       renderSvgChart()
                     ) : (
-                      <span className="text-xs text-[#8B8A84] font-medium">Sin datos de S-Curve</span>
+                      <span className="text-xs text-[#8B8A84] font-medium">
+                        Sin datos de S-Curve
+                      </span>
                     )}
                   </div>
 
@@ -2073,33 +2841,96 @@ function Dashboard() {
                   </div>
                 </div>
 
-                {/* Ficha Hitos */}
-                <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-1 space-y-4 max-h-[352px] overflow-y-auto">
-                  <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
-                    <h3 className="text-sm font-bold text-[#1C1C1A]">Hitos Clave</h3>
-                    <span className="text-xs text-[#5F5E5A] font-semibold">{dashboardData.hitos.length}</span>
+                {/* Ficha Hitos con Semáforo */}
+                <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-1 space-y-4 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-[#1C1C1A]">Hitos Clave</h3>
+                        <span className="text-[10px] bg-[#F7F7F5] border border-[#E3E1D9] text-[#5F5E5A] px-2 py-0.5 rounded-full font-bold">
+                          {dashboardData.hitos.length}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-[#5F5E5A]">
+                        Alerta: {dashboardData.proyecto.diasAlertaHito || 7}d
+                      </span>
+                    </div>
+
+                    {dashboardData.hitos.length === 0 ? (
+                      <div className="py-8 text-center text-xs text-[#8B8A84]">
+                        Sin hitos registrados en este proyecto.
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-[#E3E1D9] max-h-60 overflow-y-auto pr-1 space-y-1">
+                        {dashboardData.hitos.map((hito) => {
+                          const sem = getHitoSemaforo(
+                            hito,
+                            dashboardData.proyecto.diasAlertaHito || 7,
+                          );
+                          return (
+                            <div
+                              key={hito.id}
+                              className="py-2.5 flex justify-between items-center gap-2 text-xs"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <span
+                                  className={`font-bold block truncate ${hito.estatus === 'completado' ? 'line-through text-[#8B8A84]' : 'text-[#1C1C1A]'}`}
+                                >
+                                  {hito.nombre}
+                                </span>
+                                <span className="text-[10px] text-[#5F5E5A]">
+                                  Plazo: {new Date(hito.fechaObjetivo).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase shrink-0 flex items-center gap-1 ${sem.badgeClass}`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${sem.dotClass}`}
+                                  ></span>
+                                  {sem.label}
+                                </span>
+                                {isAdminOrSupervisor && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleHitoStatus(hito)}
+                                    title={
+                                      hito.estatus === 'completado'
+                                        ? 'Marcar como pendiente'
+                                        : 'Marcar como completado'
+                                    }
+                                    className={`h-6 w-6 rounded flex items-center justify-center transition-all cursor-pointer ${
+                                      hito.estatus === 'completado'
+                                        ? 'bg-[#EAF3DE] text-[#27500A] hover:bg-[#D5EAC3]'
+                                        : 'bg-[#F7F7F5] border border-[#C9C7BD] text-[#5F5E5A] hover:text-[#1C1C1A]'
+                                    }`}
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="divide-y divide-[#E3E1D9]">
-                    {dashboardData.hitos.map((hito) => {
-                      let tagColor = 'bg-[#F7F7F5] text-[#5F5E5A]';
-                      if (hito.estatus === 'completado') tagColor = 'bg-[#EAF3DE] text-[#27500A]';
-                      if (hito.estatus === 'atrasado') tagColor = 'bg-[#FDE8E8] text-[#C23939]';
-
-                      return (
-                        <div key={hito.id} className="py-2.5 flex justify-between items-center gap-2 text-xs">
-                          <div className="min-w-0">
-                            <span className="font-bold text-[#1C1C1A] block truncate">{hito.nombre}</span>
-                            <span className="text-[9px] text-[#5F5E5A]">
-                              Plazo: {new Date(hito.fechaObjetivo).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase shrink-0 ${tagColor}`}>
-                            {hito.estatus}
-                          </span>
-                        </div>
-                      );
-                    })}
+                  {/* Leyenda del Semáforo */}
+                  <div className="pt-3 border-t border-[#E3E1D9] flex flex-wrap justify-between items-center gap-1 text-[9px] text-[#5F5E5A] font-semibold bg-[#F7F7F5] -mx-6 -mb-6 p-3 rounded-b-2xl">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#27500A]"></span>
+                      En tiempo
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#D97706]"></span>
+                      Próximo (≤{dashboardData.proyecto.diasAlertaHito || 7}d)
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#C23939]"></span>
+                      Vencido
+                    </span>
                   </div>
                 </div>
               </div>
@@ -2110,8 +2941,12 @@ function Dashboard() {
               <div className="bg-white border border-[#E3E1D9] rounded-2xl shadow-sm overflow-hidden space-y-4 p-6">
                 <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
                   <div>
-                    <h3 className="text-sm font-bold text-[#1C1C1A]">Reporte de Conciliación de Carga de Ingeniería</h3>
-                    <p className="text-xs text-[#5F5E5A]">Comparativa entre presupuesto cotizado, recibido y avance real instalado.</p>
+                    <h3 className="text-sm font-bold text-[#1C1C1A]">
+                      Reporte de Conciliación de Carga de Ingeniería
+                    </h3>
+                    <p className="text-xs text-[#5F5E5A]">
+                      Comparativa entre presupuesto cotizado, recibido y avance real instalado.
+                    </p>
                   </div>
                 </div>
 
@@ -2135,20 +2970,44 @@ function Dashboard() {
                         const isOk = item.discrepancia === 0;
 
                         return (
-                          <tr key={item.materialId} className="hover:bg-[#F7F7F5]/50 transition-colors">
+                          <tr
+                            key={item.materialId}
+                            className="hover:bg-[#F7F7F5]/50 transition-colors"
+                          >
                             <td className="p-3 font-bold text-[#1C1C1A]">{item.codigo}</td>
-                            <td className="p-3 font-medium text-[#1C1C1A] max-w-xs truncate" title={item.descripcion}>
+                            <td
+                              className="p-3 font-medium text-[#1C1C1A] max-w-xs truncate"
+                              title={item.descripcion}
+                            >
                               {item.descripcion}
                             </td>
-                            <td className="p-3 text-center font-semibold text-[#5F5E5A] uppercase">{item.unidad}</td>
-                            <td className="p-3 text-right font-bold text-[#1C1C1A]">{item.cotizado.toLocaleString()}</td>
-                            <td className="p-3 text-right font-semibold text-[#5F5E5A]">{item.declaradoCliente.toLocaleString()}</td>
-                            <td className="p-3 text-right font-bold text-[#0C447C]">{item.recibido.toLocaleString()}</td>
-                            <td className="p-3 text-right font-bold text-[#27500A]">{item.instalado.toLocaleString()}</td>
-                            <td className={`p-3 text-right font-bold ${
-                              isOk ? 'text-gray-500' : isShortage ? 'text-[#C23939]' : 'text-blue-600'
-                            }`}>
-                              {item.discrepancia > 0 ? `+${item.discrepancia.toLocaleString()}` : item.discrepancia.toLocaleString()}
+                            <td className="p-3 text-center font-semibold text-[#5F5E5A] uppercase">
+                              {item.unidad}
+                            </td>
+                            <td className="p-3 text-right font-bold text-[#1C1C1A]">
+                              {item.cotizado.toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right font-semibold text-[#5F5E5A]">
+                              {item.declaradoCliente.toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right font-bold text-[#0C447C]">
+                              {item.recibido.toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right font-bold text-[#27500A]">
+                              {item.instalado.toLocaleString()}
+                            </td>
+                            <td
+                              className={`p-3 text-right font-bold ${
+                                isOk
+                                  ? 'text-gray-500'
+                                  : isShortage
+                                    ? 'text-[#C23939]'
+                                    : 'text-blue-600'
+                              }`}
+                            >
+                              {item.discrepancia > 0
+                                ? `+${item.discrepancia.toLocaleString()}`
+                                : item.discrepancia.toLocaleString()}
                             </td>
                           </tr>
                         );
@@ -2164,8 +3023,12 @@ function Dashboard() {
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="pb-2 border-b border-[#E3E1D9] flex justify-between items-center">
                   <div>
-                    <h3 className="text-sm font-bold text-[#1C1C1A]">Bitácora Histórica de Avances Diarios</h3>
-                    <p className="text-xs text-[#5F5E5A]">Listado de capturas de campo y materiales instalados en obra.</p>
+                    <h3 className="text-sm font-bold text-[#1C1C1A]">
+                      Bitácora Histórica de Avances Diarios
+                    </h3>
+                    <p className="text-xs text-[#5F5E5A]">
+                      Listado de capturas de campo y materiales instalados en obra.
+                    </p>
                   </div>
                   {isAdminOrSupervisor && (
                     <button
@@ -2184,7 +3047,9 @@ function Dashboard() {
                 {/* Filtros de Historial (Tarea 5.4) */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl text-xs print:hidden">
                   <div>
-                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Clasificación</label>
+                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                      Clasificación
+                    </label>
                     <select
                       value={filterTipo}
                       onChange={(e) => setFilterTipo(e.target.value)}
@@ -2196,7 +3061,9 @@ function Dashboard() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Fecha Desde</label>
+                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                      Fecha Desde
+                    </label>
                     <input
                       type="date"
                       value={filterFechaInicio}
@@ -2205,7 +3072,9 @@ function Dashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Fecha Hasta</label>
+                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                      Fecha Hasta
+                    </label>
                     <input
                       type="date"
                       value={filterFechaFin}
@@ -2223,12 +3092,17 @@ function Dashboard() {
                   <div className="text-center py-12 text-[#8B8A84] space-y-2">
                     <Activity className="w-12 h-12 text-gray-400 mx-auto opacity-45" />
                     <p className="text-sm font-semibold">Sin registros de avance encontrados</p>
-                    <p className="text-xs">Ajuste los filtros o registre un avance en la app de campo.</p>
+                    <p className="text-xs">
+                      Ajuste los filtros o registre un avance en la app de campo.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {avancesHistory.map((av) => (
-                      <div key={av.id} className="p-4 border border-[#E3E1D9] rounded-xl bg-white hover:shadow-xs transition-shadow">
+                      <div
+                        key={av.id}
+                        className="p-4 border border-[#E3E1D9] rounded-xl bg-white hover:shadow-xs transition-shadow"
+                      >
                         <div className="flex flex-wrap justify-between items-start gap-4 pb-2 border-b border-[#E3E1D9] text-xs">
                           <div className="space-y-1">
                             <span className="font-bold text-[#1C1C1A] text-sm">{av.frente}</span>
@@ -2237,8 +3111,12 @@ function Dashboard() {
                                 <User className="w-3 h-3 text-[#8B8A84]" /> {av.autor.nombre}
                               </span>
                               <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3 text-[#8B8A84]" /> 
-                                {new Date(av.fecha).toLocaleDateString()} {new Date(av.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                <Calendar className="w-3 h-3 text-[#8B8A84]" />
+                                {new Date(av.fecha).toLocaleDateString()}{' '}
+                                {new Date(av.fecha).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
                               </span>
                             </div>
                           </div>
@@ -2265,18 +3143,29 @@ function Dashboard() {
                         {/* Listado de items de avance */}
                         <div className="pt-2 divide-y divide-[#E3E1D9]/40 text-xs">
                           {av.items.map((item) => (
-                            <div key={item.id} className="py-2 flex justify-between items-center text-xs">
+                            <div
+                              key={item.id}
+                              className="py-2 flex justify-between items-center text-xs"
+                            >
                               <div>
-                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase mr-2 ${
-                                  item.tipo === 'planeado' ? 'bg-[#E6F1FB] text-[#0C447C]' : 'bg-[#FCF4E6] text-[#BA7517]'
-                                }`}>
-                                  {item.tipo === 'planeado' ? 'Planeado' : `No Planeado (${item.subtipo})`}
+                                <span
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase mr-2 ${
+                                    item.tipo === 'planeado'
+                                      ? 'bg-[#E6F1FB] text-[#0C447C]'
+                                      : 'bg-[#FCF4E6] text-[#BA7517]'
+                                  }`}
+                                >
+                                  {item.tipo === 'planeado'
+                                    ? 'Planeado'
+                                    : `No Planeado (${item.subtipo})`}
                                 </span>
                                 <span className="font-bold text-[#1C1C1A]">
                                   {item.tipo === 'planeado' ? item.material?.codigo : 'MANUAL'}
                                 </span>
                                 <span className="text-[#5F5E5A] ml-2">
-                                  {item.tipo === 'planeado' ? item.material?.descripcion : item.materialManual}
+                                  {item.tipo === 'planeado'
+                                    ? item.material?.descripcion
+                                    : item.materialManual}
                                 </span>
                               </div>
                               <span className="font-bold text-[#27500A] bg-[#EAF3DE]/30 px-2 py-0.5 rounded">
@@ -2297,8 +3186,12 @@ function Dashboard() {
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
                   <div>
-                    <h3 className="text-sm font-bold text-[#1C1C1A]">Bitácora de Incidentes de Obra</h3>
-                    <p className="text-xs text-[#5F5E5A]">Reportes de anomalías, retrasos climatológicos o problemas de calidad.</p>
+                    <h3 className="text-sm font-bold text-[#1C1C1A]">
+                      Bitácora de Incidentes de Obra
+                    </h3>
+                    <p className="text-xs text-[#5F5E5A]">
+                      Reportes de anomalías, retrasos climatológicos o problemas de calidad.
+                    </p>
                   </div>
                 </div>
 
@@ -2306,7 +3199,9 @@ function Dashboard() {
                   <div className="text-center py-12 text-[#8B8A84] space-y-2">
                     <CheckCircle className="w-12 h-12 text-[#27500A] mx-auto opacity-40" />
                     <p className="text-sm font-semibold">Sin incidentes reportados</p>
-                    <p className="text-xs">No hay problemas reportados para este proyecto en este momento.</p>
+                    <p className="text-xs">
+                      No hay problemas reportados para este proyecto en este momento.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -2317,21 +3212,33 @@ function Dashboard() {
                         <div
                           key={inc.id}
                           className={`p-4 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all ${
-                            isOpen ? 'bg-red-50/20 border-red-100' : 'bg-gray-50/30 border-[#E3E1D9]'
+                            isOpen
+                              ? 'bg-red-50/20 border-red-100'
+                              : 'bg-gray-50/30 border-[#E3E1D9]'
                           }`}
                         >
                           <div className="space-y-2 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                                inc.categoria === 'Seguridad' ? 'bg-[#FDE8E8] text-[#C23939]' : 'bg-[#FCF4E6] text-[#BA7517]'
-                              }`}>
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                                  inc.categoria === 'Seguridad'
+                                    ? 'bg-[#FDE8E8] text-[#C23939]'
+                                    : 'bg-[#FCF4E6] text-[#BA7517]'
+                                }`}
+                              >
                                 {inc.categoria}
                               </span>
                               <span className="text-[10px] text-[#5F5E5A]">
-                                {new Date(inc.fecha).toLocaleDateString()} {new Date(inc.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(inc.fecha).toLocaleDateString()}{' '}
+                                {new Date(inc.fecha).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
                               </span>
                             </div>
-                            <p className="text-sm font-semibold text-[#1C1C1A]">{inc.descripcion}</p>
+                            <p className="text-sm font-semibold text-[#1C1C1A]">
+                              {inc.descripcion}
+                            </p>
                             {inc.latitud && inc.longitud && (
                               <p className="text-[10px] text-[#8B8A84] font-medium">
                                 GPS: {inc.latitud.toFixed(4)}, {inc.longitud.toFixed(4)}
@@ -2391,8 +3298,12 @@ function Dashboard() {
               <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
                   <div>
-                    <h3 className="text-sm font-bold text-[#1C1C1A]">Registro de Tiempos Muertos y Paros</h3>
-                    <p className="text-xs text-[#5F5E5A]">Catálogo de horas perdidas clasificadas por frente de obra y causa.</p>
+                    <h3 className="text-sm font-bold text-[#1C1C1A]">
+                      Registro de Tiempos Muertos y Paros
+                    </h3>
+                    <p className="text-xs text-[#5F5E5A]">
+                      Catálogo de horas perdidas clasificadas por frente de obra y causa.
+                    </p>
                   </div>
                 </div>
 
@@ -2400,7 +3311,9 @@ function Dashboard() {
                   <div className="text-center py-12 text-[#8B8A84] space-y-2">
                     <Clock className="w-12 h-12 text-[#BA7517] mx-auto opacity-40 animate-pulse" />
                     <p className="text-sm font-semibold">Sin paros reportados</p>
-                    <p className="text-xs">No se han registrado tiempos muertos en este proyecto.</p>
+                    <p className="text-xs">
+                      No se han registrado tiempos muertos en este proyecto.
+                    </p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -2421,7 +3334,9 @@ function Dashboard() {
                             </td>
                             <td className="p-3 font-bold text-[#1C1C1A]">{tm.frente}</td>
                             <td className="p-3 font-medium text-[#5F5E5A]">{tm.causa}</td>
-                            <td className="p-3 text-right font-bold text-[#BA7517]">{tm.duracion.toFixed(1)} hrs</td>
+                            <td className="p-3 text-right font-bold text-[#BA7517]">
+                              {tm.duracion.toFixed(1)} hrs
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -2430,7 +3345,6 @@ function Dashboard() {
                 )}
               </div>
             )}
-
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center py-20 text-[#8B8A84]">
@@ -2442,70 +3356,257 @@ function Dashboard() {
       </main>
 
       {/* ================= MODALES DE EDICIÓN Y CREACIÓN ================= */}
-      
+
       {/* MODAL: PROYECTO (CREAR / EDITAR) */}
       {showProjectModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-[#E3E1D9] rounded-2xl w-full max-w-md overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-[#E3E1D9] flex justify-between items-center bg-[#F7F7F5]">
-              <h3 className="font-bold text-[#1C1C1A] text-sm">
-                {editingProject ? 'Editar Proyecto' : 'Crear Nuevo Proyecto'}
-              </h3>
-              <button onClick={() => setShowProjectModal(false)} className="text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer">
+          <div className="bg-white border border-[#E3E1D9] rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-[#E3E1D9] flex justify-between items-center bg-[#F7F7F5] shrink-0">
+              <div>
+                <h3 className="font-bold text-[#1C1C1A] text-sm">
+                  {editingProject ? 'Editar Ficha de Proyecto' : 'Crear Nuevo Proyecto'}
+                </h3>
+                <p className="text-[11px] text-[#5F5E5A]">
+                  {editingProject
+                    ? 'Actualice los datos generales, líderes, logos y estado de culminación.'
+                    : 'Registre un nuevo proyecto en el sistema.'}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowProjectModal(false)}
+                className="text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleSaveProject} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Nombre del Proyecto</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Torre Sur - Nivel 1"
-                  value={projectForm.nombre}
-                  onChange={(e) => setProjectForm({ ...projectForm, nombre: e.target.value })}
-                  className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Cliente</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Grupo Vega"
-                  value={projectForm.cliente}
-                  onChange={(e) => setProjectForm({ ...projectForm, cliente: e.target.value })}
-                  className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+
+            <form onSubmit={handleSaveProject} className="p-6 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Fecha de Inicio</label>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Nombre del Proyecto *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Torre Sur - Nivel 1"
+                    value={projectForm.nombre}
+                    onChange={(e) => setProjectForm({ ...projectForm, nombre: e.target.value })}
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Empresa Cliente *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Grupo Vega"
+                    value={projectForm.cliente}
+                    onChange={(e) => setProjectForm({ ...projectForm, cliente: e.target.value })}
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Logo del Cliente */}
+              <div className="p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl space-y-2">
+                <label className="block text-xs font-semibold text-[#1C1C1A]">
+                  Logo de la Empresa Cliente
+                </label>
+                <div className="flex items-center gap-3">
+                  {projectForm.logoCliente ? (
+                    <div className="relative h-14 w-20 bg-white border border-[#E3E1D9] rounded-lg p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                      <img
+                        src={projectForm.logoCliente}
+                        alt="Logo Cliente Previo"
+                        className="max-h-full max-w-full object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setProjectForm({ ...projectForm, logoCliente: '' })}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] hover:bg-red-700 cursor-pointer shadow-xs"
+                        title="Quitar logo"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="h-14 w-20 bg-white border border-dashed border-[#C9C7BD] rounded-lg flex flex-col items-center justify-center text-[#8B8A84] text-[9px] shrink-0">
+                      <Building className="w-4 h-4 opacity-40 mb-0.5" />
+                      <span>Sin Logo</span>
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="text"
+                      placeholder="URL de imagen del logo o sube un archivo abajo..."
+                      value={projectForm.logoCliente}
+                      onChange={(e) =>
+                        setProjectForm({ ...projectForm, logoCliente: e.target.value })
+                      }
+                      className="w-full h-8 px-2.5 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                    />
+                    <div>
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-[#E3E1D9] border border-[#C9C7BD] rounded-lg text-xs font-semibold text-[#1C1C1A] cursor-pointer transition-colors shadow-2xs">
+                        <Upload className="w-3.5 h-3.5 text-[#0C447C]" />
+                        <span>
+                          {uploadingLogo ? 'Subiendo logo...' : 'Subir imagen desde equipo'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoFileChange}
+                          disabled={uploadingLogo}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Líderes de Proyecto */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Líder de Proyecto (Cliente)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Ing. Carlos Mendoza"
+                    value={projectForm.liderCliente}
+                    onChange={(e) =>
+                      setProjectForm({ ...projectForm, liderCliente: e.target.value })
+                    }
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Líder de Proyecto (Tecnogam)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Ing. Samuel Hernández"
+                    value={projectForm.liderTecnogam}
+                    onChange={(e) =>
+                      setProjectForm({ ...projectForm, liderTecnogam: e.target.value })
+                    }
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Fechas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Fecha de Inicio *
+                  </label>
                   <input
                     type="date"
                     required
                     value={projectForm.fechaInicio}
-                    onChange={(e) => setProjectForm({ ...projectForm, fechaInicio: e.target.value })}
+                    onChange={(e) =>
+                      setProjectForm({ ...projectForm, fechaInicio: e.target.value })
+                    }
                     className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Fin Estimado</label>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Fin Estimado *
+                  </label>
                   <input
                     type="date"
                     required
                     value={projectForm.fechaFinEstimada}
-                    onChange={(e) => setProjectForm({ ...projectForm, fechaFinEstimada: e.target.value })}
+                    onChange={(e) =>
+                      setProjectForm({ ...projectForm, fechaFinEstimada: e.target.value })
+                    }
                     className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
                   />
                 </div>
               </div>
-              <button
-                type="submit"
-                className="w-full h-10 bg-[#1C1C1A] hover:bg-[#3E3D39] text-white text-xs font-bold rounded-xl cursor-pointer mt-2"
-              >
-                Guardar Proyecto
-              </button>
+
+              {/* Culminación y Alerta */}
+              <div className="p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#1C1C1A] mb-1">
+                      Fecha de Culminación (Real)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={projectForm.fechaCulminacion}
+                        onChange={(e) =>
+                          setProjectForm({ ...projectForm, fechaCulminacion: e.target.value })
+                        }
+                        className="w-full h-9 px-3 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                      />
+                      {projectForm.fechaCulminacion && (
+                        <button
+                          type="button"
+                          onClick={() => setProjectForm({ ...projectForm, fechaCulminacion: '' })}
+                          className="text-[10px] text-red-600 hover:underline shrink-0"
+                          title="Borrar fecha de culminación"
+                        >
+                          Limpiar
+                        </button>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-[#5F5E5A] block mt-1">
+                      {projectForm.fechaCulminacion
+                        ? '✅ Marcado como Culminado'
+                        : 'Dejar vacío si el proyecto está en ejecución.'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#1C1C1A] mb-1">
+                      Alerta preventiva de Hitos (Días)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={90}
+                      required
+                      value={projectForm.diasAlertaHito}
+                      onChange={(e) =>
+                        setProjectForm({
+                          ...projectForm,
+                          diasAlertaHito: parseInt(e.target.value) || 7,
+                        })
+                      }
+                      className="w-full h-9 px-3 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                    />
+                    <span className="text-[10px] text-[#5F5E5A] block mt-1">
+                      Días antes del vencimiento para encender semáforo naranja.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-3 border-t border-[#E3E1D9]">
+                <button
+                  type="button"
+                  onClick={() => setShowProjectModal(false)}
+                  className="h-10 px-4 bg-[#F7F7F5] hover:bg-[#E3E1D9] text-[#5F5E5A] hover:text-[#1C1C1A] text-xs font-semibold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploadingLogo}
+                  className="h-10 px-6 bg-[#1C1C1A] hover:bg-[#3E3D39] text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  {editingProject ? 'Actualizar Proyecto' : 'Guardar Proyecto'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -2519,13 +3620,18 @@ function Dashboard() {
               <h3 className="font-bold text-[#1C1C1A] text-sm">
                 {editingUser ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
               </h3>
-              <button onClick={() => setShowUserModal(false)} className="text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer">
+              <button
+                onClick={() => setShowUserModal(false)}
+                className="text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleSaveUser} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Nombre Completo</label>
+                <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                  Nombre Completo
+                </label>
                 <input
                   type="text"
                   required
@@ -2536,7 +3642,9 @@ function Dashboard() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Correo Electrónico</label>
+                <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                  Correo Electrónico
+                </label>
                 <input
                   type="email"
                   required
@@ -2548,7 +3656,12 @@ function Dashboard() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
-                  Contraseña {editingUser && <span className="text-[9px] text-[#8B8A84] font-normal">(Dejar en blanco para no cambiar)</span>}
+                  Contraseña{' '}
+                  {editingUser && (
+                    <span className="text-[9px] text-[#8B8A84] font-normal">
+                      (Dejar en blanco para no cambiar)
+                    </span>
+                  )}
                 </label>
                 <input
                   type="password"
@@ -2561,7 +3674,9 @@ function Dashboard() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Perfil / Rol</label>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Perfil / Rol
+                  </label>
                   <select
                     value={userForm.rol}
                     onChange={(e) => setUserForm({ ...userForm, rol: e.target.value })}
@@ -2574,10 +3689,14 @@ function Dashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Estado de Acceso</label>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Estado de Acceso
+                  </label>
                   <select
                     value={userForm.activo ? 'true' : 'false'}
-                    onChange={(e) => setUserForm({ ...userForm, activo: e.target.value === 'true' })}
+                    onChange={(e) =>
+                      setUserForm({ ...userForm, activo: e.target.value === 'true' })
+                    }
                     className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs cursor-pointer"
                   >
                     <option value="true">Activo / Permitido</option>
@@ -2602,8 +3721,12 @@ function Dashboard() {
           <div className="bg-white border border-[#E3E1D9] rounded-2xl w-full max-w-2xl overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200 my-8">
             <div className="p-6 border-b border-[#E3E1D9] flex justify-between items-center bg-[#F7F7F5]">
               <div>
-                <h3 className="font-bold text-[#1C1C1A] text-sm">Registrar Reporte de Avance Diario</h3>
-                <p className="text-[10px] text-[#5F5E5A]">Registrar avance planeado y no planeado simultáneamente para el proyecto.</p>
+                <h3 className="font-bold text-[#1C1C1A] text-sm">
+                  Registrar Reporte de Avance Diario
+                </h3>
+                <p className="text-[10px] text-[#5F5E5A]">
+                  Registrar avance planeado y no planeado simultáneamente para el proyecto.
+                </p>
               </div>
               <button
                 onClick={() => {
@@ -2616,12 +3739,14 @@ function Dashboard() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <form onSubmit={handleSaveAvance} className="p-6 space-y-5">
               {/* Encabezado */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Frente de Trabajo *</label>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Frente de Trabajo *
+                  </label>
                   <input
                     type="text"
                     required
@@ -2632,7 +3757,9 @@ function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Fecha de Captura *</label>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Fecha de Captura *
+                  </label>
                   <input
                     type="date"
                     required
@@ -2646,7 +3773,9 @@ function Dashboard() {
               {/* GPS y Foto */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Latitud (GPS opcional)</label>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Latitud (GPS opcional)
+                  </label>
                   <input
                     type="number"
                     step="any"
@@ -2657,7 +3786,9 @@ function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Longitud (GPS opcional)</label>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Longitud (GPS opcional)
+                  </label>
                   <input
                     type="number"
                     step="any"
@@ -2668,7 +3799,9 @@ function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">Evidencia Fotográfica</label>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Evidencia Fotográfica
+                  </label>
                   <input
                     type="file"
                     accept="image/*"
@@ -2696,11 +3829,15 @@ function Dashboard() {
                     <CheckCircle className="w-3.5 h-3.5" />
                     Apartado A: Avance Planeado
                   </h4>
-                  <p className="text-[10px] text-[#5F5E5A]">Seleccione un material de catálogo e indique cantidad.</p>
-                  
+                  <p className="text-[10px] text-[#5F5E5A]">
+                    Seleccione un material de catálogo e indique cantidad.
+                  </p>
+
                   <div className="space-y-2">
                     <div>
-                      <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Material de Catálogo</label>
+                      <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                        Material de Catálogo
+                      </label>
                       <div className="relative">
                         <input
                           type="text"
@@ -2718,90 +3855,130 @@ function Dashboard() {
                         {showAvanceDropdown && (
                           <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-[#E3E1D9] rounded-xl shadow-lg z-50 divide-y divide-[#E3E1D9]">
                             {/* 1. Materiales de Proyecto (BOM) */}
-                            {(dashboardData?.reconciliation || [])
-                              .filter(m => 
-                                m.codigo.toLowerCase().includes(avanceSearchQuery.toLowerCase()) || 
-                                m.descripcion.toLowerCase().includes(avanceSearchQuery.toLowerCase())
-                              ).length > 0 && (
-                                <div>
-                                  <div className="bg-[#F7F7F5] px-3 py-1.5 text-[9px] font-bold text-[#0C447C] uppercase tracking-wider">
-                                    Materiales del Proyecto (BOM)
-                                  </div>
-                                  {(dashboardData?.reconciliation || [])
-                                    .filter(m => 
-                                      m.codigo.toLowerCase().includes(avanceSearchQuery.toLowerCase()) || 
-                                      m.descripcion.toLowerCase().includes(avanceSearchQuery.toLowerCase())
-                                    )
-                                    .map(m => (
-                                      <button
-                                        key={m.materialId}
-                                        type="button"
-                                        onMouseDown={() => {
-                                          setCurrentPlaneadoItem({ ...currentPlaneadoItem, materialId: m.materialId });
-                                          setAvanceSearchQuery(`${m.codigo} - ${m.descripcion}`);
-                                          setShowAvanceDropdown(false);
-                                        }}
-                                        className="w-full text-left p-2.5 hover:bg-[#F7F7F5] transition-colors text-xs flex flex-col cursor-pointer"
-                                      >
-                                        <span className="font-bold text-[#1C1C1A]">{m.codigo}</span>
-                                        <span className="text-[#5F5E5A] truncate">{m.descripcion} ({m.unidad})</span>
-                                      </button>
-                                    ))
-                                  }
+                            {(dashboardData?.reconciliation || []).filter((m) =>
+                              matchesAllWords(
+                                `${m.codigo} ${m.descripcion} ${m.unidad || ''}`,
+                                avanceSearchQuery,
+                              ),
+                            ).length > 0 && (
+                              <div>
+                                <div className="bg-[#F7F7F5] px-3 py-1.5 text-[9px] font-bold text-[#0C447C] uppercase tracking-wider">
+                                  Materiales del Proyecto (BOM)
                                 </div>
-                              )
-                            }
-
-                            {/* 2. Otros Materiales del Catálogo Maestro */}
-                            {generalMaterials
-                              .filter(g => !(dashboardData?.reconciliation || []).some(p => p.materialId === g.id))
-                              .length > 0 && (
-                                <div>
-                                  <div className="bg-[#F7F7F5] px-3 py-1.5 text-[9px] font-bold text-[#BA7517] uppercase tracking-wider">
-                                    Otros Materiales del Catálogo Maestro
-                                  </div>
-                                  {generalMaterials
-                                    .filter(g => !(dashboardData?.reconciliation || []).some(p => p.materialId === g.id))
-                                    .map(m => (
-                                      <button
-                                        key={m.id}
-                                        type="button"
-                                        onMouseDown={() => {
-                                          setCurrentPlaneadoItem({ ...currentPlaneadoItem, materialId: m.id });
-                                          setAvanceSearchQuery(`${m.codigo} - ${m.descripcion}`);
-                                          setShowAvanceDropdown(false);
-                                        }}
-                                        className="w-full text-left p-2.5 hover:bg-[#F7F7F5] transition-colors text-xs flex flex-col cursor-pointer"
-                                      >
-                                        <span className="font-bold text-[#1C1C1A]">{m.codigo}</span>
-                                        <span className="text-[#5F5E5A] truncate">{m.descripcion} ({m.unidad})</span>
-                                      </button>
-                                    ))
-                                  }
-                                </div>
-                              )
-                            }
-
-                            {/* Si está vacío */}
-                            {generalMaterials.length === 0 && (dashboardData?.reconciliation || []).length === 0 && (
-                              <div className="p-3 text-xs text-[#8B8A84] text-center bg-[#F7F7F5]">
-                                No se encontraron materiales. Escribe algo para buscar.
+                                {(dashboardData?.reconciliation || [])
+                                  .filter((m) =>
+                                    matchesAllWords(
+                                      `${m.codigo} ${m.descripcion} ${m.unidad || ''}`,
+                                      avanceSearchQuery,
+                                    ),
+                                  )
+                                  .map((m) => (
+                                    <button
+                                      key={m.materialId}
+                                      type="button"
+                                      onMouseDown={() => {
+                                        setCurrentPlaneadoItem({
+                                          ...currentPlaneadoItem,
+                                          materialId: m.materialId,
+                                        });
+                                        setAvanceSearchQuery(`${m.codigo} - ${m.descripcion}`);
+                                        setShowAvanceDropdown(false);
+                                      }}
+                                      className="w-full text-left p-2.5 hover:bg-[#F7F7F5] transition-colors text-xs flex flex-col cursor-pointer"
+                                    >
+                                      <span className="font-bold text-[#1C1C1A]">{m.codigo}</span>
+                                      <span className="text-[#5F5E5A] truncate">
+                                        {m.descripcion} ({m.unidad})
+                                      </span>
+                                    </button>
+                                  ))}
                               </div>
                             )}
+
+                            {/* 2. Otros Materiales del Catálogo Maestro */}
+                            {generalMaterials.filter(
+                              (g) =>
+                                !(dashboardData?.reconciliation || []).some(
+                                  (p) => p.materialId === g.id,
+                                ) &&
+                                matchesAllWords(
+                                  `${g.codigo} ${g.descripcion} ${g.categoria || ''} ${g.unidad || ''}`,
+                                  avanceSearchQuery,
+                                ),
+                            ).length > 0 && (
+                              <div>
+                                <div className="bg-[#F7F7F5] px-3 py-1.5 text-[9px] font-bold text-[#BA7517] uppercase tracking-wider">
+                                  Otros Materiales del Catálogo Maestro
+                                </div>
+                                {generalMaterials
+                                  .filter(
+                                    (g) =>
+                                      !(dashboardData?.reconciliation || []).some(
+                                        (p) => p.materialId === g.id,
+                                      ) &&
+                                      matchesAllWords(
+                                        `${g.codigo} ${g.descripcion} ${g.categoria || ''} ${g.unidad || ''}`,
+                                        avanceSearchQuery,
+                                      ),
+                                  )
+                                  .map((m) => (
+                                    <button
+                                      key={m.id}
+                                      type="button"
+                                      onMouseDown={() => {
+                                        setCurrentPlaneadoItem({
+                                          ...currentPlaneadoItem,
+                                          materialId: m.id,
+                                        });
+                                        setAvanceSearchQuery(`${m.codigo} - ${m.descripcion}`);
+                                        setShowAvanceDropdown(false);
+                                      }}
+                                      className="w-full text-left p-2.5 hover:bg-[#F7F7F5] transition-colors text-xs flex flex-col cursor-pointer"
+                                    >
+                                      <span className="font-bold text-[#1C1C1A]">{m.codigo}</span>
+                                      <span className="text-[#5F5E5A] truncate">
+                                        {m.descripcion} ({m.unidad})
+                                      </span>
+                                    </button>
+                                  ))}
+                              </div>
+                            )}
+
+                            {/* Si está vacío */}
+                            {generalMaterials.filter((g) =>
+                              matchesAllWords(
+                                `${g.codigo} ${g.descripcion} ${g.categoria || ''}`,
+                                avanceSearchQuery,
+                              ),
+                            ).length === 0 &&
+                              (dashboardData?.reconciliation || []).filter((m) =>
+                                matchesAllWords(`${m.codigo} ${m.descripcion}`, avanceSearchQuery),
+                              ).length === 0 && (
+                                <div className="p-3 text-xs text-[#8B8A84] text-center bg-[#F7F7F5]">
+                                  No se encontraron materiales que coincidan con la búsqueda.
+                                </div>
+                              )}
                           </div>
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-2">
                       <div className="flex-1">
-                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Cantidad</label>
+                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                          Cantidad
+                        </label>
                         <input
                           type="number"
                           step="any"
                           placeholder="Ej. 10"
                           value={currentPlaneadoItem.cantidad}
-                          onChange={(e) => setCurrentPlaneadoItem({ ...currentPlaneadoItem, cantidad: e.target.value })}
+                          onChange={(e) =>
+                            setCurrentPlaneadoItem({
+                              ...currentPlaneadoItem,
+                              cantidad: e.target.value,
+                            })
+                          }
                           className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs"
                         />
                       </div>
@@ -2822,15 +3999,24 @@ function Dashboard() {
                     <AlertCircle className="w-3.5 h-3.5" />
                     Apartado B: Avance No Planeado
                   </h4>
-                  <p className="text-[10px] text-[#5F5E5A]">Para retrabajos, extras o modificaciones con descripción libre.</p>
-                  
+                  <p className="text-[10px] text-[#5F5E5A]">
+                    Para retrabajos, extras o modificaciones con descripción libre.
+                  </p>
+
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Subtipo</label>
+                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                          Subtipo
+                        </label>
                         <select
                           value={currentNoPlaneadoItem.subtipo}
-                          onChange={(e) => setCurrentNoPlaneadoItem({ ...currentNoPlaneadoItem, subtipo: e.target.value as any })}
+                          onChange={(e) =>
+                            setCurrentNoPlaneadoItem({
+                              ...currentNoPlaneadoItem,
+                              subtipo: e.target.value as any,
+                            })
+                          }
                           className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs"
                         >
                           <option value="retrabajo">Retrabajo</option>
@@ -2839,26 +4025,40 @@ function Dashboard() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Cantidad</label>
+                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                          Cantidad
+                        </label>
                         <input
                           type="number"
                           step="any"
                           placeholder="Ej. 5"
                           value={currentNoPlaneadoItem.cantidad}
-                          onChange={(e) => setCurrentNoPlaneadoItem({ ...currentNoPlaneadoItem, cantidad: e.target.value })}
+                          onChange={(e) =>
+                            setCurrentNoPlaneadoItem({
+                              ...currentNoPlaneadoItem,
+                              cantidad: e.target.value,
+                            })
+                          }
                           className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">Descripción del Material (Texto Libre)</label>
+                      <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                        Descripción del Material (Texto Libre)
+                      </label>
                       <div className="flex gap-2">
                         <input
                           type="text"
                           placeholder="Ej. Soporte metálico a medida de 4 pulgadas"
                           value={currentNoPlaneadoItem.materialManual}
-                          onChange={(e) => setCurrentNoPlaneadoItem({ ...currentNoPlaneadoItem, materialManual: e.target.value })}
+                          onChange={(e) =>
+                            setCurrentNoPlaneadoItem({
+                              ...currentNoPlaneadoItem,
+                              materialManual: e.target.value,
+                            })
+                          }
                           className="w-full h-9 px-2 bg-white border border-[#C9C7BD] rounded-lg text-xs"
                         />
                         <button
@@ -2876,10 +4076,13 @@ function Dashboard() {
 
               {/* Listado de Items Agregados */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#1C1C1A]">Detalle de Avances a Reportar ({avanceItemsList.length})</label>
+                <label className="block text-xs font-bold text-[#1C1C1A]">
+                  Detalle de Avances a Reportar ({avanceItemsList.length})
+                </label>
                 {avanceItemsList.length === 0 ? (
                   <div className="text-center py-6 border border-dashed border-[#C9C7BD] rounded-xl text-xs text-[#8B8A84] bg-[#F7F7F5]">
-                    No se han agregado materiales al reporte. Use los controles de arriba para añadir items planeados o no planeados.
+                    No se han agregado materiales al reporte. Use los controles de arriba para
+                    añadir items planeados o no planeados.
                   </div>
                 ) : (
                   <div className="border border-[#E3E1D9] rounded-xl overflow-hidden max-h-48 overflow-y-auto">
@@ -2896,14 +4099,20 @@ function Dashboard() {
                         {avanceItemsList.map((it, idx) => (
                           <tr key={idx} className="hover:bg-[#F7F7F5]/40 transition-colors">
                             <td className="p-2.5">
-                              <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
-                                it.tipo === 'planeado' ? 'bg-[#E6F1FB] text-[#0C447C]' : 'bg-[#FCF4E6] text-[#BA7517]'
-                              }`}>
+                              <span
+                                className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
+                                  it.tipo === 'planeado'
+                                    ? 'bg-[#E6F1FB] text-[#0C447C]'
+                                    : 'bg-[#FCF4E6] text-[#BA7517]'
+                                }`}
+                              >
                                 {it.tipo === 'planeado' ? 'Planeado' : `No Plan. (${it.subtipo})`}
                               </span>
                             </td>
                             <td className="p-2.5">
-                              <span className="font-bold text-[#1C1C1A] mr-2">{it.materialCodigo}</span>
+                              <span className="font-bold text-[#1C1C1A] mr-2">
+                                {it.materialCodigo}
+                              </span>
                               <span className="text-[#5F5E5A]">{it.materialDescripcion}</span>
                             </td>
                             <td className="p-2.5 text-right font-bold text-[#27500A]">
@@ -2912,7 +4121,9 @@ function Dashboard() {
                             <td className="p-2.5 text-center">
                               <button
                                 type="button"
-                                onClick={() => setAvanceItemsList(avanceItemsList.filter((_, i) => i !== idx))}
+                                onClick={() =>
+                                  setAvanceItemsList(avanceItemsList.filter((_, i) => i !== idx))
+                                }
                                 className="text-red-600 hover:text-red-800 p-1 cursor-pointer"
                               >
                                 <Trash2 className="w-4 h-4 mx-auto" />
@@ -2943,7 +4154,9 @@ function Dashboard() {
                   type="submit"
                   disabled={avanceItemsList.length === 0}
                   className={`h-10 px-6 text-white text-xs font-bold rounded-xl cursor-pointer ${
-                    avanceItemsList.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#1C1C1A] hover:bg-[#3E3D39]'
+                    avanceItemsList.length === 0
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-[#1C1C1A] hover:bg-[#3E3D39]'
                   }`}
                 >
                   Guardar Reporte de Avance
@@ -2953,7 +4166,6 @@ function Dashboard() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

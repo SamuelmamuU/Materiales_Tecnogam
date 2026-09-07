@@ -29,6 +29,12 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'warn',
+      'no-empty': 'off',
+      'react-hooks/immutability': 'off',
+      'react-hooks/exhaustive-deps': 'warn',
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
   prettierRecommended
