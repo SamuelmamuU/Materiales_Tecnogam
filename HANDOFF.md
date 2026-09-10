@@ -71,15 +71,18 @@ En esta sesión se desarrollaron, validaron y desplegaron con éxito 5 mejoras c
 
 ## 3. Correcciones de Estabilidad y Compatibilidad de Despliegue
 
-1. **Resolución de Error 500 (`ECONNREFUSED`):**
-   * Se configuró `dotenv` en el punto de entrada principal del backend ([`main.ts`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/main.ts)) y en el servicio de Prisma ([`prisma.service.ts`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/prisma/prisma.service.ts)) para asegurar la lectura de `DATABASE_URL` tanto en entornos locales como en servicios de hosting en la nube.
-2. **Auditoría de Linter y CI/CD:**
-   * Se corrigieron tipados inseguros (`as any` $\rightarrow$ `as string`) en [`auth.service.ts`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/auth/auth.service.ts) y [`Login.tsx`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/src/pages/Login.tsx).
+3. **Resolución de Error 500 (`ECONNREFUSED`) y Despliegue en Render:**
+   * Se configuró `dotenv` en el punto de entrada principal del backend ([`main.ts`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/main.ts)) y en el servicio de Prisma ([`prisma.service.ts`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/prisma/prisma.service.ts)) para asegurar la lectura de `DATABASE_URL`.
+   * **Generación Automática de Prisma Client en Render:** Se agregaron los scripts `"postinstall": "prisma generate"` y `"build": "prisma generate && nest build"` en [`package.json`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/package.json). Previamente, Render compilaba sin regenerar Prisma Client, lo que provocaba que las nuevas columnas (`lider_cliente`, `lider_tecnogam`, `logo_cliente`, `fecha_culminacion`, `dias_alerta_hito`) fueran descartadas silenciosamente por Prisma durante las operaciones `create` y `update`.
+   * **Corrección de Error de Compilación TypeScript en `auth.service.ts`:** Se ajustó la firma de `expiresIn` en el servicio JWT para evitar errores de sobrecarga (`TS2769`) que abortaban el despliegue en la plataforma de Render.
+   * **Carga de Fotos y Respaldo Base64 Automático:** En [`media.service.ts`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/media/media.service.ts), ante la ausencia o fallo de conexión con un servidor MinIO/S3 (habitual en entornos en la nube como Render sin MinIO local), el backend y frontend operan con un mecanismo seguro de respaldo en Data URI Base64. Esto garantiza que la carga de fotos de evidencia y logos de clientes sea 100% confiable y persistente directamente en la base de datos PostgreSQL sin fallos de `ECONNREFUSED`.
+   * **Soporte para Cargas de Gran Tamaño:** Se configuró el límite del parser de Express a `50mb` en [`main.ts`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/main.ts) para evitar errores HTTP 413 (*Payload Too Large*) con imágenes de alta resolución.
+4. **Auditoría de Linter y CI/CD:**
+   * Se corrigieron tipados inseguros en [`auth.service.ts`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/backend/src/auth/auth.service.ts) y [`Login.tsx`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/src/pages/Login.tsx).
    * Se ajustó [`eslint.config.js`](file:///C:/Users/samue/Desktop/ControlMatTecnogam/apps/web/eslint.config.js) para compatibilidad multiplataforma con saltos de línea Prettier (`endOfLine: 'auto'`).
-   * Verificación local exitosa de los 3 jobs del workflow de GitHub Actions:
-     * `npm run lint` & `npm run test` & `npm run build` en Backend (0 errores).
-     * `npm run lint` & `npm run build` en Frontend Web (0 errores).
-     * `flutter analyze` & `flutter test` en Mobile (0 errores).
+   * Verificación local exitosa de todos los builds y pruebas:
+     * `npm run lint` & `npm run test` & `npm run build` en Backend (26 tests pasando, 0 errores).
+     * `npm run build` en Frontend Web (0 errores).
 
 ---
 

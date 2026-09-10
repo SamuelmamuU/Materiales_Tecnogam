@@ -32,14 +32,14 @@ class CreateProjectDto {
   @ApiProperty({ example: 'Grupo Vega' })
   cliente!: string;
 
-  @ApiProperty({ example: 'https://...', required: false })
-  logoCliente?: string;
+  @ApiProperty({ example: 'https://...', required: false, nullable: true })
+  logoCliente?: string | null;
 
-  @ApiProperty({ example: 'Ing. Carlos Mendez', required: false })
-  liderCliente?: string;
+  @ApiProperty({ example: 'Ing. Carlos Mendez', required: false, nullable: true })
+  liderCliente?: string | null;
 
-  @ApiProperty({ example: 'Ing. Roberto Sanchez', required: false })
-  liderTecnogam?: string;
+  @ApiProperty({ example: 'Ing. Roberto Sanchez', required: false, nullable: true })
+  liderTecnogam?: string | null;
 
   @ApiProperty({ example: '2026-09-01T00:00:00Z' })
   fechaInicio!: string;
@@ -47,8 +47,8 @@ class CreateProjectDto {
   @ApiProperty({ example: '2027-03-01T00:00:00Z' })
   fechaFinEstimada!: string;
 
-  @ApiProperty({ example: '2027-02-28T00:00:00Z', required: false })
-  fechaCulminacion?: string;
+  @ApiProperty({ example: '2027-02-28T00:00:00Z', required: false, nullable: true })
+  fechaCulminacion?: string | null;
 
   @ApiProperty({ example: 7, required: false, default: 7 })
   diasAlertaHito?: number;
@@ -61,14 +61,14 @@ class UpdateProjectDto {
   @ApiProperty({ example: 'Grupo Vega Inc.', required: false })
   cliente?: string;
 
-  @ApiProperty({ example: 'https://...', required: false })
-  logoCliente?: string;
+  @ApiProperty({ example: 'https://...', required: false, nullable: true })
+  logoCliente?: string | null;
 
-  @ApiProperty({ example: 'Ing. Carlos Mendez', required: false })
-  liderCliente?: string;
+  @ApiProperty({ example: 'Ing. Carlos Mendez', required: false, nullable: true })
+  liderCliente?: string | null;
 
-  @ApiProperty({ example: 'Ing. Roberto Sanchez', required: false })
-  liderTecnogam?: string;
+  @ApiProperty({ example: 'Ing. Roberto Sanchez', required: false, nullable: true })
+  liderTecnogam?: string | null;
 
   @ApiProperty({ example: '2026-09-01T00:00:00Z', required: false })
   fechaInicio?: string;
@@ -76,8 +76,8 @@ class UpdateProjectDto {
   @ApiProperty({ example: '2027-04-01T00:00:00Z', required: false })
   fechaFinEstimada?: string;
 
-  @ApiProperty({ example: '2027-02-28T00:00:00Z', required: false })
-  fechaCulminacion?: string;
+  @ApiProperty({ example: '2027-02-28T00:00:00Z', required: false, nullable: true })
+  fechaCulminacion?: string | null;
 
   @ApiProperty({ example: 7, required: false })
   diasAlertaHito?: number;

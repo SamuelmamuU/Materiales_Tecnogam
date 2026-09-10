@@ -571,23 +571,55 @@ function Dashboard() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al subir la imagen.');
+        let msg = 'Error al subir la imagen.';
+        try {
+          const errData = await response.json();
+          msg = errData.message || msg;
+        } catch {}
+        throw new Error(msg);
       }
 
       const data = await response.json();
       return data.url;
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('No se pudo subir la imagen.');
-      return null;
+      // Fallback a Base64 en cliente si la red o servicio falla
+      try {
+        const reader = new FileReader();
+        return await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      } catch {
+        alert('No se pudo subir la imagen: ' + (err.message || 'Error'));
+        return null;
+      }
     }
   };
 
   const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('El logo seleccionado no debe superar los 2 MB.');
+      e.target.value = '';
+      return;
+    }
+
     setUploadingLogo(true);
     try {
+      // Lectura inmediata en Data URI para previsualización instantánea
+      const reader = new FileReader();
+      const base64Url = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      setProjectForm((prev) => ({ ...prev, logoCliente: base64Url }));
+    } catch (err) {
+      console.error('Error al procesar logo:', err);
       const url = await handleUploadImage(file);
       if (url) {
         setProjectForm((prev) => ({ ...prev, logoCliente: url }));
@@ -605,28 +637,45 @@ function Dashboard() {
       const isEdit = !!editingProject;
       const url = isEdit ? `${API_URL}/projects/${editingProject.id}` : API_URL + '/projects';
 
+      const parseDateToIso = (val?: string | null) => {
+        if (!val) return null;
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? null : d.toISOString();
+      };
+
+      const payload = {
+        nombre: projectForm.nombre.trim(),
+        cliente: projectForm.cliente.trim(),
+        logoCliente: projectForm.logoCliente?.trim() || null,
+        liderCliente: projectForm.liderCliente?.trim() || null,
+        liderTecnogam: projectForm.liderTecnogam?.trim() || null,
+        fechaInicio: parseDateToIso(projectForm.fechaInicio) || new Date().toISOString(),
+        fechaFinEstimada: parseDateToIso(projectForm.fechaFinEstimada) || new Date().toISOString(),
+        fechaCulminacion: parseDateToIso(projectForm.fechaCulminacion),
+        diasAlertaHito: Number(projectForm.diasAlertaHito) || 7,
+      };
+
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          nombre: projectForm.nombre,
-          cliente: projectForm.cliente,
-          logoCliente: projectForm.logoCliente || null,
-          liderCliente: projectForm.liderCliente || null,
-          liderTecnogam: projectForm.liderTecnogam || null,
-          fechaInicio: new Date(projectForm.fechaInicio).toISOString(),
-          fechaFinEstimada: new Date(projectForm.fechaFinEstimada).toISOString(),
-          fechaCulminacion: projectForm.fechaCulminacion
-            ? new Date(projectForm.fechaCulminacion).toISOString()
-            : null,
-          diasAlertaHito: Number(projectForm.diasAlertaHito) || 7,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error('No se pudo guardar el proyecto.');
+      if (!response.ok) {
+        let errMsg = 'No se pudo guardar el proyecto.';
+        try {
+          const errData = await response.json();
+          errMsg = Array.isArray(errData.message)
+            ? errData.message.join(', ')
+            : errData.message || errMsg;
+        } catch {}
+        throw new Error(errMsg);
+      }
+
+      const updatedOrCreated = await response.json();
 
       setShowProjectModal(false);
       setEditingProject(null);
@@ -641,13 +690,18 @@ function Dashboard() {
         fechaCulminacion: '',
         diasAlertaHito: 7,
       });
+
       await fetchProjects();
-      if (selectedProjectId) {
-        await fetchDashboardData(selectedProjectId);
+
+      const targetId = isEdit ? editingProject.id : updatedOrCreated?.id;
+      if (targetId && (selectedProjectId === targetId || !selectedProjectId)) {
+        setSelectedProjectId(targetId);
+        await fetchDashboardData(targetId);
       }
-      if (selectedAdminProject) {
-        await fetchProjectDetailForAdmin(selectedAdminProject.id);
+      if (selectedAdminProject && selectedAdminProject.id === targetId) {
+        await fetchProjectDetailForAdmin(targetId);
       }
+
       alert(isEdit ? 'Proyecto actualizado con éxito.' : 'Proyecto creado con éxito.');
     } catch (err: any) {
       alert(err.message);
@@ -808,15 +862,30 @@ function Dashboard() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al subir la imagen.');
+        let msg = 'Error al subir la imagen de evidencia.';
+        try {
+          const errData = await response.json();
+          msg = errData.message || msg;
+        } catch {}
+        throw new Error(msg);
       }
 
       const data = await response.json();
       return data.url;
-    } catch (err) {
-      console.error(err);
-      alert('No se pudo cargar la imagen de evidencia.');
-      return null;
+    } catch (err: any) {
+      console.error('Error al subir evidencia vía API:', err);
+      // Fallback seguro a Base64 en cliente
+      try {
+        const reader = new FileReader();
+        return await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      } catch {
+        alert('No se pudo cargar la imagen de evidencia: ' + (err.message || 'Error'));
+        return null;
+      }
     }
   };
 

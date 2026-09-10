@@ -78,8 +78,8 @@ export class MediaService implements OnModuleInit {
         );
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        this.logger.error(
-          `Error al inicializar el bucket de MinIO: ${errorMessage}`,
+        this.logger.warn(
+          `MinIO no disponible en inicio (${errorMessage}). El servicio utilizará Data URI Base64 como respaldo.`,
         );
       }
     }
@@ -113,7 +113,7 @@ export class MediaService implements OnModuleInit {
         }),
       );
 
-      // Endpoint público para descarga directa
+      // Endpoint público para descarga directa si MinIO está configurado
       const endpoint = process.env.MINIO_ENDPOINT || 'http://localhost:9000';
       const url = `${endpoint}/${this.bucketName}/${key}`;
 
@@ -121,10 +121,14 @@ export class MediaService implements OnModuleInit {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(`Error al subir archivo a MinIO: ${errorMessage}`);
-      throw new BadRequestException(
-        `No se pudo cargar la imagen: ${errorMessage}`,
+      this.logger.warn(
+        `MinIO no disponible o error de conexión (${errorMessage}). Guardando como Data URI Base64 seguro.`,
       );
+      // Fallback: Retorna un Data URI en Base64.
+      // Es 100% compatible con navegadores, apps móviles y la base de datos PostgreSQL.
+      const base64 = file.buffer.toString('base64');
+      const url = `data:${file.mimetype};base64,${base64}`;
+      return { url, key };
     }
   }
 }
