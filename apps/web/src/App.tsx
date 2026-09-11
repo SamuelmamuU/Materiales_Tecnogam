@@ -95,7 +95,8 @@ interface ReconciliationItem {
   recibido: number;
   declaradoCliente: number;
   instalado: number;
-  discrepancia: number;
+  discrepancia?: number;
+  faltante?: number;
 }
 
 interface Incidente {
@@ -3030,13 +3031,16 @@ function Dashboard() {
                         <th className="p-3 font-semibold text-right">Declarado Cliente</th>
                         <th className="p-3 font-semibold text-right">Real Recibido</th>
                         <th className="p-3 font-semibold text-right">Instalado Campo</th>
-                        <th className="p-3 font-semibold text-right">Discrepancia +/-</th>
+                        <th className="p-3 font-semibold text-right">Faltante</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#E3E1D9]">
                       {dashboardData.reconciliation.map((item) => {
-                        const isShortage = item.discrepancia < 0;
-                        const isOk = item.discrepancia === 0;
+                        const faltante =
+                          typeof item.faltante === 'number'
+                            ? Math.abs(item.faltante)
+                            : Math.max(0, item.cotizado - item.instalado);
+                        const hasFaltante = faltante > 0;
 
                         return (
                           <tr
@@ -3067,16 +3071,10 @@ function Dashboard() {
                             </td>
                             <td
                               className={`p-3 text-right font-bold ${
-                                isOk
-                                  ? 'text-gray-500'
-                                  : isShortage
-                                    ? 'text-[#C23939]'
-                                    : 'text-blue-600'
+                                hasFaltante ? 'text-[#C23939]' : 'text-[#27500A]'
                               }`}
                             >
-                              {item.discrepancia > 0
-                                ? `+${item.discrepancia.toLocaleString()}`
-                                : item.discrepancia.toLocaleString()}
+                              {faltante.toLocaleString()}
                             </td>
                           </tr>
                         );

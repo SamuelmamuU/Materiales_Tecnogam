@@ -67,6 +67,11 @@ En esta sesión se desarrollaron, validaron y desplegaron con éxito 5 mejoras c
   * Encabezado de la barra lateral de navegación (Sidebar).
   * Encabezado de los reportes impresos a PDF.
 
+### 2.6 Tabla de Conciliación: Columna "Faltante" en Números Positivos
+* **Reemplazo de Discrepancia por Faltante:** En la tabla del *Reporte de Conciliación de Carga de Ingeniería*, se sustituyó la columna *"Discrepancia +/-"* por *"Faltante"*.
+* **Formato Siempre Positivo:** Se calcula la cantidad de material pendiente por instalar como valor absoluto/positivo (`Math.max(0, cotizado - instalado)`). Si el material no tiene faltante pendiente, se visualiza en `0` (verde/neutro); si existen piezas pendientes, se resalta en rojo con el número positivo exacto faltante, eliminando los signos negativos que generaban confusión.
+* **Soporte en Backend y Frontend:** El endpoint `GET /projects/:projectId/dashboard` calcula y retorna el campo `faltante`, manteniendo `discrepancia` para retrocompatibilidad total.
+
 ---
 
 ## 3. Correcciones de Estabilidad y Compatibilidad de Despliegue

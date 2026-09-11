@@ -162,11 +162,15 @@ export class ProjectsService {
     }
 
     const reconciliation = Array.from(reconciliationMap.entries()).map(
-      ([materialId, data]) => ({
-        materialId,
-        ...data,
-        discrepancia: data.instalado - data.cotizado,
-      }),
+      ([materialId, data]) => {
+        const faltante = Math.max(0, data.cotizado - data.instalado);
+        return {
+          materialId,
+          ...data,
+          discrepancia: data.instalado - data.cotizado,
+          faltante,
+        };
+      },
     );
 
     const totalCotizado = cotizados.reduce((acc, c) => acc + c.cantidad, 0);
