@@ -3031,7 +3031,7 @@ function Dashboard() {
                         <th className="p-3 font-semibold text-right">Declarado Cliente</th>
                         <th className="p-3 font-semibold text-right">Real Recibido</th>
                         <th className="p-3 font-semibold text-right">Instalado Campo</th>
-                        <th className="p-3 font-semibold text-right">Faltante</th>
+                        <th className="p-3 font-semibold text-right">Por Instalar</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#E3E1D9]">
