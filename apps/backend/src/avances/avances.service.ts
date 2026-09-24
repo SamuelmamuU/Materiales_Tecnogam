@@ -74,22 +74,19 @@ export class AvancesService {
         },
       });
 
-      // Insertar items
-      const itemsToCreate = dto.items.map((item) => ({
-        avanceId: avance.id,
-        tipo: item.tipo,
-        subtipo: item.subtipo,
-        materialId: item.materialId,
-        materialManual: item.materialManual,
-        cantidad: item.cantidad,
-      }));
-
-      await tx.avanceItem.createMany({
-        data: itemsToCreate,
-      });
-
-      // Registrar en materiales capturados para control/dashboard
+      // Insertar items y vincular materiales extras
       for (const item of dto.items) {
+        const createdItem = await tx.avanceItem.create({
+          data: {
+            avanceId: avance.id,
+            tipo: item.tipo,
+            subtipo: item.subtipo,
+            materialId: item.materialId,
+            materialManual: item.materialManual,
+            cantidad: item.cantidad,
+          },
+        });
+
         if (item.materialId) {
           await tx.materialCapturado.create({
             data: {
@@ -104,10 +101,11 @@ export class AvancesService {
             },
           });
         } else if (item.materialManual) {
-          // Registrar como material extra en obra
+          // Registrar como material extra en obra vinculado al avanceItem
           await tx.materialExtra.create({
             data: {
               proyectoId: dto.proyectoId,
+              avanceItemId: createdItem.id,
               materialManual: item.materialManual,
               cantidad: item.cantidad,
             },
@@ -317,5 +315,175 @@ export class AvancesService {
     }
 
     return timeline;
+  }
+
+  async updateAvanceItem(
+    itemId: string,
+    dto: {
+      cantidad?: number;
+      materialManual?: string;
+      subtipo?: AvanceItemSubtipo;
+    },
+  ) {
+    const existing = await this.prisma.avanceItem.findUnique({
+      where: { id: itemId },
+      include: { avance: true, materialExtra: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('El item de avance especificado no existe.');
+    }
+
+    if (dto.cantidad !== undefined && dto.cantidad <= 0) {
+      throw new BadRequestException('La cantidad debe ser mayor a cero.');
+    }
+
+    const updatedItem = await this.prisma.avanceItem.update({
+      where: { id: itemId },
+      data: {
+        cantidad: dto.cantidad !== undefined ? Number(dto.cantidad) : undefined,
+        materialManual:
+          dto.materialManual !== undefined ? dto.materialManual : undefined,
+        subtipo: dto.subtipo !== undefined ? dto.subtipo : undefined,
+      },
+    });
+
+    // Actualizar o sincronizar el registro en materiales_extras si aplica
+    if (existing.materialExtra) {
+      await this.prisma.materialExtra.update({
+        where: { id: existing.materialExtra.id },
+        data: {
+          cantidad:
+            dto.cantidad !== undefined ? Number(dto.cantidad) : undefined,
+          materialManual:
+            dto.materialManual !== undefined ? dto.materialManual : undefined,
+        },
+      });
+    } else if (updatedItem.materialManual) {
+      // Si no existía el registro de materialExtra pero ahora tiene materialManual, lo creamos
+      await this.prisma.materialExtra.create({
+        data: {
+          proyectoId: existing.avance.proyectoId,
+          avanceItemId: existing.id,
+          materialManual: updatedItem.materialManual,
+          cantidad: updatedItem.cantidad,
+        },
+      });
+    }
+
+    this.logger.log(`Item de avance ${itemId} actualizado con éxito.`);
+    return updatedItem;
+  }
+
+  async deleteAvanceItem(itemId: string) {
+    const existing = await this.prisma.avanceItem.findUnique({
+      where: { id: itemId },
+      include: { avance: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('El item de avance especificado no existe.');
+    }
+
+    const avanceId = existing.avanceId;
+
+    // Eliminar el avanceItem (la relación onDelete: Cascade eliminará el materialExtra asociado)
+    await this.prisma.avanceItem.delete({
+      where: { id: itemId },
+    });
+
+    // Si el avance contenedor ya no tiene items, eliminarlo para mantener limpia la bitácora
+    const remainingItemsCount = await this.prisma.avanceItem.count({
+      where: { avanceId },
+    });
+
+    if (remainingItemsCount === 0) {
+      await this.prisma.avance.delete({
+        where: { id: avanceId },
+      });
+    }
+
+    this.logger.log(`Item de avance ${itemId} eliminado con éxito.`);
+    return { status: 'deleted', id: itemId };
+  }
+
+  async getMaterialesExtras(projectId: string) {
+    return this.prisma.materialExtra.findMany({
+      where: { proyectoId: projectId },
+      include: {
+        avanceItem: {
+          include: {
+            avance: {
+              include: {
+                autor: {
+                  select: { id: true, nombre: true, email: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updateMaterialExtra(
+    extraId: string,
+    dto: { cantidad?: number; materialManual?: string },
+  ) {
+    const existing = await this.prisma.materialExtra.findUnique({
+      where: { id: extraId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('El material extra especificado no existe.');
+    }
+
+    if (dto.cantidad !== undefined && dto.cantidad <= 0) {
+      throw new BadRequestException('La cantidad debe ser mayor a cero.');
+    }
+
+    const updatedExtra = await this.prisma.materialExtra.update({
+      where: { id: extraId },
+      data: {
+        cantidad: dto.cantidad !== undefined ? Number(dto.cantidad) : undefined,
+        materialManual:
+          dto.materialManual !== undefined ? dto.materialManual : undefined,
+      },
+    });
+
+    if (existing.avanceItemId) {
+      await this.prisma.avanceItem.update({
+        where: { id: existing.avanceItemId },
+        data: {
+          cantidad:
+            dto.cantidad !== undefined ? Number(dto.cantidad) : undefined,
+          materialManual:
+            dto.materialManual !== undefined ? dto.materialManual : undefined,
+        },
+      });
+    }
+
+    return updatedExtra;
+  }
+
+  async deleteMaterialExtra(extraId: string) {
+    const existing = await this.prisma.materialExtra.findUnique({
+      where: { id: extraId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('El material extra especificado no existe.');
+    }
+
+    if (existing.avanceItemId) {
+      return this.deleteAvanceItem(existing.avanceItemId);
+    }
+
+    await this.prisma.materialExtra.delete({
+      where: { id: extraId },
+    });
+
+    return { status: 'deleted', id: extraId };
   }
 }

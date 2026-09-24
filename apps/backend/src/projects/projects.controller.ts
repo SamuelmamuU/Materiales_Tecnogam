@@ -35,10 +35,18 @@ class CreateProjectDto {
   @ApiProperty({ example: 'https://...', required: false, nullable: true })
   logoCliente?: string | null;
 
-  @ApiProperty({ example: 'Ing. Carlos Mendez', required: false, nullable: true })
+  @ApiProperty({
+    example: 'Ing. Carlos Mendez',
+    required: false,
+    nullable: true,
+  })
   liderCliente?: string | null;
 
-  @ApiProperty({ example: 'Ing. Roberto Sanchez', required: false, nullable: true })
+  @ApiProperty({
+    example: 'Ing. Roberto Sanchez',
+    required: false,
+    nullable: true,
+  })
   liderTecnogam?: string | null;
 
   @ApiProperty({ example: '2026-09-01T00:00:00Z' })
@@ -47,7 +55,11 @@ class CreateProjectDto {
   @ApiProperty({ example: '2027-03-01T00:00:00Z' })
   fechaFinEstimada!: string;
 
-  @ApiProperty({ example: '2027-02-28T00:00:00Z', required: false, nullable: true })
+  @ApiProperty({
+    example: '2027-02-28T00:00:00Z',
+    required: false,
+    nullable: true,
+  })
   fechaCulminacion?: string | null;
 
   @ApiProperty({ example: 7, required: false, default: 7 })
@@ -64,10 +76,18 @@ class UpdateProjectDto {
   @ApiProperty({ example: 'https://...', required: false, nullable: true })
   logoCliente?: string | null;
 
-  @ApiProperty({ example: 'Ing. Carlos Mendez', required: false, nullable: true })
+  @ApiProperty({
+    example: 'Ing. Carlos Mendez',
+    required: false,
+    nullable: true,
+  })
   liderCliente?: string | null;
 
-  @ApiProperty({ example: 'Ing. Roberto Sanchez', required: false, nullable: true })
+  @ApiProperty({
+    example: 'Ing. Roberto Sanchez',
+    required: false,
+    nullable: true,
+  })
   liderTecnogam?: string | null;
 
   @ApiProperty({ example: '2026-09-01T00:00:00Z', required: false })
@@ -76,7 +96,11 @@ class UpdateProjectDto {
   @ApiProperty({ example: '2027-04-01T00:00:00Z', required: false })
   fechaFinEstimada?: string;
 
-  @ApiProperty({ example: '2027-02-28T00:00:00Z', required: false, nullable: true })
+  @ApiProperty({
+    example: '2027-02-28T00:00:00Z',
+    required: false,
+    nullable: true,
+  })
   fechaCulminacion?: string | null;
 
   @ApiProperty({ example: 7, required: false })

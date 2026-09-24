@@ -98,6 +98,22 @@ export class ProjectsService {
       orderBy: { fecha: 'desc' },
     });
 
+    const materialesExtras = await this.prisma.materialExtra.findMany({
+      where: { proyectoId: projectId },
+      include: {
+        avanceItem: {
+          include: {
+            avance: {
+              include: {
+                autor: { select: { id: true, nombre: true, email: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
     const reconciliationMap = new Map<
       string,
       {
@@ -220,6 +236,7 @@ export class ProjectsService {
       reconciliation,
       incidentes,
       tiemposMuertos,
+      materialesExtras,
     };
   }
 

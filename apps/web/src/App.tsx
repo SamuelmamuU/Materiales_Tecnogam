@@ -223,6 +223,28 @@ interface TimelinePoint {
   diarioPlaneado: number;
 }
 
+interface MaterialExtraRecord {
+  id: string;
+  proyectoId: string;
+  avanceItemId?: string;
+  materialManual: string;
+  cantidad: number;
+  createdAt: string;
+  avanceItem?: {
+    id: string;
+    subtipo?: 'retrabajo' | 'extra' | 'modificacion';
+    avance?: {
+      id: string;
+      frente: string;
+      fecha: string;
+      autor?: {
+        nombre: string;
+        email: string;
+      };
+    };
+  };
+}
+
 interface DashboardData {
   proyecto: ProjectBrief;
   kpis: {
@@ -238,6 +260,7 @@ interface DashboardData {
   reconciliation: ReconciliationItem[];
   incidentes: Incidente[];
   tiemposMuertos: TiempoMuerto[];
+  materialesExtras?: MaterialExtraRecord[];
 }
 
 function Dashboard() {
@@ -282,6 +305,14 @@ function Dashboard() {
     materialManual: '',
     cantidad: '',
   });
+
+  // Estado para edición de material extra / avance item
+  const [editingAvanceItem, setEditingAvanceItem] = useState<{
+    id: string;
+    materialManual: string;
+    cantidad: number;
+    subtipo: 'retrabajo' | 'extra' | 'modificacion';
+  } | null>(null);
 
   // Estados para gestión de BOM de materiales en admin
   const [selectedBOMMaterialId, setSelectedBOMMaterialId] = useState('');
@@ -1198,6 +1229,59 @@ function Dashboard() {
       setSelectedBOMMaterialIds((prev) => prev.filter((id) => id !== materialId));
       await fetchProjectDetailForAdmin(selectedAdminProject.id);
       if (selectedProjectId) {
+        fetchDashboardData(selectedProjectId);
+        fetchTimelineData(selectedProjectId);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteAvanceItem = async (itemId: string) => {
+    if (!confirm('¿Está seguro de que desea eliminar este registro de material extra del avance?'))
+      return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_URL}/avances/items/${itemId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('No se pudo eliminar el registro de material.');
+      if (selectedProjectId) {
+        fetchAvancesHistory(selectedProjectId);
+        fetchDashboardData(selectedProjectId);
+        fetchTimelineData(selectedProjectId);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleUpdateAvanceItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAvanceItem) return;
+    if (editingAvanceItem.cantidad <= 0) {
+      alert('La cantidad debe ser mayor a cero.');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_URL}/avances/items/${editingAvanceItem.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          cantidad: Number(editingAvanceItem.cantidad),
+          materialManual: editingAvanceItem.materialManual,
+          subtipo: editingAvanceItem.subtipo,
+        }),
+      });
+      if (!response.ok) throw new Error('No se pudo modificar el registro de material.');
+      setEditingAvanceItem(null);
+      if (selectedProjectId) {
+        fetchAvancesHistory(selectedProjectId);
         fetchDashboardData(selectedProjectId);
         fetchTimelineData(selectedProjectId);
       }
@@ -3235,14 +3319,133 @@ function Dashboard() {
                                     : item.materialManual}
                                 </span>
                               </div>
-                              <span className="font-bold text-[#27500A] bg-[#EAF3DE]/30 px-2 py-0.5 rounded">
-                                +{item.cantidad} {item.material?.unidad || 'pza'}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-[#27500A] bg-[#EAF3DE]/30 px-2 py-0.5 rounded">
+                                  +{item.cantidad} {item.material?.unidad || 'pza'}
+                                </span>
+                                {isAdminOrSupervisor && (
+                                  <div className="flex items-center gap-1 ml-2 border-l border-[#E3E1D9] pl-2">
+                                    <button
+                                      type="button"
+                                      title="Modificar registro de material extra"
+                                      onClick={() =>
+                                        setEditingAvanceItem({
+                                          id: item.id,
+                                          materialManual:
+                                            item.materialManual ||
+                                            item.material?.descripcion ||
+                                            '',
+                                          cantidad: item.cantidad,
+                                          subtipo: item.subtipo || 'extra',
+                                        })
+                                      }
+                                      className="p-1 text-[#0C447C] hover:bg-[#E6F1FB] rounded cursor-pointer transition-colors"
+                                    >
+                                      <Edit className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      title="Eliminar registro de material extra"
+                                      onClick={() => handleDeleteAvanceItem(item.id)}
+                                      className="p-1 text-[#C23939] hover:bg-[#FDE8E8] rounded cursor-pointer transition-colors"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Tabla/Tarjeta de Control de Materiales Extras */}
+                {dashboardData?.materialesExtras && dashboardData.materialesExtras.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-[#E3E1D9] space-y-3">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-xs font-bold text-[#BA7517] uppercase tracking-wider flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4" />
+                          Consolidado de Materiales Extras Registrados ({dashboardData.materialesExtras.length})
+                        </h4>
+                        <p className="text-[11px] text-[#5F5E5A]">
+                          Listado de materiales no planeados capturados en reportes de avance.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="border border-[#E3E1D9] rounded-xl overflow-hidden">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-[#FCF4E6]/60 border-b border-[#E3E1D9] text-[#BA7517] font-bold">
+                            <th className="p-2.5">Descripción del Material</th>
+                            <th className="p-2.5">Subtipo</th>
+                            <th className="p-2.5">Frente / Capturado Por</th>
+                            <th className="p-2.5 text-right">Cantidad</th>
+                            <th className="p-2.5 text-center">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E3E1D9] bg-white">
+                          {dashboardData.materialesExtras.map((ext) => (
+                            <tr key={ext.id} className="hover:bg-[#FCF4E6]/20 transition-colors">
+                              <td className="p-2.5 font-bold text-[#1C1C1A]">
+                                {ext.materialManual}
+                              </td>
+                              <td className="p-2.5">
+                                <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-[#FCF4E6] text-[#BA7517]">
+                                  {ext.avanceItem?.subtipo || 'Extra'}
+                                </span>
+                              </td>
+                              <td className="p-2.5 text-[#5F5E5A]">
+                                {ext.avanceItem?.avance?.frente || 'En Obra'}
+                                {ext.avanceItem?.avance?.autor?.nombre && (
+                                  <span className="block text-[10px] text-[#8B8A84]">
+                                    por {ext.avanceItem.avance.autor.nombre}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-2.5 text-right font-bold text-[#27500A]">
+                                +{ext.cantidad} pza
+                              </td>
+                              <td className="p-2.5 text-center">
+                                {isAdminOrSupervisor && (
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      type="button"
+                                      title="Modificar material extra"
+                                      onClick={() =>
+                                        setEditingAvanceItem({
+                                          id: ext.avanceItemId || ext.id,
+                                          materialManual: ext.materialManual,
+                                          cantidad: ext.cantidad,
+                                          subtipo: ext.avanceItem?.subtipo || 'extra',
+                                        })
+                                      }
+                                      className="p-1 text-[#0C447C] hover:bg-[#E6F1FB] rounded cursor-pointer transition-colors"
+                                    >
+                                      <Edit className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      title="Eliminar material extra"
+                                      onClick={() =>
+                                        handleDeleteAvanceItem(ext.avanceItemId || ext.id)
+                                      }
+                                      className="p-1 text-[#C23939] hover:bg-[#FDE8E8] rounded cursor-pointer transition-colors"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -3777,6 +3980,109 @@ function Dashboard() {
               >
                 Guardar Usuario
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: MODIFICAR MATERIAL EXTRA / AVANCE */}
+      {editingAvanceItem && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-[#E3E1D9] rounded-2xl w-full max-w-md overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-[#E3E1D9] flex justify-between items-center bg-[#F7F7F5]">
+              <div>
+                <h3 className="font-bold text-[#1C1C1A] text-sm flex items-center gap-2">
+                  <Edit className="w-4 h-4 text-[#0C447C]" />
+                  Modificar Registro de Material Extra
+                </h3>
+                <p className="text-[10px] text-[#5F5E5A]">
+                  Edite la descripción, subtipo o cantidad del material extra.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAvanceItem(null)}
+                className="text-[#8B8A84] hover:text-[#1C1C1A] p-1 rounded-lg hover:bg-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateAvanceItem} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                  Clasificación / Subtipo
+                </label>
+                <select
+                  value={editingAvanceItem.subtipo}
+                  onChange={(e) =>
+                    setEditingAvanceItem({
+                      ...editingAvanceItem,
+                      subtipo: e.target.value as any,
+                    })
+                  }
+                  className="w-full h-9 px-3 bg-white border border-[#C9C7BD] rounded-lg text-xs font-medium cursor-pointer"
+                >
+                  <option value="extra">Trabajo Extra</option>
+                  <option value="retrabajo">Retrabajo</option>
+                  <option value="modificacion">Modificación</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                  Descripción del Material (Texto Libre)
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Soporte metálico a medida de 4 pulgadas"
+                  value={editingAvanceItem.materialManual}
+                  onChange={(e) =>
+                    setEditingAvanceItem({
+                      ...editingAvanceItem,
+                      materialManual: e.target.value,
+                    })
+                  }
+                  className="w-full h-9 px-3 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                  Cantidad Reportada
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  placeholder="Ej. 10"
+                  value={editingAvanceItem.cantidad}
+                  onChange={(e) =>
+                    setEditingAvanceItem({
+                      ...editingAvanceItem,
+                      cantidad: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  className="w-full h-9 px-3 bg-white border border-[#C9C7BD] rounded-lg text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#E3E1D9]">
+                <button
+                  type="button"
+                  onClick={() => setEditingAvanceItem(null)}
+                  className="h-9 px-4 border border-[#C9C7BD] text-[#1C1C1A] hover:bg-[#F7F7F5] text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="h-9 px-5 bg-[#0C447C] hover:bg-[#093561] text-white text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
             </form>
           </div>
         </div>

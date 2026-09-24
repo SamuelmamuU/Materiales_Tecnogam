@@ -1,6 +1,8 @@
 import {
   Controller,
   Post,
+  Put,
+  Delete,
   Body,
   UseGuards,
   Request,
@@ -46,6 +48,25 @@ class AvanceItemDto {
 
   @ApiProperty({ example: 15, description: 'Cantidad reportada' })
   cantidad!: number;
+}
+
+class UpdateAvanceItemDto {
+  @ApiProperty({ example: 10, required: false })
+  cantidad?: number;
+
+  @ApiProperty({ example: 'Soporte metálico 4"', required: false })
+  materialManual?: string;
+
+  @ApiProperty({ enum: AvanceItemSubtipo, required: false })
+  subtipo?: AvanceItemSubtipo;
+}
+
+class UpdateMaterialExtraDto {
+  @ApiProperty({ example: 10, required: false })
+  cantidad?: number;
+
+  @ApiProperty({ example: 'Soporte metálico 4"', required: false })
+  materialManual?: string;
 }
 
 class CreateAvanceDto {
@@ -248,5 +269,85 @@ export class AvancesController {
   })
   async getProgressTimeline(@Param('projectId') projectId: string) {
     return this.avancesService.getProgressTimeline(projectId);
+  }
+
+  @Put('avances/items/:itemId')
+  @Roles('administrador', 'supervisor')
+  @ApiOperation({
+    summary:
+      'Modificar un item de avance o registro de material extra (Admin y Supervisor)',
+  })
+  @ApiParam({
+    name: 'itemId',
+    description: 'ID del item de avance a modificar',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Item de avance modificado con éxito.',
+  })
+  async updateAvanceItem(
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateAvanceItemDto,
+  ) {
+    return this.avancesService.updateAvanceItem(itemId, dto);
+  }
+
+  @Delete('avances/items/:itemId')
+  @Roles('administrador', 'supervisor')
+  @ApiOperation({
+    summary:
+      'Eliminar un item de avance o registro de material extra (Admin y Supervisor)',
+  })
+  @ApiParam({ name: 'itemId', description: 'ID del item de avance a eliminar' })
+  @ApiResponse({
+    status: 200,
+    description: 'Item de avance eliminado con éxito.',
+  })
+  async deleteAvanceItem(@Param('itemId') itemId: string) {
+    return this.avancesService.deleteAvanceItem(itemId);
+  }
+
+  @Get('projects/:projectId/extras')
+  @UseGuards(ProjectGuard)
+  @ApiOperation({
+    summary:
+      'Obtener la lista de materiales extras registrados para un proyecto',
+  })
+  @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
+  async getProjectExtras(@Param('projectId') projectId: string) {
+    return this.avancesService.getMaterialesExtras(projectId);
+  }
+
+  @Put('projects/:projectId/extras/:extraId')
+  @Roles('administrador', 'supervisor')
+  @UseGuards(ProjectGuard)
+  @ApiOperation({
+    summary:
+      'Modificar un registro de material extra directamente por ID (Admin y Supervisor)',
+  })
+  @ApiParam({
+    name: 'extraId',
+    description: 'ID del registro de material extra',
+  })
+  async updateMaterialExtra(
+    @Param('extraId') extraId: string,
+    @Body() dto: UpdateMaterialExtraDto,
+  ) {
+    return this.avancesService.updateMaterialExtra(extraId, dto);
+  }
+
+  @Delete('projects/:projectId/extras/:extraId')
+  @Roles('administrador', 'supervisor')
+  @UseGuards(ProjectGuard)
+  @ApiOperation({
+    summary:
+      'Eliminar un registro de material extra directamente por ID (Admin y Supervisor)',
+  })
+  @ApiParam({
+    name: 'extraId',
+    description: 'ID del registro de material extra',
+  })
+  async deleteMaterialExtra(@Param('extraId') extraId: string) {
+    return this.avancesService.deleteMaterialExtra(extraId);
   }
 }

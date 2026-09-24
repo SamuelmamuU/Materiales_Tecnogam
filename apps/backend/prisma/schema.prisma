@@ -167,13 +167,15 @@ model MaterialCapturado {
 }
 
 model MaterialExtra {
-  id             String   @id @default(uuid())
-  proyectoId     String   @map("proyecto_id")
-  materialManual String   @map("material_manual")
+  id             String      @id @default(uuid())
+  proyectoId     String      @map("proyecto_id")
+  avanceItemId   String?     @unique @map("avance_item_id")
+  materialManual String      @map("material_manual")
   cantidad       Float
-  createdAt      DateTime @default(now()) @map("created_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
 
-  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  proyecto   Proyecto    @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  avanceItem AvanceItem? @relation(fields: [avanceItemId], references: [id], onDelete: Cascade)
 
   @@map("materiales_extras")
 }
@@ -221,8 +223,9 @@ model AvanceItem {
   materialManual String?            @map("material_manual")
   cantidad       Float
 
-  avance   Avance    @relation(fields: [avanceId], references: [id], onDelete: Cascade)
-  material Material? @relation(fields: [materialId], references: [id])
+  avance        Avance         @relation(fields: [avanceId], references: [id], onDelete: Cascade)
+  material      Material?      @relation(fields: [materialId], references: [id])
+  materialExtra MaterialExtra?
 
   @@map("avance_items")
 }

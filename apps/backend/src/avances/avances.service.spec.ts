@@ -16,9 +16,22 @@ describe('AvancesService', () => {
     avance: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      delete: jest.fn(),
     },
     avanceItem: {
+      create: jest.fn(),
       createMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
+    },
+    materialExtra: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      findMany: jest.fn(),
     },
     materialCapturado: {
       create: jest.fn(),
@@ -82,7 +95,7 @@ describe('AvancesService', () => {
       });
 
       mockPrisma.avance.create.mockResolvedValue({ id: 'new-id' });
-      mockPrisma.avanceItem.createMany.mockResolvedValue({ count: 1 });
+      mockPrisma.avanceItem.create.mockResolvedValue({ id: 'item-1' });
 
       const result = await service.createAvance({
         id: 'new-id',
@@ -104,9 +117,72 @@ describe('AvancesService', () => {
       });
       expect(prismaService.$transaction).toHaveBeenCalled();
       expect(mockPrisma.avance.create).toHaveBeenCalled();
-      expect(mockPrisma.avanceItem.createMany).toHaveBeenCalled();
+      expect(mockPrisma.avanceItem.create).toHaveBeenCalled();
       expect(mockPrisma.materialCapturado.create).toHaveBeenCalled();
       expect(result).toEqual({ status: 'created', id: 'new-id' });
+    });
+  });
+
+  describe('updateAvanceItem y deleteAvanceItem (Modificar / Eliminar Materiales Extras)', () => {
+    it('debería modificar un item de avance y sincronizar el material extra', async () => {
+      mockPrisma.avanceItem.findUnique.mockResolvedValue({
+        id: 'item-1',
+        cantidad: 5,
+        materialManual: 'Soporte viejo',
+        avance: { proyectoId: 'proj-1' },
+        materialExtra: { id: 'extra-1' },
+      });
+
+      mockPrisma.avanceItem.update.mockResolvedValue({
+        id: 'item-1',
+        cantidad: 10,
+        materialManual: 'Soporte nuevo 4"',
+        subtipo: 'extra',
+      });
+
+      const updated = await service.updateAvanceItem('item-1', {
+        cantidad: 10,
+        materialManual: 'Soporte nuevo 4"',
+        subtipo: 'extra',
+      });
+
+      expect(mockPrisma.avanceItem.update).toHaveBeenCalledWith({
+        where: { id: 'item-1' },
+        data: {
+          cantidad: 10,
+          materialManual: 'Soporte nuevo 4"',
+          subtipo: 'extra',
+        },
+      });
+      expect(mockPrisma.materialExtra.update).toHaveBeenCalledWith({
+        where: { id: 'extra-1' },
+        data: {
+          cantidad: 10,
+          materialManual: 'Soporte nuevo 4"',
+        },
+      });
+      expect(updated.cantidad).toEqual(10);
+    });
+
+    it('debería eliminar un item de avance de material extra y eliminar avance si queda vacío', async () => {
+      mockPrisma.avanceItem.findUnique.mockResolvedValue({
+        id: 'item-1',
+        avanceId: 'av-1',
+        avance: { id: 'av-1' },
+      });
+      mockPrisma.avanceItem.delete.mockResolvedValue({ id: 'item-1' });
+      mockPrisma.avanceItem.count.mockResolvedValue(0);
+      mockPrisma.avance.delete.mockResolvedValue({ id: 'av-1' });
+
+      const result = await service.deleteAvanceItem('item-1');
+
+      expect(mockPrisma.avanceItem.delete).toHaveBeenCalledWith({
+        where: { id: 'item-1' },
+      });
+      expect(mockPrisma.avance.delete).toHaveBeenCalledWith({
+        where: { id: 'av-1' },
+      });
+      expect(result).toEqual({ status: 'deleted', id: 'item-1' });
     });
   });
 
