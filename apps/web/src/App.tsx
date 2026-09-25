@@ -1242,18 +1242,27 @@ function Dashboard() {
       return;
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/avances/items/${itemId}`, {
+      let response = await fetch(`${API_URL}/avances/items/${itemId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('No se pudo eliminar el registro de material.');
+      if (!response.ok && selectedProjectId) {
+        response = await fetch(`${API_URL}/projects/${selectedProjectId}/extras/${itemId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'No se pudo eliminar el registro de material.');
+      }
       if (selectedProjectId) {
         fetchAvancesHistory(selectedProjectId);
         fetchDashboardData(selectedProjectId);
         fetchTimelineData(selectedProjectId);
       }
     } catch (err: any) {
-      alert(err.message);
+      alert(err.message || 'Error al eliminar el registro.');
     }
   };
 
@@ -1266,7 +1275,7 @@ function Dashboard() {
     }
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/avances/items/${editingAvanceItem.id}`, {
+      let response = await fetch(`${API_URL}/avances/items/${editingAvanceItem.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1278,7 +1287,23 @@ function Dashboard() {
           subtipo: editingAvanceItem.subtipo,
         }),
       });
-      if (!response.ok) throw new Error('No se pudo modificar el registro de material.');
+      if (!response.ok && selectedProjectId) {
+        response = await fetch(`${API_URL}/projects/${selectedProjectId}/extras/${editingAvanceItem.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            cantidad: Number(editingAvanceItem.cantidad),
+            materialManual: editingAvanceItem.materialManual,
+          }),
+        });
+      }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'No se pudo modificar el registro de material.');
+      }
       setEditingAvanceItem(null);
       if (selectedProjectId) {
         fetchAvancesHistory(selectedProjectId);
@@ -1286,7 +1311,7 @@ function Dashboard() {
         fetchTimelineData(selectedProjectId);
       }
     } catch (err: any) {
-      alert(err.message);
+      alert(err.message || 'Error al modificar el registro.');
     }
   };
 
