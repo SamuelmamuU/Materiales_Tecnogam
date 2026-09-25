@@ -10,12 +10,13 @@ import {
   Body,
 } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
+import { AvancesService } from '../avances/avances.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { RequestWithUser } from '../auth/guards/jwt-auth.guard';
 import { ProjectGuard } from '../auth/guards/project.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Prisma } from '@prisma/client';
+import { Prisma, AvanceItemSubtipo } from '@prisma/client';
 import {
   ApiTags,
   ApiOperation,
@@ -180,12 +181,34 @@ class AddMaterialDto {
   cantidad!: number;
 }
 
+class UpdateAvanceItemDto {
+  @ApiProperty({ example: 10, required: false })
+  cantidad?: number;
+
+  @ApiProperty({ example: 'Soporte metálico 4"', required: false })
+  materialManual?: string;
+
+  @ApiProperty({ enum: AvanceItemSubtipo, required: false })
+  subtipo?: AvanceItemSubtipo;
+}
+
+class UpdateMaterialExtraDto {
+  @ApiProperty({ example: 10, required: false })
+  cantidad?: number;
+
+  @ApiProperty({ example: 'Soporte metálico 4"', required: false })
+  materialManual?: string;
+}
+
 @ApiTags('Proyectos')
 @Controller('projects')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth('JWT-auth')
 export class ProjectsController {
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly avancesService: AvancesService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -471,5 +494,65 @@ export class ProjectsController {
     @Param('materialId') materialId: string,
   ) {
     return this.projectsService.removeMaterial(projectId, materialId);
+  }
+
+  @Get(':projectId/extras')
+  @UseGuards(ProjectGuard)
+  @ApiOperation({
+    summary: 'Obtener la lista de materiales extras registrados para un proyecto',
+  })
+  @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
+  async getProjectExtras(@Param('projectId') projectId: string) {
+    return this.avancesService.getMaterialesExtras(projectId);
+  }
+
+  @Put(':projectId/extras/:extraId')
+  @Roles('administrador', 'supervisor')
+  @UseGuards(ProjectGuard)
+  @ApiOperation({
+    summary: 'Modificar un registro de material extra directamente por ID (Admin y Supervisor)',
+  })
+  @ApiParam({ name: 'extraId', description: 'ID del registro de material extra' })
+  async updateMaterialExtra(
+    @Param('extraId') extraId: string,
+    @Body() dto: UpdateMaterialExtraDto,
+  ) {
+    return this.avancesService.updateMaterialExtra(extraId, dto);
+  }
+
+  @Delete(':projectId/extras/:extraId')
+  @Roles('administrador', 'supervisor')
+  @UseGuards(ProjectGuard)
+  @ApiOperation({
+    summary: 'Eliminar un registro de material extra directamente por ID (Admin y Supervisor)',
+  })
+  @ApiParam({ name: 'extraId', description: 'ID del registro de material extra' })
+  async deleteMaterialExtra(@Param('extraId') extraId: string) {
+    return this.avancesService.deleteMaterialExtra(extraId);
+  }
+
+  @Put(':projectId/avances/items/:itemId')
+  @Roles('administrador', 'supervisor')
+  @UseGuards(ProjectGuard)
+  @ApiOperation({
+    summary: 'Modificar un item de avance o material extra (Admin y Supervisor)',
+  })
+  @ApiParam({ name: 'itemId', description: 'ID del item de avance a modificar' })
+  async updateProjectAvanceItem(
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateAvanceItemDto,
+  ) {
+    return this.avancesService.updateAvanceItem(itemId, dto);
+  }
+
+  @Delete(':projectId/avances/items/:itemId')
+  @Roles('administrador', 'supervisor')
+  @UseGuards(ProjectGuard)
+  @ApiOperation({
+    summary: 'Eliminar un item de avance o material extra (Admin y Supervisor)',
+  })
+  @ApiParam({ name: 'itemId', description: 'ID del item de avance a eliminar' })
+  async deleteProjectAvanceItem(@Param('itemId') itemId: string) {
+    return this.avancesService.deleteAvanceItem(itemId);
   }
 }
