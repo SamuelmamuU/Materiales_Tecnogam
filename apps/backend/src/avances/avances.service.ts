@@ -101,15 +101,18 @@ export class AvancesService {
             },
           });
         } else if (item.materialManual) {
-          // Registrar como material extra en obra vinculado al avanceItem
-          await tx.materialExtra.create({
-            data: {
-              proyectoId: dto.proyectoId,
-              avanceItemId: createdItem.id,
-              materialManual: item.materialManual,
-              cantidad: item.cantidad,
-            },
-          });
+          // Registrar como material extra en obra
+          try {
+            await tx.materialExtra.create({
+              data: {
+                proyectoId: dto.proyectoId,
+                materialManual: item.materialManual,
+                cantidad: item.cantidad,
+              },
+            });
+          } catch (err) {
+            this.logger.warn(`No se pudo insertar en materiales_extras: ${err}`);
+          }
         }
       }
 
@@ -332,7 +335,7 @@ export class AvancesService {
     // 1. Buscar si existe en AvanceItem
     const existingItem = await this.prisma.avanceItem.findUnique({
       where: { id: itemId },
-      include: { avance: true, materialExtra: true },
+      include: { avance: true },
     });
 
     if (existingItem) {
@@ -346,26 +349,23 @@ export class AvancesService {
         },
       });
 
-      // Actualizar o sincronizar el registro en materiales_extras si aplica
-      if (existingItem.materialExtra) {
-        await this.prisma.materialExtra.update({
-          where: { id: existingItem.materialExtra.id },
-          data: {
-            cantidad:
-              dto.cantidad !== undefined ? Number(dto.cantidad) : undefined,
-            materialManual:
-              dto.materialManual !== undefined ? dto.materialManual : undefined,
-          },
-        });
-      } else if (updatedItem.materialManual) {
-        await this.prisma.materialExtra.create({
-          data: {
-            proyectoId: existingItem.avance.proyectoId,
-            avanceItemId: existingItem.id,
-            materialManual: updatedItem.materialManual,
-            cantidad: updatedItem.cantidad,
-          },
-        });
+      if (existingItem.materialManual || dto.materialManual) {
+        try {
+          await this.prisma.materialExtra.updateMany({
+            where: {
+              proyectoId: existingItem.avance.proyectoId,
+              materialManual: existingItem.materialManual || dto.materialManual || '',
+            },
+            data: {
+              cantidad:
+                dto.cantidad !== undefined ? Number(dto.cantidad) : undefined,
+              materialManual:
+                dto.materialManual !== undefined ? dto.materialManual : undefined,
+            },
+          });
+        } catch (err) {
+          this.logger.warn(`No se pudo actualizar materialExtra: ${err}`);
+        }
       }
 
       this.logger.log(`Item de avance ${itemId} actualizado con éxito.`);
@@ -388,19 +388,6 @@ export class AvancesService {
         },
       });
 
-      if (existingExtra.avanceItemId) {
-        await this.prisma.avanceItem.update({
-          where: { id: existingExtra.avanceItemId },
-          data: {
-            cantidad:
-              dto.cantidad !== undefined ? Number(dto.cantidad) : undefined,
-            materialManual:
-              dto.materialManual !== undefined ? dto.materialManual : undefined,
-            subtipo: dto.subtipo !== undefined ? dto.subtipo : undefined,
-          },
-        });
-      }
-
       this.logger.log(`Material extra ${itemId} actualizado con éxito.`);
       return updatedExtra;
     }
@@ -417,11 +404,24 @@ export class AvancesService {
 
     if (existingItem) {
       const avanceId = existingItem.avanceId;
+      const proyectoId = existingItem.avance.proyectoId;
+      const materialManual = existingItem.materialManual;
 
-      // Eliminar el avanceItem (la relación onDelete: Cascade eliminará el materialExtra asociado)
+      // Eliminar el avanceItem
       await this.prisma.avanceItem.delete({
         where: { id: itemId },
       });
+
+      // Si tenía texto libre de material extra, limpiar registro coincidente en materiales_extras
+      if (materialManual) {
+        try {
+          await this.prisma.materialExtra.deleteMany({
+            where: { proyectoId, materialManual },
+          });
+        } catch (e) {
+          // Ignorar si no existía en materiales_extras
+        }
+      }
 
       // Si el avance contenedor ya no tiene items, eliminarlo para mantener limpia la bitácora
       const remainingItemsCount = await this.prisma.avanceItem.count({
@@ -438,38 +438,12 @@ export class AvancesService {
       return { status: 'deleted', id: itemId };
     }
 
-    // 2. Si no es un AvanceItem, buscar si es un MaterialExtra directo
+    // 2. Si no es un AvanceItem, buscar si es un MaterialExtra directo por ID
     const existingExtra = await this.prisma.materialExtra.findUnique({
       where: { id: itemId },
     });
 
     if (existingExtra) {
-      if (existingExtra.avanceItemId) {
-        const linkedItem = await this.prisma.avanceItem.findUnique({
-          where: { id: existingExtra.avanceItemId },
-        });
-
-        if (linkedItem) {
-          const avanceId = linkedItem.avanceId;
-          await this.prisma.avanceItem.delete({
-            where: { id: linkedItem.id },
-          });
-
-          const remainingItemsCount = await this.prisma.avanceItem.count({
-            where: { avanceId },
-          });
-
-          if (remainingItemsCount === 0) {
-            await this.prisma.avance.delete({
-              where: { id: avanceId },
-            });
-          }
-
-          this.logger.log(`Material extra ${itemId} eliminado (vía AvanceItem).`);
-          return { status: 'deleted', id: itemId };
-        }
-      }
-
       await this.prisma.materialExtra.delete({
         where: { id: itemId },
       });
@@ -484,19 +458,6 @@ export class AvancesService {
   async getMaterialesExtras(projectId: string) {
     return this.prisma.materialExtra.findMany({
       where: { proyectoId: projectId },
-      include: {
-        avanceItem: {
-          include: {
-            avance: {
-              include: {
-                autor: {
-                  select: { id: true, nombre: true, email: true },
-                },
-              },
-            },
-          },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     });
   }

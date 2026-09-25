@@ -39,14 +39,14 @@ export class ProjectsService {
   }
 
   async findAllForUser(userId: string, userRol: string) {
-    // Si el usuario es administrador, puede ver todos los proyectos
-    if (userRol === 'administrador') {
+    // Si el usuario es administrador o supervisor, puede ver todos los proyectos
+    if (userRol === 'administrador' || userRol === 'supervisor') {
       return this.prisma.proyecto.findMany({
         include: { hitos: true },
       });
     }
 
-    // Si es supervisor, trabajador o cliente, solo ve los proyectos donde es miembro
+    // Si es trabajador o cliente, solo ve los proyectos donde es miembro
     return this.prisma.proyecto.findMany({
       where: {
         miembros: {
@@ -100,17 +100,6 @@ export class ProjectsService {
 
     const materialesExtras = await this.prisma.materialExtra.findMany({
       where: { proyectoId: projectId },
-      include: {
-        avanceItem: {
-          include: {
-            avance: {
-              include: {
-                autor: { select: { id: true, nombre: true, email: true } },
-              },
-            },
-          },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     });
 

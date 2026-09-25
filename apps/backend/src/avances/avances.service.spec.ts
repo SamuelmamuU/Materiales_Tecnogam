@@ -30,7 +30,9 @@ describe('AvancesService', () => {
       create: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
       findMany: jest.fn(),
     },
     materialCapturado: {
@@ -154,8 +156,11 @@ describe('AvancesService', () => {
           subtipo: 'extra',
         },
       });
-      expect(mockPrisma.materialExtra.update).toHaveBeenCalledWith({
-        where: { id: 'extra-1' },
+      expect(mockPrisma.materialExtra.updateMany).toHaveBeenCalledWith({
+        where: {
+          proyectoId: 'proj-1',
+          materialManual: 'Soporte viejo',
+        },
         data: {
           cantidad: 10,
           materialManual: 'Soporte nuevo 4"',
