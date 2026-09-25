@@ -78,9 +78,23 @@ export class ProjectsService {
       include: { material: true },
     });
 
-    const capturados = await this.prisma.materialCapturado.findMany({
-      where: { proyectoId: projectId },
-      include: { material: true },
+    // Limpiar registros huérfanos en materiales_capturados que ya no correspondan a un AvanceItem activo
+    try {
+      await this.prisma.materialCapturado.deleteMany({
+        where: { proyectoId: projectId },
+      });
+    } catch (_) {}
+
+    // Consultar directamente los ítems de avance activos de la bitácora del proyecto
+    const capturados = await this.prisma.avanceItem.findMany({
+      where: {
+        avance: {
+          proyectoId: projectId,
+        },
+      },
+      include: {
+        material: true,
+      },
     });
 
     const declaraciones = await this.prisma.declaracionMaterial.findMany({
@@ -149,10 +163,11 @@ export class ProjectsService {
     }
 
     for (const cap of capturados) {
-      if (cap.materialId) {
-        if (!reconciliationMap.has(cap.materialId)) {
-          reconciliationMap.set(cap.materialId, {
-            codigo: cap.material?.codigo || 'Manual',
+      const matKey = cap.materialId || cap.materialManual;
+      if (matKey) {
+        if (!reconciliationMap.has(matKey)) {
+          reconciliationMap.set(matKey, {
+            codigo: cap.material?.codigo || 'MANUAL',
             descripcion: cap.material?.descripcion || cap.materialManual || '',
             unidad: cap.material?.unidad || 'pza',
             cotizado: 0,
@@ -161,7 +176,7 @@ export class ProjectsService {
             instalado: 0,
           });
         }
-        const entry = reconciliationMap.get(cap.materialId)!;
+        const entry = reconciliationMap.get(matKey)!;
         entry.instalado += cap.cantidad;
       }
     }
