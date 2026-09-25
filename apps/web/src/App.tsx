@@ -1238,7 +1238,11 @@ function Dashboard() {
   };
 
   const handleDeleteAvanceItem = async (itemId: string) => {
-    if (!confirm('¿Está seguro de que desea eliminar este registro de material extra del avance?'))
+    if (
+      !confirm(
+        '¿Está seguro de que desea eliminar este registro de avance / material? Esta acción eliminará el registro por completo y actualizará todas las métricas del proyecto (Avance General, Instalado y Conciliación).',
+      )
+    )
       return;
     try {
       const token = localStorage.getItem('accessToken');

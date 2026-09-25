@@ -339,15 +339,46 @@ export class AvancesService {
     });
 
     if (existingItem) {
+      const oldQty = existingItem.cantidad;
+      const newQty = dto.cantidad !== undefined ? Number(dto.cantidad) : oldQty;
+      const diffQty = newQty - oldQty;
+
       const updatedItem = await this.prisma.avanceItem.update({
         where: { id: itemId },
         data: {
-          cantidad: dto.cantidad !== undefined ? Number(dto.cantidad) : undefined,
+          cantidad: newQty,
           materialManual:
             dto.materialManual !== undefined ? dto.materialManual : undefined,
           subtipo: dto.subtipo !== undefined ? dto.subtipo : undefined,
         },
       });
+
+      // Actualizar materiales_capturados correspondientes
+      if (existingItem.materialId) {
+        try {
+          const capturado = await this.prisma.materialCapturado.findFirst({
+            where: {
+              proyectoId: existingItem.avance.proyectoId,
+              materialId: existingItem.materialId,
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          if (capturado) {
+            const updatedCapturadoQty = Math.max(0, capturado.cantidad + diffQty);
+            if (updatedCapturadoQty === 0) {
+              await this.prisma.materialCapturado.delete({ where: { id: capturado.id } });
+            } else {
+              await this.prisma.materialCapturado.update({
+                where: { id: capturado.id },
+                data: { cantidad: updatedCapturadoQty },
+              });
+            }
+          }
+        } catch (err) {
+          this.logger.warn(`Error al actualizar materialCapturado: ${err}`);
+        }
+      }
 
       if (existingItem.materialManual || dto.materialManual) {
         try {
@@ -357,8 +388,7 @@ export class AvancesService {
               materialManual: existingItem.materialManual || dto.materialManual || '',
             },
             data: {
-              cantidad:
-                dto.cantidad !== undefined ? Number(dto.cantidad) : undefined,
+              cantidad: newQty,
               materialManual:
                 dto.materialManual !== undefined ? dto.materialManual : undefined,
             },
@@ -405,12 +435,47 @@ export class AvancesService {
     if (existingItem) {
       const avanceId = existingItem.avanceId;
       const proyectoId = existingItem.avance.proyectoId;
+      const materialId = existingItem.materialId;
       const materialManual = existingItem.materialManual;
+      const cantidad = existingItem.cantidad;
 
       // Eliminar el avanceItem
       await this.prisma.avanceItem.delete({
         where: { id: itemId },
       });
+
+      // Eliminar / actualizar registros en materiales_capturados para mantener métricas sincronizadas
+      if (materialId) {
+        try {
+          const capturados = await this.prisma.materialCapturado.findMany({
+            where: { proyectoId, materialId },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          let pendingToDelete = cantidad;
+          for (const cap of capturados) {
+            if (pendingToDelete <= 0) break;
+            if (cap.cantidad <= pendingToDelete) {
+              pendingToDelete -= cap.cantidad;
+              await this.prisma.materialCapturado.delete({ where: { id: cap.id } });
+            } else {
+              await this.prisma.materialCapturado.update({
+                where: { id: cap.id },
+                data: { cantidad: cap.cantidad - pendingToDelete },
+              });
+              pendingToDelete = 0;
+            }
+          }
+        } catch (e) {
+          this.logger.warn(`Error al eliminar en materiales_capturados: ${e}`);
+        }
+      } else if (materialManual) {
+        try {
+          await this.prisma.materialCapturado.deleteMany({
+            where: { proyectoId, materialManual },
+          });
+        } catch (e) {}
+      }
 
       // Si tenía texto libre de material extra, limpiar registro coincidente en materiales_extras
       if (materialManual) {
@@ -447,6 +512,17 @@ export class AvancesService {
       await this.prisma.materialExtra.delete({
         where: { id: itemId },
       });
+
+      if (existingExtra.materialManual) {
+        try {
+          await this.prisma.materialCapturado.deleteMany({
+            where: {
+              proyectoId: existingExtra.proyectoId,
+              materialManual: existingExtra.materialManual,
+            },
+          });
+        } catch (e) {}
+      }
 
       this.logger.log(`Material extra ${itemId} eliminado directamente.`);
       return { status: 'deleted', id: itemId };
