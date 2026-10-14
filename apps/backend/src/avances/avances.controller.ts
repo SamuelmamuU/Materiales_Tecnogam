@@ -288,8 +288,9 @@ export class AvancesController {
   async updateAvanceItem(
     @Param('itemId') itemId: string,
     @Body() dto: UpdateAvanceItemDto,
+    @Request() req: RequestWithUser,
   ) {
-    return this.avancesService.updateAvanceItem(itemId, dto);
+    return this.avancesService.updateAvanceItem(itemId, dto, req.user);
   }
 
   @Delete('avances/items/:itemId')
@@ -303,8 +304,11 @@ export class AvancesController {
     status: 200,
     description: 'Item de avance eliminado con éxito.',
   })
-  async deleteAvanceItem(@Param('itemId') itemId: string) {
-    return this.avancesService.deleteAvanceItem(itemId);
+  async deleteAvanceItem(
+    @Param('itemId') itemId: string,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.avancesService.deleteAvanceItem(itemId, req.user);
   }
 
   @Get('projects/:projectId/extras')
@@ -332,8 +336,9 @@ export class AvancesController {
   async updateMaterialExtra(
     @Param('extraId') extraId: string,
     @Body() dto: UpdateMaterialExtraDto,
+    @Request() req: RequestWithUser,
   ) {
-    return this.avancesService.updateMaterialExtra(extraId, dto);
+    return this.avancesService.updateMaterialExtra(extraId, dto, req.user);
   }
 
   @Delete('projects/:projectId/extras/:extraId')
@@ -347,7 +352,10 @@ export class AvancesController {
     name: 'extraId',
     description: 'ID del registro de material extra',
   })
-  async deleteMaterialExtra(@Param('extraId') extraId: string) {
-    return this.avancesService.deleteMaterialExtra(extraId);
+  async deleteMaterialExtra(
+    @Param('extraId') extraId: string,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.avancesService.deleteMaterialExtra(extraId, req.user);
   }
 }

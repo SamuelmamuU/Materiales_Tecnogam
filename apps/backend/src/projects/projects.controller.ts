@@ -63,6 +63,13 @@ class CreateProjectDto {
   })
   fechaCulminacion?: string | null;
 
+  @ApiProperty({
+    example: '+52 55 1234 5678',
+    required: false,
+    nullable: true,
+  })
+  telefonoLiderCliente?: string | null;
+
   @ApiProperty({ example: 7, required: false, default: 7 })
   diasAlertaHito?: number;
 }
@@ -103,6 +110,13 @@ class UpdateProjectDto {
     nullable: true,
   })
   fechaCulminacion?: string | null;
+
+  @ApiProperty({
+    example: '+52 55 1234 5678',
+    required: false,
+    nullable: true,
+  })
+  telefonoLiderCliente?: string | null;
 
   @ApiProperty({ example: 7, required: false })
   diasAlertaHito?: number;
@@ -234,6 +248,7 @@ export class ProjectsController {
       logoCliente: dto.logoCliente,
       liderCliente: dto.liderCliente,
       liderTecnogam: dto.liderTecnogam,
+      telefonoLiderCliente: dto.telefonoLiderCliente,
       fechaInicio: new Date(dto.fechaInicio),
       fechaFinEstimada: new Date(dto.fechaFinEstimada),
       fechaCulminacion: dto.fechaCulminacion
@@ -245,11 +260,11 @@ export class ProjectsController {
   }
 
   @Put(':projectId')
-  @Roles('administrador', 'supervisor')
+  @Roles('administrador')
   @UseGuards(ProjectGuard)
   @ApiOperation({
     summary:
-      'Actualizar un proyecto existente (Administrador o Supervisor asignado)',
+      'Actualizar un proyecto existente (Exclusivo Administrador)',
   })
   @ApiResponse({ status: 200, description: 'Proyecto actualizado con éxito.' })
   @ApiResponse({ status: 404, description: 'El proyecto no existe.' })
@@ -265,6 +280,8 @@ export class ProjectsController {
       updateData.liderCliente = dto.liderCliente;
     if (dto.liderTecnogam !== undefined)
       updateData.liderTecnogam = dto.liderTecnogam;
+    if (dto.telefonoLiderCliente !== undefined)
+      updateData.telefonoLiderCliente = dto.telefonoLiderCliente;
     if (dto.fechaInicio) updateData.fechaInicio = new Date(dto.fechaInicio);
     if (dto.fechaFinEstimada)
       updateData.fechaFinEstimada = new Date(dto.fechaFinEstimada);
@@ -277,6 +294,17 @@ export class ProjectsController {
       updateData.diasAlertaHito = Number(dto.diasAlertaHito);
     }
     return this.projectsService.update(projectId, updateData);
+  }
+
+  @Post(':projectId/culminate')
+  @Roles('administrador')
+  @UseGuards(ProjectGuard)
+  @ApiOperation({
+    summary: 'Culminar un proyecto y bloquearlo para modificaciones (Solo Administrador)',
+  })
+  @ApiResponse({ status: 200, description: 'Proyecto culminado con éxito.' })
+  async culminateProject(@Param('projectId') projectId: string) {
+    return this.projectsService.culminate(projectId);
   }
 
   @Delete(':projectId')
@@ -516,8 +544,9 @@ export class ProjectsController {
   async updateMaterialExtra(
     @Param('extraId') extraId: string,
     @Body() dto: UpdateMaterialExtraDto,
+    @Request() req: RequestWithUser,
   ) {
-    return this.avancesService.updateMaterialExtra(extraId, dto);
+    return this.avancesService.updateMaterialExtra(extraId, dto, req.user);
   }
 
   @Delete(':projectId/extras/:extraId')
@@ -527,8 +556,11 @@ export class ProjectsController {
     summary: 'Eliminar un registro de material extra directamente por ID (Admin y Supervisor)',
   })
   @ApiParam({ name: 'extraId', description: 'ID del registro de material extra' })
-  async deleteMaterialExtra(@Param('extraId') extraId: string) {
-    return this.avancesService.deleteMaterialExtra(extraId);
+  async deleteMaterialExtra(
+    @Param('extraId') extraId: string,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.avancesService.deleteMaterialExtra(extraId, req.user);
   }
 
   @Put(':projectId/avances/items/:itemId')
@@ -541,8 +573,9 @@ export class ProjectsController {
   async updateProjectAvanceItem(
     @Param('itemId') itemId: string,
     @Body() dto: UpdateAvanceItemDto,
+    @Request() req: RequestWithUser,
   ) {
-    return this.avancesService.updateAvanceItem(itemId, dto);
+    return this.avancesService.updateAvanceItem(itemId, dto, req.user);
   }
 
   @Delete(':projectId/avances/items/:itemId')
@@ -552,7 +585,10 @@ export class ProjectsController {
     summary: 'Eliminar un item de avance o material extra (Admin y Supervisor)',
   })
   @ApiParam({ name: 'itemId', description: 'ID del item de avance a eliminar' })
-  async deleteProjectAvanceItem(@Param('itemId') itemId: string) {
-    return this.avancesService.deleteAvanceItem(itemId);
+  async deleteProjectAvanceItem(
+    @Param('itemId') itemId: string,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.avancesService.deleteAvanceItem(itemId, req.user);
   }
 }

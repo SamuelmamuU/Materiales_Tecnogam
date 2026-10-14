@@ -13,6 +13,9 @@ describe('AvancesService', () => {
   let prismaService: PrismaService;
 
   const mockPrisma = {
+    proyecto: {
+      findUnique: jest.fn(),
+    },
     avance: {
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -59,6 +62,10 @@ describe('AvancesService', () => {
 
     service = module.get<AvancesService>(AvancesService);
     prismaService = module.get<PrismaService>(PrismaService);
+    mockPrisma.proyecto.findUnique.mockResolvedValue({
+      id: 'proj-1',
+      fechaCulminacion: null,
+    });
   });
 
   afterEach(() => {

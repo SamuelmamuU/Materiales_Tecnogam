@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
@@ -39,14 +39,14 @@ export class ProjectsService {
   }
 
   async findAllForUser(userId: string, userRol: string) {
-    // Si el usuario es administrador o supervisor, puede ver todos los proyectos
-    if (userRol === 'administrador' || userRol === 'supervisor') {
+    // Únicamente el administrador puede ver todos los proyectos globales
+    if (userRol === 'administrador') {
       return this.prisma.proyecto.findMany({
         include: { hitos: true },
       });
     }
 
-    // Si es trabajador o cliente, solo ve los proyectos donde es miembro
+    // Para supervisor, trabajador o cliente: únicamente los proyectos donde ha sido asignado
     return this.prisma.proyecto.findMany({
       where: {
         miembros: {
@@ -222,6 +222,7 @@ export class ProjectsService {
         logoCliente: project.logoCliente,
         liderCliente: project.liderCliente,
         liderTecnogam: project.liderTecnogam,
+        telefonoLiderCliente: project.telefonoLiderCliente,
         fechaInicio: project.fechaInicio,
         fechaFinEstimada: project.fechaFinEstimada,
         fechaCulminacion: project.fechaCulminacion,
@@ -323,6 +324,16 @@ export class ProjectsService {
     });
   }
 
+  async culminate(id: string) {
+    await this.findOne(id);
+    return this.prisma.proyecto.update({
+      where: { id },
+      data: {
+        fechaCulminacion: new Date(),
+      },
+    });
+  }
+
   async createHito(
     projectId: string,
     data: {
@@ -332,12 +343,18 @@ export class ProjectsService {
       diasAlerta?: number;
     },
   ) {
-    await this.findOne(projectId);
+    const project = await this.findOne(projectId);
+    if (project.fechaCulminacion) {
+      throw new BadRequestException(
+        'El proyecto ha sido culminado. No se pueden registrar nuevos hitos.',
+      );
+    }
     return this.prisma.hito.create({
       data: {
         nombre: data.nombre,
         fechaObjetivo: new Date(data.fechaObjetivo),
         estatus: data.estatus || 'pendiente',
+        fechaCompletado: data.estatus === 'completado' ? new Date() : null,
         diasAlerta: data.diasAlerta !== undefined ? Number(data.diasAlerta) : 7,
         proyectoId: projectId,
       },
@@ -355,14 +372,27 @@ export class ProjectsService {
   ) {
     const existing = await this.prisma.hito.findUnique({
       where: { id: hitoId },
+      include: { proyecto: true },
     });
     if (!existing) throw new NotFoundException('El hito solicitado no existe.');
+    if (existing.proyecto?.fechaCulminacion) {
+      throw new BadRequestException(
+        'El proyecto ha sido culminado. No se pueden modificar hitos.',
+      );
+    }
 
     const updateData: Prisma.HitoUpdateInput = {};
     if (data.nombre) updateData.nombre = data.nombre;
     if (data.fechaObjetivo)
       updateData.fechaObjetivo = new Date(data.fechaObjetivo);
-    if (data.estatus) updateData.estatus = data.estatus;
+    if (data.estatus) {
+      updateData.estatus = data.estatus;
+      if (data.estatus === 'completado') {
+        updateData.fechaCompletado = new Date();
+      } else {
+        updateData.fechaCompletado = null;
+      }
+    }
     if (data.diasAlerta !== undefined)
       updateData.diasAlerta = Number(data.diasAlerta);
 
@@ -375,8 +405,14 @@ export class ProjectsService {
   async removeHito(hitoId: string) {
     const existing = await this.prisma.hito.findUnique({
       where: { id: hitoId },
+      include: { proyecto: true },
     });
     if (!existing) throw new NotFoundException('El hito solicitado no existe.');
+    if (existing.proyecto?.fechaCulminacion) {
+      throw new BadRequestException(
+        'El proyecto ha sido culminado. No se pueden eliminar hitos.',
+      );
+    }
 
     return this.prisma.hito.delete({
       where: { id: hitoId },
@@ -393,7 +429,12 @@ export class ProjectsService {
       cantidad: number;
     }[],
   ) {
-    await this.findOne(proyectoId);
+    const project = await this.findOne(proyectoId);
+    if (project.fechaCulminacion) {
+      throw new BadRequestException(
+        'El proyecto ha sido culminado. No se pueden importar materiales al presupuesto.',
+      );
+    }
 
     for (const item of items) {
       try {
@@ -453,7 +494,12 @@ export class ProjectsService {
   }
 
   async addMaterial(proyectoId: string, materialId: string, cantidad: number) {
-    await this.findOne(proyectoId);
+    const project = await this.findOne(proyectoId);
+    if (project.fechaCulminacion) {
+      throw new BadRequestException(
+        'El proyecto ha sido culminado. No se pueden agregar materiales al presupuesto.',
+      );
+    }
 
     await this.prisma.materialCotizado.upsert({
       where: {
@@ -476,7 +522,12 @@ export class ProjectsService {
   }
 
   async removeMaterial(proyectoId: string, materialId: string) {
-    await this.findOne(proyectoId);
+    const project = await this.findOne(proyectoId);
+    if (project.fechaCulminacion) {
+      throw new BadRequestException(
+        'El proyecto ha sido culminado. No se pueden eliminar materiales del presupuesto.',
+      );
+    }
 
     await this.prisma.materialCotizado.delete({
       where: {
@@ -491,7 +542,12 @@ export class ProjectsService {
   }
 
   async removeMultipleMaterials(proyectoId: string, materialIds: string[]) {
-    await this.findOne(proyectoId);
+    const project = await this.findOne(proyectoId);
+    if (project.fechaCulminacion) {
+      throw new BadRequestException(
+        'El proyecto ha sido culminado. No se pueden eliminar materiales del presupuesto.',
+      );
+    }
 
     if (Array.isArray(materialIds) && materialIds.length > 0) {
       await this.prisma.materialCotizado.deleteMany({

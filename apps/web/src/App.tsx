@@ -19,6 +19,7 @@ import {
   Building,
   RefreshCw,
   Eye,
+  EyeOff,
   Check,
   AlertCircle,
   Settings,
@@ -46,6 +47,7 @@ interface Hito {
   id: string;
   nombre: string;
   fechaObjetivo: string;
+  fechaCompletado?: string | null;
   estatus: 'pendiente' | 'completado' | 'atrasado';
   diasAlerta?: number | null;
 }
@@ -124,11 +126,23 @@ interface ProjectBrief {
   cliente: string;
   logoCliente?: string | null;
   liderCliente?: string | null;
+  telefonoLiderCliente?: string | null;
   liderTecnogam?: string | null;
   fechaInicio: string;
   fechaFinEstimada: string;
   fechaCulminacion?: string | null;
   diasAlertaHito?: number | null;
+}
+
+function formatDateOnly(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    return `${day}/${month}/${year}`;
+  }
+  return new Date(dateStr).toLocaleDateString();
 }
 
 function matchesAllWords(text: string, query: string): boolean {
@@ -152,6 +166,10 @@ function getHitoSemaforo(hito: Hito, defaultAlertDays: number = 7) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const target = new Date(hito.fechaObjetivo);
+  if (hito.fechaObjetivo && hito.fechaObjetivo.includes('T')) {
+    const [y, m, d] = hito.fechaObjetivo.split('T')[0].split('-').map(Number);
+    target.setFullYear(y, m - 1, d);
+  }
   target.setHours(0, 0, 0, 0);
 
   const diffMs = target.getTime() - now.getTime();
@@ -237,7 +255,9 @@ interface MaterialExtraRecord {
       id: string;
       frente: string;
       fecha: string;
+      autorId?: string;
       autor?: {
+        id?: string;
         nombre: string;
         email: string;
       };
@@ -359,6 +379,7 @@ function Dashboard() {
     cliente: '',
     logoCliente: '',
     liderCliente: '',
+    telefonoLiderCliente: '',
     liderTecnogam: '',
     fechaInicio: '',
     fechaFinEstimada: '',
@@ -369,6 +390,7 @@ function Dashboard() {
 
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserDetail | null>(null);
+  const [showUserPassword, setShowUserPassword] = useState(false);
   const [userForm, setUserForm] = useState({
     nombre: '',
     email: '',
@@ -376,6 +398,57 @@ function Dashboard() {
     rol: 'trabajador',
     activo: true,
   });
+
+  const isCulminated = Boolean(dashboardData?.proyecto?.fechaCulminacion);
+
+  const canEditOrDeleteAvance = (autorId?: string, autorEmail?: string) => {
+    if (isCulminated) return false;
+    if (isAdmin) return true;
+    if (user.rol === 'supervisor') {
+      return (
+        (autorId && user.id && autorId === user.id) ||
+        (autorEmail && user.email && autorEmail === user.email)
+      );
+    }
+    return false;
+  };
+
+  const handleConfirmCulminateProject = async (projectId: string) => {
+    if (
+      !window.confirm(
+        '¿Confirmar la culminación del proyecto? Una vez culminado, el proyecto quedará congelado en modo solo lectura y se bloqueará el registro o modificación de avances, hitos y datos.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_URL}/projects/${projectId}/culminate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        let msg = 'Error al culminar el proyecto.';
+        try {
+          const errData = await response.json();
+          msg = errData.message || msg;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      alert('El proyecto ha sido culminado y congelado exitosamente.');
+      await fetchProjects();
+      if (selectedProjectId) {
+        await fetchDashboardData(selectedProjectId);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error al culminar el proyecto.');
+    }
+  };
 
   const [hitoForm, setHitoForm] = useState({
     nombre: '',
@@ -563,6 +636,7 @@ function Dashboard() {
       cliente: proj.cliente,
       logoCliente: proj.logoCliente || '',
       liderCliente: proj.liderCliente || '',
+      telefonoLiderCliente: proj.telefonoLiderCliente || '',
       liderTecnogam: proj.liderTecnogam || '',
       fechaInicio: proj.fechaInicio ? proj.fechaInicio.split('T')[0] : '',
       fechaFinEstimada: proj.fechaFinEstimada ? proj.fechaFinEstimada.split('T')[0] : '',
@@ -579,6 +653,7 @@ function Dashboard() {
       cliente: '',
       logoCliente: '',
       liderCliente: '',
+      telefonoLiderCliente: '',
       liderTecnogam: '',
       fechaInicio: '',
       fechaFinEstimada: '',
@@ -680,6 +755,7 @@ function Dashboard() {
         cliente: projectForm.cliente.trim(),
         logoCliente: projectForm.logoCliente?.trim() || null,
         liderCliente: projectForm.liderCliente?.trim() || null,
+        telefonoLiderCliente: projectForm.telefonoLiderCliente?.trim() || null,
         liderTecnogam: projectForm.liderTecnogam?.trim() || null,
         fechaInicio: parseDateToIso(projectForm.fechaInicio) || new Date().toISOString(),
         fechaFinEstimada: parseDateToIso(projectForm.fechaFinEstimada) || new Date().toISOString(),
@@ -716,6 +792,7 @@ function Dashboard() {
         cliente: '',
         logoCliente: '',
         liderCliente: '',
+        telefonoLiderCliente: '',
         liderTecnogam: '',
         fechaInicio: '',
         fechaFinEstimada: '',
@@ -763,8 +840,14 @@ function Dashboard() {
   const handleAddHito = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAdminProject) return;
+    if (selectedAdminProject.fechaCulminacion) {
+      alert('El proyecto está culminado. No se pueden agregar nuevos hitos.');
+      return;
+    }
     try {
       const token = localStorage.getItem('accessToken');
+      const [y, m, d] = hitoForm.fechaObjetivo.split('-').map(Number);
+      const safeIsoDate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0)).toISOString();
       const response = await fetch(`${API_URL}/projects/${selectedAdminProject.id}/hitos`, {
         method: 'POST',
         headers: {
@@ -773,7 +856,7 @@ function Dashboard() {
         },
         body: JSON.stringify({
           nombre: hitoForm.nombre,
-          fechaObjetivo: new Date(hitoForm.fechaObjetivo).toISOString(),
+          fechaObjetivo: safeIsoDate,
           estatus: hitoForm.estatus,
           diasAlerta: Number(hitoForm.diasAlerta) || 7,
         }),
@@ -794,6 +877,10 @@ function Dashboard() {
     const currentProjId =
       selectedAdminProject?.id || selectedProjectId || dashboardData?.proyecto?.id;
     if (!currentProjId) return;
+    if (dashboardData?.proyecto?.fechaCulminacion || selectedAdminProject?.fechaCulminacion) {
+      alert('El proyecto está culminado. No se pueden modificar hitos.');
+      return;
+    }
     try {
       const token = localStorage.getItem('accessToken');
       const newStatus = hito.estatus === 'completado' ? 'pendiente' : 'completado';
@@ -1719,6 +1806,106 @@ function Dashboard() {
     );
   }
 
+  if (!loading && projects.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#F7F7F5] flex flex-col justify-between">
+        {/* Barra superior con identidad y usuario */}
+        <header className="bg-white border-b border-[#E3E1D9] px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img
+              src="/TG.png"
+              alt="Tecnogam"
+              className="w-9 h-9 rounded-xl object-contain border border-[#E3E1D9] bg-white p-0.5 shadow-xs"
+            />
+            <div>
+              <span className="font-bold text-[#1C1C1A] text-sm tracking-tight block">Tecnogam</span>
+              <span className="text-[10px] text-[#5F5E5A] font-medium leading-none block">
+                Gestor de Materiales y Avances
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <span className="text-xs font-bold text-[#1C1C1A] block">{user.nombre}</span>
+              <span className="text-[10px] text-[#5F5E5A] uppercase font-semibold block">{user.rol}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#C23939] hover:bg-[#FDE8E8] rounded-xl transition-all cursor-pointer"
+              title="Cerrar Sesión"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Contenido Central: Pantalla esqueleto vacía */}
+        <main className="max-w-4xl w-full mx-auto p-6 md:p-10 space-y-6">
+          <div className="bg-white border border-[#E3E1D9] rounded-3xl p-8 md:p-12 text-center shadow-xs">
+            <div className="w-16 h-16 mx-auto mb-4 bg-[#F1EFE8] rounded-2xl flex items-center justify-center border border-[#E3E1D9]">
+              <Clock className="w-8 h-8 text-[#0C447C] animate-pulse" />
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold text-[#1C1C1A] mb-2 tracking-tight">
+              esperando el supervisor te asigne un proyecto
+            </h2>
+            <p className="text-xs md:text-sm text-[#5F5E5A] max-w-lg mx-auto mb-6 leading-relaxed">
+              Tu cuenta se encuentra registrada y activa en el sistema. En cuanto tu supervisor o administrador te asigne a un proyecto de obra, tendrás acceso completo a las fichas técnicas, cronogramas, registro de avances y conciliación de materiales.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                onClick={fetchProjects}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1C1C1A] text-white hover:bg-black rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Comprobar Asignación</span>
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={handleOpenCreateProject}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-[#C9C7BD] text-[#1C1C1A] hover:bg-[#F1EFE8] rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 text-[#0C447C]" />
+                  <span>Crear Primer Proyecto (Admin)</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Wireframe esqueleto simulado */}
+          <div className="space-y-4 opacity-40 select-none pointer-events-none">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 h-24 flex flex-col justify-between animate-pulse">
+                <div className="h-3 bg-[#E3E1D9] rounded w-2/5"></div>
+                <div className="h-6 bg-[#E3E1D9] rounded w-3/5"></div>
+              </div>
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 h-24 flex flex-col justify-between animate-pulse">
+                <div className="h-3 bg-[#E3E1D9] rounded w-2/5"></div>
+                <div className="h-6 bg-[#E3E1D9] rounded w-3/5"></div>
+              </div>
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 h-24 flex flex-col justify-between animate-pulse">
+                <div className="h-3 bg-[#E3E1D9] rounded w-2/5"></div>
+                <div className="h-6 bg-[#E3E1D9] rounded w-3/5"></div>
+              </div>
+            </div>
+            <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 h-40 flex flex-col justify-between animate-pulse">
+              <div className="h-4 bg-[#E3E1D9] rounded w-1/4"></div>
+              <div className="space-y-2">
+                <div className="h-3 bg-[#E3E1D9] rounded w-full"></div>
+                <div className="h-3 bg-[#E3E1D9] rounded w-4/5"></div>
+              </div>
+              <div className="h-6 bg-[#E3E1D9] rounded w-1/3"></div>
+            </div>
+          </div>
+        </main>
+
+        <footer className="text-center py-4 text-[11px] text-[#8B8A84] border-t border-[#E3E1D9] bg-white">
+          Tecnogam &copy; {new Date().getFullYear()} — Control de Materiales y Avances
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F7F7F5] flex">
       {/* 1. SIDEBAR (Oculto en impresión) */}
@@ -2048,6 +2235,11 @@ function Dashboard() {
                               <div>
                                 Líder Cli:{' '}
                                 <b className="text-[#1C1C1A]">{proj.liderCliente || '—'}</b>
+                                {proj.telefonoLiderCliente && (
+                                  <span className="block text-[10px] text-[#8B8A84]">
+                                    Tel: {proj.telefonoLiderCliente}
+                                  </span>
+                                )}
                               </div>
                               <div>
                                 Líder TG:{' '}
@@ -2057,15 +2249,15 @@ function Dashboard() {
                           </td>
                           <td className="p-3">
                             <div className="text-[11px] text-[#5F5E5A]">
-                              <div>Ini: {new Date(proj.fechaInicio).toLocaleDateString()}</div>
-                              <div>Est: {new Date(proj.fechaFinEstimada).toLocaleDateString()}</div>
+                              <div>Ini: {formatDateOnly(proj.fechaInicio)}</div>
+                              <div>Est: {formatDateOnly(proj.fechaFinEstimada)}</div>
                             </div>
                           </td>
                           <td className="p-3">
                             {proj.fechaCulminacion ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#EAF3DE] text-[#27500A]">
                                 <CheckCircle className="w-3 h-3" />
-                                {new Date(proj.fechaCulminacion).toLocaleDateString()}
+                                {formatDateOnly(proj.fechaCulminacion)}
                               </span>
                             ) : (
                               <span className="text-[10px] font-semibold text-[#8B8A84] italic">
@@ -2159,86 +2351,100 @@ function Dashboard() {
                                 </span>
                               </div>
                               <span className="text-[10px] text-[#5F5E5A] block">
-                                Plazo: {new Date(hito.fechaObjetivo).toLocaleDateString()} | Alerta
+                                Plazo: {formatDateOnly(hito.fechaObjetivo)} | Alerta
                                 preventiva:{' '}
                                 {hito.diasAlerta ?? (selectedAdminProject.diasAlertaHito || 7)} días
                               </span>
+                              {hito.estatus === 'completado' && hito.fechaCompletado && (
+                                <span className="text-[10px] text-[#27500A] font-semibold flex items-center gap-1 mt-0.5">
+                                  <CheckCircle className="w-3 h-3 text-[#27500A]" />
+                                  Completado el: {formatDateOnly(hito.fechaCompletado)}
+                                </span>
+                              )}
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                              <button
-                                type="button"
-                                onClick={() => handleToggleHitoStatus(hito)}
-                                title={
-                                  hito.estatus === 'completado'
-                                    ? 'Marcar como pendiente'
-                                    : 'Marcar como completado'
-                                }
-                                className={`h-7 px-2 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                                  hito.estatus === 'completado'
-                                    ? 'bg-[#EAF3DE] text-[#27500A] hover:bg-[#D5EAC3]'
-                                    : 'bg-white border border-[#C9C7BD] text-[#1C1C1A] hover:bg-[#F1EFE8]'
-                                }`}
-                              >
-                                {hito.estatus === 'completado' ? '✓ Completado' : 'Completar'}
-                              </button>
-                              <button
-                                onClick={() => handleDeleteHito(hito.id)}
-                                className="h-7 w-7 text-[#C23939] hover:bg-[#FDE8E8] rounded flex items-center justify-center transition-all cursor-pointer"
-                                title="Eliminar Hito"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                            {!selectedAdminProject.fechaCulminacion && (
+                              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleHitoStatus(hito)}
+                                  title={
+                                    hito.estatus === 'completado'
+                                      ? 'Marcar como pendiente'
+                                      : 'Marcar como completado'
+                                  }
+                                  className={`h-7 px-2 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                                    hito.estatus === 'completado'
+                                      ? 'bg-[#EAF3DE] text-[#27500A] hover:bg-[#D5EAC3]'
+                                      : 'bg-white border border-[#C9C7BD] text-[#1C1C1A] hover:bg-[#F1EFE8]'
+                                  }`}
+                                >
+                                  {hito.estatus === 'completado' ? '✓ Completado' : 'Completar'}
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteHito(hito.id)}
+                                  className="h-7 w-7 text-[#C23939] hover:bg-[#FDE8E8] rounded flex items-center justify-center transition-all cursor-pointer"
+                                  title="Eliminar Hito"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
 
-                    <form
-                      onSubmit={handleAddHito}
-                      className="pt-4 border-t border-[#E3E1D9] space-y-3"
-                    >
-                      <span className="block text-xs font-semibold text-[#1C1C1A]">
-                        Agregar Hito
-                      </span>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <input
-                          type="text"
-                          placeholder="Nombre del Hito"
-                          required
-                          value={hitoForm.nombre}
-                          onChange={(e) => setHitoForm({ ...hitoForm, nombre: e.target.value })}
-                          className="h-9 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs"
-                        />
-                        <input
-                          type="date"
-                          required
-                          value={hitoForm.fechaObjetivo}
-                          onChange={(e) =>
-                            setHitoForm({ ...hitoForm, fechaObjetivo: e.target.value })
-                          }
-                          className="h-9 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs"
-                        />
-                        <input
-                          type="number"
-                          min={1}
-                          max={60}
-                          placeholder="Días alerta naranja (ej. 7)"
-                          title="Días previos a la fecha objetivo para cambiar el semáforo a naranja"
-                          value={hitoForm.diasAlerta}
-                          onChange={(e) =>
-                            setHitoForm({ ...hitoForm, diasAlerta: parseInt(e.target.value) || 7 })
-                          }
-                          className="h-9 px-2 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        className="w-full h-9 bg-[#1C1C1A] hover:bg-[#3E3D39] text-white text-xs font-bold rounded-lg cursor-pointer shadow-xs"
+                    {!selectedAdminProject.fechaCulminacion ? (
+                      <form
+                        onSubmit={handleAddHito}
+                        className="pt-4 border-t border-[#E3E1D9] space-y-3"
                       >
-                        Guardar Hito
-                      </button>
-                    </form>
+                        <span className="block text-xs font-semibold text-[#1C1C1A]">
+                          Agregar Hito
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            placeholder="Nombre del Hito"
+                            required
+                            value={hitoForm.nombre}
+                            onChange={(e) => setHitoForm({ ...hitoForm, nombre: e.target.value })}
+                            className="h-9 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs"
+                          />
+                          <input
+                            type="date"
+                            required
+                            value={hitoForm.fechaObjetivo}
+                            onChange={(e) =>
+                              setHitoForm({ ...hitoForm, fechaObjetivo: e.target.value })
+                            }
+                            className="h-9 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs"
+                          />
+                          <input
+                            type="number"
+                            min={1}
+                            max={60}
+                            placeholder="Días alerta naranja (ej. 7)"
+                            title="Días previos a la fecha objetivo para cambiar el semáforo a naranja"
+                            value={hitoForm.diasAlerta}
+                            onChange={(e) =>
+                              setHitoForm({ ...hitoForm, diasAlerta: parseInt(e.target.value) || 7 })
+                            }
+                            className="h-9 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          className="w-full h-9 bg-[#1C1C1A] hover:bg-[#3E3D39] text-white text-xs font-bold rounded-lg cursor-pointer shadow-xs"
+                        >
+                          Guardar Hito
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="pt-3 border-t border-[#E3E1D9] text-[11px] text-[#8B8A84] italic text-center">
+                        Proyecto culminado — Cronograma de hitos congelado en modo solo lectura.
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
@@ -2329,6 +2535,7 @@ function Dashboard() {
                         rol: 'trabajador',
                         activo: true,
                       });
+                      setShowUserPassword(false);
                       setShowUserModal(true);
                     }}
                     className="flex items-center gap-1.5 h-9 px-3 bg-[#27500A] text-white hover:bg-[#3E5C1B] rounded-lg text-xs font-bold cursor-pointer transition-all"
@@ -2377,6 +2584,7 @@ function Dashboard() {
                                     rol: u.rol,
                                     activo: u.activo,
                                   });
+                                  setShowUserPassword(false);
                                   setShowUserModal(true);
                                 }}
                                 className="h-7 w-7 border border-[#C9C7BD] hover:bg-[#F1EFE8] flex items-center justify-center rounded text-[#5F5E5A] hover:text-[#1C1C1A] cursor-pointer"
@@ -2783,6 +2991,16 @@ function Dashboard() {
         ) : dashboardData ? (
           // ================= VISTAS ESTÁNDAR DEL DASHBOARD DE PROYECTO =================
           <div className="space-y-6">
+            {/* BANNER DE PROYECTO CULMINADO (SI APLICA) */}
+            {isCulminated && (
+              <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-2xl flex items-center gap-3 text-xs shadow-2xs">
+                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div className="flex-1 leading-relaxed">
+                  <b className="font-bold">Proyecto Culminado:</b> Este proyecto ha sido marcado como culminado y se encuentra congelado en modo solo lectura para garantizar que no se alteren los datos registrados. No se permiten nuevos reportes ni modificaciones.
+                </div>
+              </div>
+            )}
+
             {/* FICHA TÉCNICA DEL PROYECTO SELECCIONADO */}
             <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
               <div className="flex items-start sm:items-center gap-4 min-w-0">
@@ -2834,6 +3052,11 @@ function Dashboard() {
                       <b className="text-[#1C1C1A] font-semibold">
                         {dashboardData.proyecto.liderCliente || 'No asignado'}
                       </b>
+                      {dashboardData.proyecto.telefonoLiderCliente && (
+                        <span className="ml-1 text-[#0C447C] font-normal">
+                          (Tel: {dashboardData.proyecto.telefonoLiderCliente})
+                        </span>
+                      )}
                     </span>
                     <span className="text-[#C9C7BD] hidden sm:inline">•</span>
                     <span>
@@ -2846,14 +3069,14 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Fechas y Botón Editar */}
+              {/* Fechas y Botones de Acción */}
               <div className="flex flex-wrap items-center gap-3 text-xs w-full lg:w-auto justify-start sm:justify-end">
                 <div className="bg-[#F7F7F5] border border-[#E3E1D9] px-3.5 py-2 rounded-xl min-w-28">
                   <span className="block text-[10px] text-[#5F5E5A] mb-0.5 flex items-center gap-1">
                     <Calendar className="w-3 h-3 text-[#8B8A84]" /> Fecha Inicio
                   </span>
                   <span className="font-bold text-[#1C1C1A]">
-                    {new Date(dashboardData.proyecto.fechaInicio).toLocaleDateString()}
+                    {formatDateOnly(dashboardData.proyecto.fechaInicio)}
                   </span>
                 </div>
 
@@ -2862,7 +3085,7 @@ function Dashboard() {
                     <Calendar className="w-3 h-3 text-[#8B8A84]" /> Fin Estimado
                   </span>
                   <span className="font-bold text-[#1C1C1A]">
-                    {new Date(dashboardData.proyecto.fechaFinEstimada).toLocaleDateString()}
+                    {formatDateOnly(dashboardData.proyecto.fechaFinEstimada)}
                   </span>
                 </div>
 
@@ -2887,21 +3110,32 @@ function Dashboard() {
                     }`}
                   >
                     {dashboardData.proyecto.fechaCulminacion
-                      ? new Date(dashboardData.proyecto.fechaCulminacion).toLocaleDateString()
+                      ? formatDateOnly(dashboardData.proyecto.fechaCulminacion)
                       : 'En proceso'}
                   </span>
                 </div>
 
-                {isAdminOrSupervisor && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenProjectEdit(dashboardData.proyecto)}
-                    className="flex items-center gap-1.5 h-10 px-3.5 bg-white hover:bg-[#F7F7F5] text-[#1C1C1A] border border-[#C9C7BD] hover:border-[#1C1C1A] rounded-xl text-xs font-bold cursor-pointer transition-all shadow-2xs"
-                    title="Editar datos de la ficha técnica, logos, líderes y fecha de culminación"
-                  >
-                    <Edit className="w-3.5 h-3.5 text-[#0C447C]" />
-                    <span>Editar Ficha</span>
-                  </button>
+                {isAdmin && !isCulminated && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmCulminateProject(dashboardData.proyecto.id)}
+                      className="flex items-center gap-1.5 h-10 px-3.5 bg-[#27500A] hover:bg-[#1f4008] text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-xs"
+                      title="Confirmar culminación del proyecto y congelar modificaciones"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5 text-white" />
+                      <span>Culminar Proyecto</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenProjectEdit(dashboardData.proyecto)}
+                      className="flex items-center gap-1.5 h-10 px-3.5 bg-white hover:bg-[#F7F7F5] text-[#1C1C1A] border border-[#C9C7BD] hover:border-[#1C1C1A] rounded-xl text-xs font-bold cursor-pointer transition-all shadow-2xs"
+                      title="Editar datos de la ficha técnica, logos y líderes"
+                    >
+                      <Edit className="w-3.5 h-3.5 text-[#0C447C]" />
+                      <span>Editar Ficha</span>
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -3086,8 +3320,14 @@ function Dashboard() {
                                   {hito.nombre}
                                 </span>
                                 <span className="text-[10px] text-[#5F5E5A]">
-                                  Plazo: {new Date(hito.fechaObjetivo).toLocaleDateString()}
+                                  Plazo: {formatDateOnly(hito.fechaObjetivo)}
                                 </span>
+                                {hito.estatus === 'completado' && hito.fechaCompletado && (
+                                  <span className="text-[10px] text-[#27500A] font-semibold flex items-center gap-1 mt-0.5">
+                                    <CheckCircle className="w-3 h-3 text-[#27500A]" />
+                                    Completado el: {formatDateOnly(hito.fechaCompletado)}
+                                  </span>
+                                )}
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <span
@@ -3098,7 +3338,7 @@ function Dashboard() {
                                   ></span>
                                   {sem.label}
                                 </span>
-                                {isAdminOrSupervisor && (
+                                {isAdminOrSupervisor && !isCulminated && (
                                   <button
                                     type="button"
                                     onClick={() => handleToggleHitoStatus(hito)}
@@ -3234,7 +3474,7 @@ function Dashboard() {
                       Listado de capturas de campo y materiales instalados en obra.
                     </p>
                   </div>
-                  {isAdminOrSupervisor && (
+                  {isAdminOrSupervisor && !isCulminated && (
                     <button
                       onClick={() => {
                         setShowAvanceModal(true);
@@ -3376,7 +3616,7 @@ function Dashboard() {
                                 <span className="font-bold text-[#27500A] bg-[#EAF3DE]/30 px-2 py-0.5 rounded">
                                   +{item.cantidad} {item.material?.unidad || 'pza'}
                                 </span>
-                                {isAdminOrSupervisor && (
+                                {canEditOrDeleteAvance(av.autorId, av.autor?.email) && (
                                   <div className="flex items-center gap-1 ml-2 border-l border-[#E3E1D9] pl-2">
                                     <button
                                       type="button"
@@ -3464,7 +3704,10 @@ function Dashboard() {
                                 +{ext.cantidad} pza
                               </td>
                               <td className="p-2.5 text-center">
-                                {isAdminOrSupervisor && (
+                                {canEditOrDeleteAvance(
+                                  (ext.avanceItem?.avance as any)?.autorId || ext.avanceItem?.avance?.autor?.id,
+                                  ext.avanceItem?.avance?.autor?.email,
+                                ) && (
                                   <div className="flex items-center justify-center gap-1">
                                     <button
                                       type="button"
@@ -3791,8 +4034,8 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Líderes de Proyecto */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Líderes de Proyecto y Contacto */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
                     Líder de Proyecto (Cliente)
@@ -3803,6 +4046,20 @@ function Dashboard() {
                     value={projectForm.liderCliente}
                     onChange={(e) =>
                       setProjectForm({ ...projectForm, liderCliente: e.target.value })
+                    }
+                    className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#5F5E5A] mb-1">
+                    Teléfono Líder (Cliente)
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="Ej. +52 55 1234 5678"
+                    value={projectForm.telefonoLiderCliente}
+                    onChange={(e) =>
+                      setProjectForm({ ...projectForm, telefonoLiderCliente: e.target.value })
                     }
                     className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
                   />
@@ -3986,14 +4243,28 @@ function Dashboard() {
                     </span>
                   )}
                 </label>
-                <input
-                  type="password"
-                  required={!editingUser}
-                  placeholder={editingUser ? '••••••••' : 'Ingrese contraseña'}
-                  value={userForm.password}
-                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                  className="w-full h-10 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
-                />
+                <div className="relative">
+                  <input
+                    type={showUserPassword ? 'text' : 'password'}
+                    required={!editingUser}
+                    placeholder={editingUser ? '••••••••' : 'Ingrese contraseña'}
+                    value={userForm.password}
+                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                    className="w-full h-10 pl-3 pr-10 bg-[#F7F7F5] border border-[#C9C7BD] rounded-xl text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowUserPassword(!showUserPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8B8A84] hover:text-[#1C1C1A] cursor-pointer"
+                    title={showUserPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                  >
+                    {showUserPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

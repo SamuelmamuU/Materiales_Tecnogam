@@ -50,7 +50,7 @@ export class AuthService {
         process.env.JWT_ACCESS_SECRET ||
         'super-secret-access-key-control-materiales',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expiresIn: (process.env.JWT_ACCESS_EXPIRATION || '15m') as any,
+      expiresIn: (process.env.JWT_ACCESS_EXPIRATION || '24h') as any,
     });
 
     // Generate Refresh Token
@@ -59,7 +59,7 @@ export class AuthService {
       {
         secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        expiresIn: (process.env.JWT_REFRESH_EXPIRATION || '7d') as any,
+        expiresIn: (process.env.JWT_REFRESH_EXPIRATION || '30d') as any,
       },
     );
 
@@ -103,7 +103,7 @@ export class AuthService {
           process.env.JWT_ACCESS_SECRET ||
           'super-secret-access-key-control-materiales',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        expiresIn: (process.env.JWT_ACCESS_EXPIRATION || '15m') as any,
+        expiresIn: (process.env.JWT_ACCESS_EXPIRATION || '24h') as any,
       });
 
       const refreshToken = this.jwtService.sign(
@@ -111,7 +111,7 @@ export class AuthService {
         {
           secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key',
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          expiresIn: (process.env.JWT_REFRESH_EXPIRATION || '7d') as any,
+          expiresIn: (process.env.JWT_REFRESH_EXPIRATION || '30d') as any,
         },
       );
 

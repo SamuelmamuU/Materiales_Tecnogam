@@ -19,8 +19,8 @@ export class ProjectGuard implements CanActivate {
       throw new ForbiddenException('Acceso denegado: usuario no autenticado.');
     }
 
-    // El Administrador y Supervisor tienen acceso global y se saltan el scoping
-    if (user.rol === 'administrador' || user.rol === 'supervisor') {
+    // Únicamente el Administrador tiene acceso global y se salta el scoping
+    if (user.rol === 'administrador') {
       return true;
     }
 

@@ -3,6 +3,7 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvanceItemTipo, AvanceItemSubtipo, Prisma } from '@prisma/client';
@@ -30,6 +31,18 @@ export class AvancesService {
       cantidad: number;
     }>;
   }) {
+    // 0. Validar si el proyecto está culminado
+    const proyecto = await this.prisma.proyecto.findUnique({
+      where: { id: dto.proyectoId },
+    });
+    if (!proyecto) {
+      throw new NotFoundException('El proyecto especificado no existe.');
+    }
+    if (proyecto.fechaCulminacion) {
+      throw new BadRequestException(
+        'El proyecto ha sido culminado. No se permiten nuevos reportes de avances.',
+      );
+    }
     // 1. Tarea 5.3: Validación de negocio
     for (const item of dto.items) {
       if (item.cantidad <= 0) {
@@ -131,6 +144,18 @@ export class AvancesService {
     duracion: number;
     fecha: string;
   }) {
+    const proyecto = await this.prisma.proyecto.findUnique({
+      where: { id: dto.proyectoId },
+    });
+    if (!proyecto) {
+      throw new NotFoundException('El proyecto especificado no existe.');
+    }
+    if (proyecto.fechaCulminacion) {
+      throw new BadRequestException(
+        'El proyecto ha sido culminado. No se permiten nuevos registros.',
+      );
+    }
+
     const existing = await this.prisma.tiempoMuerto.findUnique({
       where: { id: dto.id },
     });
@@ -167,6 +192,18 @@ export class AvancesService {
     longitud?: number;
     evidenciaUrl?: string;
   }) {
+    const proyecto = await this.prisma.proyecto.findUnique({
+      where: { id: dto.proyectoId },
+    });
+    if (!proyecto) {
+      throw new NotFoundException('El proyecto especificado no existe.');
+    }
+    if (proyecto.fechaCulminacion) {
+      throw new BadRequestException(
+        'El proyecto ha sido culminado. No se permiten nuevos registros.',
+      );
+    }
+
     const existing = await this.prisma.incidente.findUnique({
       where: { id: dto.id },
     });
@@ -327,6 +364,7 @@ export class AvancesService {
       materialManual?: string;
       subtipo?: AvanceItemSubtipo;
     },
+    user?: { sub: string; rol: string },
   ) {
     if (dto.cantidad !== undefined && dto.cantidad <= 0) {
       throw new BadRequestException('La cantidad debe ser mayor a cero.');
@@ -339,6 +377,25 @@ export class AvancesService {
     });
 
     if (existingItem) {
+      const proyecto = await this.prisma.proyecto.findUnique({
+        where: { id: existingItem.avance.proyectoId },
+      });
+      if (proyecto?.fechaCulminacion) {
+        throw new BadRequestException(
+          'El proyecto ha sido culminado. No se permiten modificaciones ni eliminaciones.',
+        );
+      }
+
+      if (
+        user &&
+        user.rol === 'supervisor' &&
+        existingItem.avance.autorId !== user.sub
+      ) {
+        throw new ForbiddenException(
+          'Los supervisores únicamente pueden modificar o eliminar sus propios reportes de avance.',
+        );
+      }
+
       const oldQty = existingItem.cantidad;
       const newQty = dto.cantidad !== undefined ? Number(dto.cantidad) : oldQty;
       const diffQty = newQty - oldQty;
@@ -408,6 +465,15 @@ export class AvancesService {
     });
 
     if (existingExtra) {
+      const proyecto = await this.prisma.proyecto.findUnique({
+        where: { id: existingExtra.proyectoId },
+      });
+      if (proyecto?.fechaCulminacion) {
+        throw new BadRequestException(
+          'El proyecto ha sido culminado. No se permiten modificaciones ni eliminaciones.',
+        );
+      }
+
       const updatedExtra = await this.prisma.materialExtra.update({
         where: { id: itemId },
         data: {
@@ -425,7 +491,10 @@ export class AvancesService {
     throw new NotFoundException('El registro de material extra especificado no existe.');
   }
 
-  async deleteAvanceItem(itemId: string) {
+  async deleteAvanceItem(
+    itemId: string,
+    user?: { sub: string; rol: string },
+  ) {
     // 1. Buscar si existe en AvanceItem
     const existingItem = await this.prisma.avanceItem.findUnique({
       where: { id: itemId },
@@ -433,6 +502,25 @@ export class AvancesService {
     });
 
     if (existingItem) {
+      const proyecto = await this.prisma.proyecto.findUnique({
+        where: { id: existingItem.avance.proyectoId },
+      });
+      if (proyecto?.fechaCulminacion) {
+        throw new BadRequestException(
+          'El proyecto ha sido culminado. No se permiten modificaciones ni eliminaciones.',
+        );
+      }
+
+      if (
+        user &&
+        user.rol === 'supervisor' &&
+        existingItem.avance.autorId !== user.sub
+      ) {
+        throw new ForbiddenException(
+          'Los supervisores únicamente pueden modificar o eliminar sus propios reportes de avance.',
+        );
+      }
+
       const avanceId = existingItem.avanceId;
       const proyectoId = existingItem.avance.proyectoId;
       const materialId = existingItem.materialId;
@@ -509,6 +597,15 @@ export class AvancesService {
     });
 
     if (existingExtra) {
+      const proyecto = await this.prisma.proyecto.findUnique({
+        where: { id: existingExtra.proyectoId },
+      });
+      if (proyecto?.fechaCulminacion) {
+        throw new BadRequestException(
+          'El proyecto ha sido culminado. No se permiten modificaciones ni eliminaciones.',
+        );
+      }
+
       await this.prisma.materialExtra.delete({
         where: { id: itemId },
       });
@@ -541,11 +638,15 @@ export class AvancesService {
   async updateMaterialExtra(
     extraId: string,
     dto: { cantidad?: number; materialManual?: string },
+    user?: { sub: string; rol: string },
   ) {
-    return this.updateAvanceItem(extraId, dto);
+    return this.updateAvanceItem(extraId, dto, user);
   }
 
-  async deleteMaterialExtra(extraId: string) {
-    return this.deleteAvanceItem(extraId);
+  async deleteMaterialExtra(
+    extraId: string,
+    user?: { sub: string; rol: string },
+  ) {
+    return this.deleteAvanceItem(extraId, user);
   }
 }

@@ -67,6 +67,7 @@ model Proyecto {
   logoCliente       String?   @map("logo_cliente")
   liderCliente      String?   @map("lider_cliente")
   liderTecnogam     String?   @map("lider_tecnogam")
+  telefonoLiderCliente String? @map("telefono_lider_cliente")
   fechaInicio       DateTime  @map("fecha_inicio")
   fechaFinEstimada  DateTime  @map("fecha_fin_estimada")
   fechaCulminacion  DateTime? @map("fecha_culminacion")
@@ -104,6 +105,7 @@ model Hito {
   id            String      @id @default(uuid())
   nombre        String
   fechaObjetivo DateTime    @map("fecha_objetivo")
+  fechaCompletado DateTime? @map("fecha_completado")
   estatus       HitoEstatus @default(pendiente)
   diasAlerta    Int?        @default(7) @map("dias_alerta")
   proyectoId    String      @map("proyecto_id")

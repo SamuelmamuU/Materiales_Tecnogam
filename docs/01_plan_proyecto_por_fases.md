@@ -170,4 +170,24 @@
 
 ---
 
-**Duración total estimada:** 24 a 31 semanas (6 a 7.5 meses), sin contar Fase 0. Ajustable según tamaño del equipo y complejidad real de la integración con el sistema de materiales existente (dependencia crítica de la Fase 1).
+## Fase 9 — Ajustes Operativos, Seguridad de Sesión y Reglas de Negocio
+
+**Fecha de Planificación y Realización:** 13 de Octubre de 2026  
+**Objetivo:** Extender la duración de sesión, restringir estrictamente el scoping y permisos de supervisores, implementar culminación y bloqueo de proyectos, corregir desfase de fechas en hitos, y agregar datos de contacto y visibilidad de contraseñas.
+
+| # | Tarea | Detalle | Fecha | Estado | Criterio de Aceptación |
+|---|---|---|---|---|---|
+| 9.1 | **Extensión de Sesión y Manejo de JWT** | Ampliar la vigencia del Access Token de 15 minutos a 24 horas (`JWT_ACCESS_EXPIRATION="24h"`) y Refresh Token a 30 días. En Web, implementar interceptor para refrescar token automáticamente en 401 sin expulsar al usuario. | 13/10/2026 | ✅ Completado | El usuario puede permanecer autenticado por horas operando la app sin desconexiones repentinas. |
+| 9.2 | **Scoping Estricto para Supervisores** | Revertir el acceso global de supervisores en `projects.service.ts` (`findAllForUser`) y `project.guard.ts`. Los supervisores solo acceden a proyectos donde tienen membresía en `miembros_proyecto`. | 13/10/2026 | ✅ Completado | Un supervisor no asignado recibe 403 y no ve proyectos ajenos en su selector ni en su catálogo. |
+| 9.3 | **Pantalla de Espera (Esqueleto Vacío)** | Cuando un usuario (supervisor/trabajador) no tenga proyectos asignados, mostrar una vista esqueleto limpia con el mensaje: *"esperando el supervisor te asigne un proyecto"*. | 13/10/2026 | ✅ Completado | La interfaz muestra claramente el estado de espera y orientación para el usuario sin proyectos activos. |
+| 9.4 | **Confirmación de Proyecto Culminado y Bloqueo Operativo** | Botón en cabecera/ficha técnica (solo para Administrador) para confirmar culminación. Al culminar, el backend y frontend bloquean creación, modificación y eliminación de avances, hitos, materiales e incidencias. | 13/10/2026 | ✅ Completado | Proyecto culminado pasa a modo solo lectura; cualquier intento de mutación devuelve error 400 descriptivo. |
+| 9.5 | **Botón de Visualización de Contraseña** | Agregar alternador mostrar/ocultar contraseña (icono de ojo `Eye` / `EyeOff`) en todos los campos de contraseña restantes (modal de creación/edición de usuario en Web y asegurar en Login). | 13/10/2026 | ✅ Completado | El usuario puede alternar la visibilidad de texto plano/oculto de la contraseña con un solo clic. |
+| 9.6 | **Permisos de Modificación de Avances por Autor** | En `updateAvanceItem` y `deleteAvanceItem`, validar que si el rol es `supervisor`, el registro pertenezca a `autorId === user.id`. El `administrador` mantiene control total sobre cualquier registro. | 13/10/2026 | ✅ Completado | Supervisor no puede editar ni borrar avances de otro colega; la UI solo muestra botones de acción en sus propios registros. |
+| 9.7 | **Ficha de Proyecto Exclusiva para Administrador** | Restringir `PUT /projects/:projectId` a `@Roles('administrador')`. El botón "Editar Ficha" en el frontend solo se muestra si `user.rol === 'administrador'`. | 13/10/2026 | ✅ Completado | Un supervisor no puede modificar fichas técnicas, plazos, líderes ni logos de ningún proyecto. |
+| 9.8 | **Corrección de Desfase de Zona Horaria en Hitos** | Corregir parsing y visualización de fechas en hitos (`fechaObjetivo`) para evitar que `2026-09-02` se visualice como `1 de septiembre` debido a medianoche UTC vs huso horario local. | 13/10/2026 | ✅ Completado | La fecha visualizada coincide exactamente con el día seleccionado al crear o editar el hito. |
+| 9.9 | **Registro de Fecha de Culminación de Hitos** | Agregar columna `fecha_completado` al modelo `Hito`. Al marcar un hito como completado, almacenar automáticamente la fecha y hora de culminación y mostrarla en la interfaz. | 13/10/2026 | ✅ Completado | Hitos completados muestran la fecha en que se marcaron como completados. |
+| 9.10 | **Teléfono del Líder Cliente en Ficha de Proyecto** | Agregar campo `telefono_lider_cliente` en el modelo `Proyecto`, DTOs de creación/edición, formulario de ficha técnica y visualización en la cabecera del proyecto. | 13/10/2026 | ✅ Completado | Administrador puede registrar y consultar el teléfono de contacto del líder del cliente en la ficha técnica. |
+
+---
+
+**Duración total estimada:** 25 a 32 semanas (incluyendo Fase 9). Ajustable según tamaño del equipo y despliegues a producción.
