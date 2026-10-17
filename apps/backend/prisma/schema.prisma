@@ -56,6 +56,7 @@ model Usuario {
 
   proyectos MemberProyecto[]
   avances   Avance[]
+  auditoriasCelda AvanceCeldaAuditoria[]
 
   @@map("usuarios")
 }
@@ -84,6 +85,9 @@ model Proyecto {
   avances              Avance[]
   incidentes           Incidente[]
   tiemposMuertos       TiempoMuerto[]
+  avancesInstrumentacion AvanceInstrumentacion[]
+  avancesValvulas        AvanceValvula[]
+  avancesMotores         AvanceMotor[]
 
   @@map("proyectos")
 }
@@ -270,4 +274,149 @@ model BitacoraSincronizacion {
   detalles      String?
 
   @@map("bitacora_sincronizaciones")
+}
+
+model AvanceCeldaAuditoria {
+  id            String   @id @default(uuid())
+  modulo        String   @map("modulo") // 'instrumentacion' | 'valvulas' | 'motor'
+  filaId        String   @map("fila_id")
+  columna       String   @map("columna")
+  valorAnterior String?  @map("valor_anterior")
+  valorNuevo    String?  @map("valor_nuevo")
+  usuarioId     String   @map("usuario_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([modulo, filaId, columna])
+  @@map("avances_celda_auditoria")
+}
+
+model AvanceInstrumentacion {
+  id              String   @id @default(uuid())
+  proyectoId      String   @map("proyecto_id")
+
+  // Columnas Negras (Admin)
+  item            Int
+  tipoVariable    String   @map("tipo_variable")
+  equipoAsoc      String   @map("equipo_asociado")
+  tag             String
+  cant            Int      @default(1)
+  servicioSuple   String   @map("servicio_suple")
+  ubicacion       String
+  evk             String
+
+  // Columnas Naranjas (Supervisor)
+  instaladoPlanta String?  @default("0") @map("instalado_planta")
+  cableado        String?  @default("0")
+  cantidadCable   Float?   @default(0)   @map("cantidad_cable")
+  peinadoCinchado String?  @default("0") @map("peinado_cinchado")
+  conexionPlanta  String?  @default("0") @map("conexion_planta")
+  conexionTablero String?  @default("0") @map("conexion_tablero")
+  pruebas         String?  @default("0")
+  nota            String?
+
+  // Metadatos de auditoría última edición por celda
+  celdasAudit     Json?    @map("celdas_audit")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt      @map("updated_at")
+
+  proyecto        Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@index([proyectoId])
+  @@map("avances_instrumentacion")
+}
+
+model AvanceValvula {
+  id                  String   @id @default(uuid())
+  proyectoId          String   @map("proyecto_id")
+
+  // Columnas Negras (Admin)
+  item                Int
+  tag                 String
+  servicioCumple      String   @map("servicio_cumple")
+  funcionamiento      String
+  tipoValvula         String   @map("tipo_valvula")
+  ubicacion           String
+  falla               String
+  notaAdmin           String?  @map("nota_admin")
+
+  // Columnas Naranjas - Neumática (Supervisor)
+  cableadoNeum        String?  @default("0") @map("cableado_neumatico")
+  cableNeumInstal     Float?   @default(0)   @map("cable_neumatico_instalado")
+  peinadoNeum         String?  @default("0") @map("peinado_neumatico")
+  conexionPlantaNeum  String?  @default("0") @map("conexion_planta_neum")
+  conexionManifold    String?  @default("0") @map("conexion_manifold")
+  pruebasNeum         String?  @default("0") @map("pruebas_neum")
+  notasNeum           String?  @map("notas_neum")
+
+  // Columnas Naranjas - Control (Supervisor)
+  cableadoCtrl        String?  @default("0") @map("cableado_control")
+  cableCtrlInstal     String?  @default("0") @map("cable_control_instalado")
+  peinadoCtrl         String?  @default("0") @map("peinado_control")
+  conexionPlantaCtrl  String?  @default("0") @map("conexion_planta_ctrl")
+  conexionTableroCtrl String?  @default("0") @map("conexion_tablero_ctrl")
+  comisioning         String?  @default("0")
+  comisionamiento     String?  @default("0")
+  notasCtrl           String?  @map("notas_control")
+
+  // Metadatos de auditoría última edición por celda
+  celdasAudit         Json?    @map("celdas_audit")
+
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt      @map("updated_at")
+
+  proyecto            Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@index([proyectoId])
+  @@map("avances_valvulas")
+}
+
+model AvanceMotor {
+  id                String   @id @default(uuid())
+  proyectoId        String   @map("proyecto_id")
+
+  // Columnas Negras (Admin)
+  part              String
+  tag               String
+  description       String
+  operatingMode     String   @map("operating_mode")
+  voltage           String
+  hp                String
+  phases            String
+  flaCurrent        String   @map("fla_current")
+  fla125Current     String   @map("fla_125_current")
+  temperatureFactor String   @map("temperature_factor")
+  groupingFactor    String   @map("grouping_factor")
+  wiresPerPhase     String   @map("wires_per_phase")
+  voltageLossFactor String   @map("voltage_loss_factor")
+  cableLengthMts    String   @map("cable_length_mts")
+  voltageLossPct    String   @map("voltage_loss_pct")
+  wireGauge         String   @map("wire_gauge")
+  groundWireGauge   String   @map("ground_wire_gauge")
+  ubicacion         String
+  tamanoCable       String   @map("tamano_cable")
+
+  // Columnas Naranjas (Supervisor)
+  cableado          String?  @default("0")
+  cantidadCable     Float?   @default(0)   @map("cantidad_cable")
+  peinadoCinchado   String?  @default("0") @map("peinado_cinchado")
+  pruebasAislMotor  String?  @default("0") @map("pruebas_aisl_motor")
+  pruebasAislCirc   String?  @default("0") @map("pruebas_aisl_circ")
+  conexionMotor     String?  @default("0") @map("conexion_motor")
+  conexionCcm       String?  @default("0") @map("conexion_ccm")
+  motorSoloRun      String?  @default("0") @map("motor_solo_run")
+  notas             String?
+
+  // Metadatos de auditoría última edición por celda
+  celdasAudit       Json?    @map("celdas_audit")
+
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt      @map("updated_at")
+
+  proyecto          Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@index([proyectoId])
+  @@map("avances_motores")
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Login from './pages/Login';
+import { SpecializedAvanceTab } from './components/SpecializedAvanceTab';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 import {
@@ -361,6 +362,7 @@ function Dashboard() {
   const [filterFechaInicio, setFilterFechaInicio] = useState<string>('');
   const [filterFechaFin, setFilterFechaFin] = useState<string>('');
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [avanceSubTab, setAvanceSubTab] = useState<'diaria' | 'instrumentacion' | 'valvulas' | 'motor'>('diaria');
 
   // Estados de S-Curve y Timeline (Fase 7 / Tarea 5.5)
   const [timelineData, setTimelineData] = useState<TimelinePoint[]>([]);
@@ -3462,9 +3464,63 @@ function Dashboard() {
               </div>
             )}
 
-            {/* VISTA 3: HISTORIAL DE AVANCES (Tab Activa: avances / Fase 5) */}
+            {/* VISTA 3: HISTORIAL DE AVANCES (Tab Activa: avances / Fase 5 + Fase 10) */}
             {activeTab === 'avances' && (
-              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="space-y-4">
+                {/* Sub-navegación de Pestañas de Avance (Fase 10) */}
+                <div className="flex items-center gap-2 border-b border-[#E3E1D9] pb-2 overflow-x-auto print:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setAvanceSubTab('diaria')}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      avanceSubTab === 'diaria'
+                        ? 'bg-[#1C1C1A] text-white shadow-xs'
+                        : 'bg-[#F1EFE8] text-[#5F5E5A] hover:bg-[#E3E1D9] hover:text-[#1C1C1A]'
+                    }`}
+                  >
+                    <Activity className="w-3.5 h-3.5" />
+                    Bitácora Diaria
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAvanceSubTab('instrumentacion')}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      avanceSubTab === 'instrumentacion'
+                        ? 'bg-[#1C1C1A] text-white shadow-xs'
+                        : 'bg-[#F1EFE8] text-[#5F5E5A] hover:bg-[#E3E1D9] hover:text-[#1C1C1A]'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5 text-blue-500" />
+                    Instrumentación
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAvanceSubTab('valvulas')}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      avanceSubTab === 'valvulas'
+                        ? 'bg-[#1C1C1A] text-white shadow-xs'
+                        : 'bg-[#F1EFE8] text-[#5F5E5A] hover:bg-[#E3E1D9] hover:text-[#1C1C1A]'
+                    }`}
+                  >
+                    <Settings className="w-3.5 h-3.5 text-amber-500" />
+                    Válvulas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAvanceSubTab('motor')}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      avanceSubTab === 'motor'
+                        ? 'bg-[#1C1C1A] text-white shadow-xs'
+                        : 'bg-[#F1EFE8] text-[#5F5E5A] hover:bg-[#E3E1D9] hover:text-[#1C1C1A]'
+                    }`}
+                  >
+                    <BarChart3 className="w-3.5 h-3.5 text-purple-500" />
+                    Motor
+                  </button>
+                </div>
+
+                {avanceSubTab === 'diaria' ? (
+                  <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="pb-2 border-b border-[#E3E1D9] flex justify-between items-center">
                   <div>
                     <h3 className="text-sm font-bold text-[#1C1C1A]">
@@ -3742,6 +3798,26 @@ function Dashboard() {
                         </tbody>
                       </table>
                     </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm">
+                    {selectedProjectId ? (
+                      <SpecializedAvanceTab
+                        projectId={selectedProjectId}
+                        modulo={avanceSubTab}
+                        isAdmin={isAdmin}
+                        isSupervisor={user.rol === 'supervisor'}
+                        isCulminated={isCulminated}
+                        apiUrl={API_URL}
+                        token={localStorage.getItem('accessToken') || ''}
+                      />
+                    ) : (
+                      <div className="text-center py-12 text-[#8B8A84]">
+                        Seleccione un proyecto para visualizar el avance.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

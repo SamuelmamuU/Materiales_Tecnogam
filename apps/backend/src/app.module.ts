@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { ProjectsModule } from './projects/projects.module';
 import { MediaModule } from './media/media.module';
 import { AvancesModule } from './avances/avances.module';
+import { AvancesEspecializadosModule } from './avances-especializados/avances-especializados.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AvancesModule } from './avances/avances.module';
     ProjectsModule,
     MediaModule,
     AvancesModule,
+    AvancesEspecializadosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

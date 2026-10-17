@@ -190,4 +190,22 @@
 
 ---
 
-**Duración total estimada:** 25 a 32 semanas (incluyendo Fase 9). Ajustable según tamaño del equipo y despliegues a producción.
+## Fase 10 — Pestañas Especializadas de Avances (Instrumentación, Válvulas y Motor) y Auditoría Celda por Celda
+
+**Fecha de Planificación y Realización:** 17 de Octubre de 2026  
+**Objetivo:** Incorporar al módulo "Historial de Avances" 3 pestañas especializadas de avance de obra basadas en `docs/Tabla de Avances.xlsx` (**Instrumentación**, **Válvulas** y **Motor**), implementando segregación de datos entre Administrador (columnas de especificación técnica con cabecera negra) y Supervisor (columnas de avance en planta con cabecera naranja), auditoría celda por celda a nivel de base de datos con timestamps y autor visible exclusivamente para Administradores, y exportación a Excel (.xlsx) con estilización fiel y filtrado de auditoría por rol.
+
+| # | Tarea | Detalle | Fecha | Estado | Criterio de Aceptación |
+|---|---|---|---|---|---|
+| 10.1 | **Extracción y Validación de Esquemas desde Excel** | Inspeccionar y validar los encabezados, jerarquías y tipos de datos de las hojas `INSTRUMENTACION`, `VALVULAS` y `MOTOR` en `docs/Tabla de Avances.xlsx`. Separar columnas negras (Administrador) y naranjas (Supervisor). | 17/10/2026 | ✅ Completado | Mapeo 100% fiel de nombres, orden y tipos sin invenciones ni omisiones. |
+| 10.2 | **Modelo de Datos y Auditoría Celda por Celda en Prisma** | Crear modelos `AvanceInstrumentacion`, `AvanceValvula` y `AvanceMotor` con llaves foráneas a `Proyecto`, campo `celdasAudit: Json?` para O(1) lectura de autor/timestamp por celda naranja, y tabla `AvanceCeldaAuditoria` para historial inmutable. | 17/10/2026 | ⏳ En Planificación | Migración Prisma ejecutada exitosamente en PostgreSQL. |
+| 10.3 | **Seed / Carga Inicial de Filas desde Excel** | Crear script o endpoint administrativo para sembrar o importar las filas base de especificaciones técnicas (columnas negras) correspondientes a cada hoja para los proyectos activos. | 17/10/2026 | ⏳ En Planificación | Los proyectos cargan las especificaciones técnicas completas del catálogo del Excel. |
+| 10.4 | **Endpoints de Consulta con Filtrado RBAC de Auditoría** | Endpoints `GET /projects/:projectId/avances-especializados/:modulo`. Si el usuario es Administrador, retorna el payload enriquecido con `celdasAudit`. Si el usuario es Supervisor o Trabajador, remueve completamente los metadatos de auditoría. | 17/10/2026 | ⏳ En Planificación | Un supervisor no recibe fechas ni autores de auditoría en la respuesta HTTP bajo ninguna circunstancia. |
+| 10.5 | **Endpoints de Modificación con Validación Estricta de Columnas** | `PUT /projects/:projectId/avances-especializados/:modulo/rows/:rowId`. Valida que si el rol es `supervisor`, el request SOLO contenga claves de columnas naranjas; de lo contrario devuelve 403. Registra autor y timestamp en auditoría. | 17/10/2026 | ⏳ En Planificación | Intentos de supervisores de modificar columnas negras son rechazados por el backend. Modificaciones de celdas naranjas quedan auditadas. |
+| 10.6 | **Generador de Exportación Excel (.xlsx) con Estilos y RBAC** | `GET /projects/:projectId/avances-especializados/:modulo/export` utilizando `exceljs`. Encabezados negros con texto blanco, encabezados naranjas con texto blanco. Para Administradores, incluye columnas de auditoría adyacentes; para Supervisores, las excluye. | 17/10/2026 | ⏳ En Planificación | Descarga archivo `.xlsx` estéticamente idéntico al diseño corporativo y con control estricto de visibilidad de auditoría. |
+| 10.7 | **Sub-pestañas en Frontend (Historial de Avances)** | En `App.tsx`, agregar barra de sub-navegación dentro de "Historial de Avances": `Bitácora Diaria`, `Instrumentación`, `Válvulas`, `Motor`. Renderizar tablas con diseño industrial moderno y colores distintivos de encabezados (negro/naranja). | 17/10/2026 | ⏳ En Planificación | La interfaz permite alternar fluidamente entre las 4 sub-pestañas respetando el diseño responsivo. |
+| 10.8 | **Modo de Reporte de Avance, Edición y Visualización de Auditoría** | Celdas en modo solo-lectura por defecto. Botón "Reportar avance" habilita edición exclusivamente en celdas naranjas con barra de guardado por lote. Para Administradores, toggle "Ver auditoría" para inspeccionar autor y fecha de cada celda. | 17/10/2026 | ⏳ En Planificación | Supervisor puede reportar avance de manera intuitiva y segura; Administrador audita cada modificación en tiempo real. |
+
+---
+
+**Duración total estimada:** 26 a 33 semanas (incluyendo Fase 10). Ajustable según tamaño del equipo y despliegues a producción.
