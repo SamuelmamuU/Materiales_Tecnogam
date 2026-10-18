@@ -214,6 +214,46 @@ export class ProjectsService {
       (i) => i.estatus === 'resuelto',
     ).length;
 
+    const [countInstru, countValv, countMotor] = await Promise.all([
+      this.prisma.avanceInstrumentacion.count({ where: { proyectoId: projectId } }),
+      this.prisma.avanceValvula.count({ where: { proyectoId: projectId } }),
+      this.prisma.avanceMotor.count({ where: { proyectoId: projectId } }),
+    ]);
+
+    const missingInfoBasica: string[] = [];
+    if (!project.liderCliente?.trim()) missingInfoBasica.push('Líder del Cliente');
+    if (!project.telefonoLiderCliente?.trim()) missingInfoBasica.push('Teléfono de Contacto');
+    if (!project.liderTecnogam?.trim()) missingInfoBasica.push('Líder Tecnogam');
+    if (!project.fechaFinEstimada) missingInfoBasica.push('Fecha Fin Estimada');
+    if (hitos.length === 0) missingInfoBasica.push('Cronograma de Hitos');
+
+    const bomPendiente = cotizados.length === 0;
+    const infoBasicaPendiente = missingInfoBasica.length > 0;
+    const instrumentacionPendiente = countInstru === 0;
+    const valvulasPendiente = countValv === 0;
+    const motorPendiente = countMotor === 0;
+
+    const checklistPreArranque = {
+      bomPendiente,
+      infoBasicaPendiente,
+      instrumentacionPendiente,
+      valvulasPendiente,
+      motorPendiente,
+      missingInfoBasica,
+      counts: {
+        cotizados: cotizados.length,
+        instrumentacion: countInstru,
+        valvulas: countValv,
+        motor: countMotor,
+      },
+      totalPendientes:
+        (bomPendiente ? 1 : 0) +
+        (infoBasicaPendiente ? 1 : 0) +
+        (instrumentacionPendiente ? 1 : 0) +
+        (valvulasPendiente ? 1 : 0) +
+        (motorPendiente ? 1 : 0),
+    };
+
     return {
       proyecto: {
         id: project.id,
@@ -237,6 +277,7 @@ export class ProjectsService {
         openIncidentes,
         resolvedIncidentes,
       },
+      checklistPreArranque,
       hitos,
       reconciliation,
       incidentes,

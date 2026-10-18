@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Put,
+  Post,
   Param,
   Body,
   UseGuards,
@@ -14,12 +15,15 @@ import { AvancesEspecializadosService } from './avances-especializados.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { RequestWithUser } from '../auth/guards/jwt-auth.guard';
 import { ProjectGuard } from '../auth/guards/project.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiBody,
 } from '@nestjs/swagger';
 import type { Response as ExpressResponse } from 'express';
 import { Rol } from '@prisma/client';
@@ -51,6 +55,103 @@ export class AvancesEspecializadosController {
   ) {
     if (!req.user) throw new UnauthorizedException();
     return this.service.getRows(projectId, modulo, {
+      id: req.user.sub,
+      rol: req.user.rol as Rol,
+    });
+  }
+
+  @Post(':modulo/rows')
+  @Roles('administrador')
+  @UseGuards(RolesGuard)
+  @ApiOperation({
+    summary: 'Crear un nuevo registro técnico en la tabla (Exclusivo Administrador)',
+    description:
+      'Permite al Administrador registrar una nueva fila técnica (columnas negras) en la especialidad seleccionada.',
+  })
+  @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
+  @ApiParam({ name: 'modulo', description: 'instrumentacion | valvulas | motor' })
+  async createRow(
+    @Param('projectId') projectId: string,
+    @Param('modulo') modulo: string,
+    @Body() data: Record<string, any>,
+    @Request() req: RequestWithUser,
+  ) {
+    if (!req.user) throw new UnauthorizedException();
+    return this.service.createRow(projectId, modulo, data, {
+      id: req.user.sub,
+      rol: req.user.rol as Rol,
+    });
+  }
+
+  @Post(':modulo/import-csv')
+  @Roles('administrador')
+  @UseGuards(RolesGuard)
+  @ApiOperation({
+    summary: 'Importar masivamente registros técnicos vía archivo CSV (Exclusivo Administrador)',
+    description:
+      'Recibe el contenido en texto de un archivo CSV y crea los registros técnicos para la especialidad.',
+  })
+  @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
+  @ApiParam({ name: 'modulo', description: 'instrumentacion | valvulas | motor' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        csv: { type: 'string', description: 'Contenido raw del archivo CSV' },
+      },
+      required: ['csv'],
+    },
+  })
+  async importCsv(
+    @Param('projectId') projectId: string,
+    @Param('modulo') modulo: string,
+    @Body() body: { csv: string },
+    @Request() req: RequestWithUser,
+  ) {
+    if (!req.user) throw new UnauthorizedException();
+    return this.service.importFromCsv(projectId, modulo, body.csv, {
+      id: req.user.sub,
+      rol: req.user.rol as Rol,
+    });
+  }
+
+  @Get(':modulo/template-csv')
+  @ApiOperation({
+    summary: 'Descargar plantilla oficial CSV para la especialidad',
+    description:
+      'Retorna un archivo CSV delimitado por comas con los nombres exactos de columnas requeridas.',
+  })
+  @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
+  @ApiParam({ name: 'modulo', description: 'instrumentacion | valvulas | motor' })
+  async downloadTemplateCsv(
+    @Param('modulo') modulo: string,
+    @Response() res: ExpressResponse,
+  ) {
+    const { filename, content } = this.service.generateCsvTemplate(modulo);
+    res.set({
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return res.status(HttpStatus.OK).send(content);
+  }
+
+  @Post(':modulo/load-sample')
+  @Roles('administrador')
+  @UseGuards(RolesGuard)
+  @ApiOperation({
+    summary: 'Cargar datos de ejemplo desde docs/Tabla de Avances.xlsx (Exclusivo Administrador)',
+    description:
+      'Siembra las especificaciones técnicas completas del Excel de prueba para la especialidad en este proyecto.',
+  })
+  @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
+  @ApiParam({ name: 'modulo', description: 'instrumentacion | valvulas | motor' })
+  async loadSample(
+    @Param('projectId') projectId: string,
+    @Param('modulo') modulo: string,
+    @Request() req: RequestWithUser,
+  ) {
+    if (!req.user) throw new UnauthorizedException();
+    return this.service.loadSampleSeed(projectId, modulo, {
       id: req.user.sub,
       rol: req.user.rol as Rol,
     });

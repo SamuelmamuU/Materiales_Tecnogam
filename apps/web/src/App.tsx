@@ -32,6 +32,7 @@ import {
   Camera,
   Upload,
   MapPin,
+  ArrowRight,
 } from 'lucide-react';
 
 // Componente simple para proteger rutas privadas
@@ -282,6 +283,21 @@ interface DashboardData {
   incidentes: Incidente[];
   tiemposMuertos: TiempoMuerto[];
   materialesExtras?: MaterialExtraRecord[];
+  checklistPreArranque?: {
+    totalPendientes: number;
+    bomPendiente: boolean;
+    infoBasicaPendiente: boolean;
+    missingInfoBasica: string[];
+    instrumentacionPendiente: boolean;
+    valvulasPendiente: boolean;
+    motorPendiente: boolean;
+    counts: {
+      cotizados: number;
+      instrumentacion: number;
+      valvulas: number;
+      motor: number;
+    };
+  };
 }
 
 function Dashboard() {
@@ -1938,8 +1954,16 @@ function Dashboard() {
                   : 'text-[#5F5E5A] hover:bg-[#F7F7F5] hover:text-[#1C1C1A]'
               }`}
             >
-              <BarChart3 className="w-4 h-4" />
-              Vista General / Hitos
+              <BarChart3 className="w-4 h-4 shrink-0" />
+              <span>Vista General / Hitos</span>
+              {dashboardData?.checklistPreArranque && dashboardData.checklistPreArranque.totalPendientes > 0 && (
+                <span
+                  title={`${dashboardData.checklistPreArranque.totalPendientes} requisito(s) crucial(es) pendiente(s)`}
+                  className="ml-auto px-1.5 py-0.5 rounded-full bg-[#BA7517] text-white text-[10px] font-bold flex items-center justify-center animate-pulse"
+                >
+                  {dashboardData.checklistPreArranque.totalPendientes}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('materiales')}
@@ -3223,7 +3247,225 @@ function Dashboard() {
 
             {/* VISTA 1: GENERAL & HITOS */}
             {activeTab === 'kpis' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="space-y-6">
+                {/* APARTADO DE NOTIFICACIONES: REQUISITOS PRE-ARRANQUE */}
+                {dashboardData.checklistPreArranque && dashboardData.checklistPreArranque.totalPendientes > 0 && (
+                  <div className="bg-[#FFFDF5] border border-[#F59E0B]/40 rounded-2xl p-5 shadow-xs space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F59E0B]/20 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#FEF3C7] text-[#BA7517] flex items-center justify-center shrink-0">
+                          <AlertCircle className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-[#1C1C1A]">
+                              Requisitos Previos al Arranque del Proyecto
+                            </h3>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] text-[#B45309] border border-[#F59E0B]/30">
+                              {dashboardData.checklistPreArranque.totalPendientes}{' '}
+                              {dashboardData.checklistPreArranque.totalPendientes === 1
+                                ? 'pendiente'
+                                : 'pendientes'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#5F5E5A] mt-0.5">
+                            Información crucial requerida antes de comenzar la captura y control operativo. Cada notificación desaparece automáticamente al completarse.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-left sm:text-right shrink-0">
+                        <span className="text-xs font-bold text-[#1C1C1A]">
+                          {5 - dashboardData.checklistPreArranque.totalPendientes} de 5 completados
+                        </span>
+                        <div className="w-32 bg-[#E3E1D9] h-2 rounded-full mt-1 overflow-hidden">
+                          <div
+                            className="bg-[#27500A] h-full rounded-full transition-all duration-300"
+                            style={{
+                              width: `${((5 - dashboardData.checklistPreArranque.totalPendientes) / 5) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {/* BOM de Materiales */}
+                      {dashboardData.checklistPreArranque.bomPendiente && (
+                        <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-[#E6F1FB] text-[#0C447C] flex items-center justify-center shrink-0">
+                                <Layers className="w-4 h-4" />
+                              </div>
+                              <span className="text-xs font-bold text-[#1C1C1A]">
+                                BOM de Materiales Cotizados
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
+                              El catálogo de materiales cotizados está vacío. Agrega los materiales base para habilitar la conciliación de obra.
+                            </p>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
+                            <span className="text-[10px] text-[#BA7517] font-semibold">0 cotizados</span>
+                            {isAdmin ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveTab('bom');
+                                  if (selectedProjectId) fetchProjectDetailForAdmin(selectedProjectId);
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-[#0C447C] hover:bg-[#083058] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                              >
+                                <span>Cargar BOM</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-[#8B8A84] italic">Requiere Administrador</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Información Básica */}
+                      {dashboardData.checklistPreArranque.infoBasicaPendiente && (
+                        <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-[#F5F3FF] text-[#7C3AED] flex items-center justify-center shrink-0">
+                                <FileText className="w-4 h-4" />
+                              </div>
+                              <span className="text-xs font-bold text-[#1C1C1A]">
+                                Información Básica
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
+                              Faltan por registrar datos de la ficha técnica:{' '}
+                              <b className="text-[#1C1C1A]">{dashboardData.checklistPreArranque.missingInfoBasica.join(', ')}</b>.
+                            </p>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
+                            <span className="text-[10px] text-[#BA7517] font-semibold">
+                              {dashboardData.checklistPreArranque.missingInfoBasica.length} pendiente(s)
+                            </span>
+                            {isAdmin ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenProjectEdit(dashboardData.proyecto)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-[#1C1C1A] hover:bg-[#333330] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                              >
+                                <span>Editar Ficha</span>
+                                <Edit className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-[#8B8A84] italic">Requiere Administrador</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Instrumentación */}
+                      {dashboardData.checklistPreArranque.instrumentacionPendiente && (
+                        <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-[#EAF3DE] text-[#27500A] flex items-center justify-center shrink-0">
+                                <Activity className="w-4 h-4" />
+                              </div>
+                              <span className="text-xs font-bold text-[#1C1C1A]">
+                                Listado de Instrumentación
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
+                              0 tags técnicos cargados. Carga la lista inicial mediante archivo CSV o registro manual uno a uno.
+                            </p>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
+                            <span className="text-[10px] text-[#BA7517] font-semibold">0 registros</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab('avances');
+                                setAvanceSubTab('instrumentacion');
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#27500A] hover:bg-[#1f4008] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                            >
+                              <span>Cargar Instrumentación</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Válvulas */}
+                      {dashboardData.checklistPreArranque.valvulasPendiente && (
+                        <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-[#E0F2FE] text-[#0369A1] flex items-center justify-center shrink-0">
+                                <Activity className="w-4 h-4" />
+                              </div>
+                              <span className="text-xs font-bold text-[#1C1C1A]">
+                                Listado de Válvulas
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
+                              0 válvulas cargadas. Sube la tabla técnica con especificaciones mecánicas y tubería.
+                            </p>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
+                            <span className="text-[10px] text-[#BA7517] font-semibold">0 registros</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab('avances');
+                                setAvanceSubTab('valvulas');
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#0369A1] hover:bg-[#025a8b] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                            >
+                              <span>Cargar Válvulas</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Motores */}
+                      {dashboardData.checklistPreArranque.motorPendiente && (
+                        <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
+                                <Activity className="w-4 h-4" />
+                              </div>
+                              <span className="text-xs font-bold text-[#1C1C1A]">
+                                Listado de Motores
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
+                              0 motores cargados. Define los tags de motores, potencia HP y especificaciones eléctricas.
+                            </p>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
+                            <span className="text-[10px] text-[#BA7517] font-semibold">0 registros</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab('avances');
+                                setAvanceSubTab('motor');
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#D97706] hover:bg-[#b45309] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                            >
+                              <span>Cargar Motores</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Panel S-Curve (Fase 7 / Tareas 7.2-7.4) */}
                 <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-2 space-y-4">
                   <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
@@ -3383,6 +3625,7 @@ function Dashboard() {
                   </div>
                 </div>
               </div>
+            </div>
             )}
 
             {/* VISTA 2: TABLA DE CONCILIACIÓN */}
@@ -3812,6 +4055,11 @@ function Dashboard() {
                         isCulminated={isCulminated}
                         apiUrl={API_URL}
                         token={localStorage.getItem('accessToken') || ''}
+                        onDataChanged={() => {
+                          if (selectedProjectId) {
+                            fetchDashboardData(selectedProjectId);
+                          }
+                        }}
                       />
                     ) : (
                       <div className="text-center py-12 text-[#8B8A84]">

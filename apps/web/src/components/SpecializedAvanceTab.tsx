@@ -12,6 +12,10 @@ import {
   CheckCircle2,
   Circle,
   FileSpreadsheet,
+  Plus,
+  Upload,
+  FileText,
+  Sparkles,
 } from 'lucide-react';
 
 export type ModuloEspecializado = 'instrumentacion' | 'valvulas' | 'motor';
@@ -23,6 +27,7 @@ interface ColumnDef {
   type: 'check' | 'number' | 'text' | 'options';
   options?: string[];
   subgroup?: string;
+  required?: boolean;
 }
 
 const MODULO_CONFIG: Record<
@@ -39,9 +44,9 @@ const MODULO_CONFIG: Record<
       'Control de instalación, cableado, peinado y pruebas de instrumentos de planta.',
     columns: [
       { key: 'item', label: 'Item', isOrange: false, type: 'number' },
-      { key: 'tipoVariable', label: 'Tipo de VARIABLE', isOrange: false, type: 'text' },
+      { key: 'tipoVariable', label: 'Tipo de VARIABLE', isOrange: false, type: 'text', required: true },
       { key: 'equipoAsoc', label: 'Equipo asociado', isOrange: false, type: 'text' },
-      { key: 'tag', label: 'Tag', isOrange: false, type: 'text' },
+      { key: 'tag', label: 'Tag', isOrange: false, type: 'text', required: true },
       { key: 'cant', label: 'Cant.', isOrange: false, type: 'number' },
       { key: 'servicioSuple', label: 'Servicio que suple', isOrange: false, type: 'text' },
       { key: 'ubicacion', label: 'Ubicación', isOrange: false, type: 'text' },
@@ -63,7 +68,7 @@ const MODULO_CONFIG: Record<
       'Control de instalación neumática y control eléctrico de válvulas de proceso.',
     columns: [
       { key: 'item', label: 'ITEM', isOrange: false, type: 'number' },
-      { key: 'tag', label: 'TAG', isOrange: false, type: 'text' },
+      { key: 'tag', label: 'TAG', isOrange: false, type: 'text', required: true },
       { key: 'servicioCumple', label: 'Servicio que cumple', isOrange: false, type: 'text' },
       { key: 'funcionamiento', label: 'Funcionamiento', isOrange: false, type: 'text' },
       { key: 'tipoValvula', label: 'Tipo Válvula', isOrange: false, type: 'text' },
@@ -94,8 +99,8 @@ const MODULO_CONFIG: Record<
     description:
       'Control de cableado de fuerza, pruebas de aislamiento motor/circuito y solo-run.',
     columns: [
-      { key: 'part', label: 'Part', isOrange: false, type: 'text' },
-      { key: 'tag', label: 'TAG', isOrange: false, type: 'text' },
+      { key: 'part', label: 'Part', isOrange: false, type: 'text', required: true },
+      { key: 'tag', label: 'TAG', isOrange: false, type: 'text', required: true },
       { key: 'description', label: 'Descripción', isOrange: false, type: 'text' },
       { key: 'operatingMode', label: 'Modo', isOrange: false, type: 'text' },
       { key: 'voltage', label: 'Voltaje', isOrange: false, type: 'text' },
@@ -116,7 +121,7 @@ const MODULO_CONFIG: Record<
       // Supervisor
       { key: 'cableado', label: 'Cableado', isOrange: true, type: 'check' },
       { key: 'cantidadCable', label: 'Cant. Cable (m)', isOrange: true, type: 'number' },
-      { key: 'peinadoCinchado', label: 'Peinado y Cinchado', isOrange: true, type: 'check' },
+      { key: 'peinadoCinchado', label: 'Peinado y cinchado', isOrange: true, type: 'check' },
       { key: 'pruebasAislMotor', label: 'Aislam. Motor', isOrange: true, type: 'check' },
       { key: 'pruebasAislCirc', label: 'Aislam. Circuito', isOrange: true, type: 'check' },
       { key: 'conexionMotor', label: 'Conexión Motor', isOrange: true, type: 'check' },
@@ -135,6 +140,7 @@ interface Props {
   isCulminated: boolean;
   apiUrl: string;
   token: string;
+  onDataChanged?: () => void;
 }
 
 export const SpecializedAvanceTab: React.FC<Props> = ({
@@ -145,12 +151,13 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
   isCulminated,
   apiUrl,
   token,
+  onDataChanged,
 }) => {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Modo edición
+  // Modo edición en celdas naranjas
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editedRows, setEditedRows] = useState<Record<string, Record<string, any>>>({});
   const [saving, setSaving] = useState<boolean>(false);
@@ -158,10 +165,23 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
   // Modo auditoría (solo Admin)
   const [showAudit, setShowAudit] = useState<boolean>(false);
 
+  // Modales de administración
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [createForm, setCreateForm] = useState<Record<string, any>>({});
+  const [creatingRow, setCreatingRow] = useState<boolean>(false);
+
+  const [showCsvModal, setShowCsvModal] = useState<boolean>(false);
+  const [csvContent, setCsvContent] = useState<string>('');
+  const [csvFileName, setCsvFileName] = useState<string>('');
+  const [csvPreview, setCsvPreview] = useState<{ headers: string[]; rows: string[][] } | null>(null);
+  const [importingCsv, setImportingCsv] = useState<boolean>(false);
+  const [loadingSample, setLoadingSample] = useState<boolean>(false);
+
   // Búsqueda
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   const config = MODULO_CONFIG[modulo];
+  const adminColumns = useMemo(() => config.columns.filter((c) => !c.isOrange), [config]);
 
   // Cargar datos
   const fetchRows = async () => {
@@ -196,7 +216,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
     }
   }, [projectId, modulo]);
 
-  // Manejo de cambios en celdas
+  // Manejo de cambios en celdas durante reporte de avance
   const handleCellChange = (rowId: string, colKey: string, value: any) => {
     setEditedRows((prev) => {
       const rowUpdates = prev[rowId] ? { ...prev[rowId] } : {};
@@ -208,7 +228,6 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
     });
   };
 
-  // Obtener valor efectivo de celda (si está editado o original)
   const getCellValue = (row: any, colKey: string) => {
     if (editedRows[row.id] && editedRows[row.id][colKey] !== undefined) {
       return editedRows[row.id][colKey];
@@ -216,7 +235,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
     return row[colKey];
   };
 
-  // Guardar cambios por lote
+  // Guardar cambios de avance
   const handleSaveChanges = async () => {
     const dirtyRowIds = Object.keys(editedRows);
     if (dirtyRowIds.length === 0) {
@@ -253,6 +272,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
       }
 
       await fetchRows();
+      onDataChanged?.();
     } catch (err: any) {
       alert(`No se pudieron guardar los cambios: ${err.message}`);
     } finally {
@@ -260,7 +280,6 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
     }
   };
 
-  // Cancelar edición
   const handleCancelEdit = () => {
     setEditedRows({});
     setIsEditing(false);
@@ -289,6 +308,158 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
       a.remove();
     } catch (err: any) {
       alert(`Error al descargar Excel: ${err.message}`);
+    }
+  };
+
+  // Descargar plantilla CSV
+  const handleDownloadCsvTemplate = async () => {
+    try {
+      const res = await fetch(
+        `${apiUrl}/projects/${projectId}/avances-especializados/${modulo}/template-csv`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      if (!res.ok) throw new Error('Fallo al generar plantilla CSV');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Plantilla_${modulo.toUpperCase()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (err: any) {
+      alert(`Error al descargar plantilla CSV: ${err.message}`);
+    }
+  };
+
+  // Lectura de archivo CSV
+  const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = (event.target?.result as string) || '';
+      setCsvContent(text);
+
+      // Parsear líneas para previsualización
+      const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      if (lines.length > 0) {
+        const delim = lines[0].includes(';') ? ';' : ',';
+        const headers = lines[0].split(delim).map((h) => h.replace(/^"|"$/g, '').trim());
+        const previewRows = lines.slice(1, 6).map((l) => l.split(delim).map((c) => c.replace(/^"|"$/g, '').trim()));
+        setCsvPreview({ headers, rows: previewRows });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Enviar archivo CSV
+  const handleSubmitCsvImport = async () => {
+    if (!csvContent.trim()) {
+      alert('Por favor seleccione un archivo CSV con datos');
+      return;
+    }
+
+    try {
+      setImportingCsv(true);
+      const res = await fetch(
+        `${apiUrl}/projects/${projectId}/avances-especializados/${modulo}/import-csv`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ csv: csvContent }),
+        },
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al importar archivo CSV');
+      }
+
+      const result = await res.json();
+      alert(`¡Éxito! Se importaron ${result.count || 0} registros correctamente.`);
+      setShowCsvModal(false);
+      setCsvContent('');
+      setCsvFileName('');
+      setCsvPreview(null);
+      await fetchRows();
+      onDataChanged?.();
+    } catch (err: any) {
+      alert(`Fallo en la importación: ${err.message}`);
+    } finally {
+      setImportingCsv(false);
+    }
+  };
+
+  // Crear registro individual manual
+  const handleCreateRow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setCreatingRow(true);
+      const res = await fetch(
+        `${apiUrl}/projects/${projectId}/avances-especializados/${modulo}/rows`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(createForm),
+        },
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al crear nuevo registro');
+      }
+
+      setShowCreateModal(false);
+      setCreateForm({});
+      await fetchRows();
+      onDataChanged?.();
+    } catch (err: any) {
+      alert(`Fallo al registrar: ${err.message}`);
+    } finally {
+      setCreatingRow(false);
+    }
+  };
+
+  // Cargar datos de ejemplo (seed)
+  const handleLoadSampleData = async () => {
+    if (!confirm('¿Desea cargar los registros de especificaciones de ejemplo desde la plantilla Excel?')) {
+      return;
+    }
+    try {
+      setLoadingSample(true);
+      const res = await fetch(
+        `${apiUrl}/projects/${projectId}/avances-especializados/${modulo}/load-sample`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Error al cargar datos de ejemplo');
+      }
+      await fetchRows();
+      onDataChanged?.();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoadingSample(false);
     }
   };
 
@@ -355,6 +526,36 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
 
         {/* Botonera de acciones */}
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {/* ACCIONES EXCLUSIVAS DEL ADMINISTRADOR: CARGA MANUAL Y CSV */}
+          {isAdmin && !isCulminated && (
+            <>
+              <button
+                onClick={() => {
+                  setCreateForm({});
+                  setShowCreateModal(true);
+                }}
+                className="flex items-center gap-1.5 h-8 px-3 bg-[#1C1C1A] hover:bg-black text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                title="Registrar manualmente una nueva fila técnica (columnas negras)"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Nuevo Registro
+              </button>
+              <button
+                onClick={() => {
+                  setCsvContent('');
+                  setCsvFileName('');
+                  setCsvPreview(null);
+                  setShowCsvModal(true);
+                }}
+                className="flex items-center gap-1.5 h-8 px-3 bg-white border border-[#1C1C1A] text-[#1C1C1A] hover:bg-[#F1EFE8] rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                title="Importar lista de registros técnicos desde un archivo CSV"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Importar CSV
+              </button>
+            </>
+          )}
+
           {/* Toggle de Auditoría solo para Administradores */}
           {isAdmin && (
             <button
@@ -420,7 +621,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Barra de Búsqueda y Resumen de Métricas */}
+      {/* Barra de Búsqueda y Leyenda */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-3 bg-[#F7F7F5] p-2.5 rounded-xl border border-[#E3E1D9] text-xs">
         <div className="relative w-full sm:w-72">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-[#8B8A84]" />
@@ -433,15 +634,15 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
           />
         </div>
 
-        {/* Micro KPIs */}
+        {/* Micro Leyenda */}
         <div className="flex items-center gap-4 text-[11px] font-semibold text-[#5F5E5A]">
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#1C1C1A]"></span>
-            Columnas Negras: Especificación Admin
+            <span className="w-2.5 h-2.5 rounded-full bg-[#1C1C1A]"></span>
+            Columnas Negras: Especificación Técnica (Admin)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#C55A11]"></span>
-            Columnas Naranjas: Avance Supervisor
+            <span className="w-2.5 h-2.5 rounded-full bg-[#C55A11]"></span>
+            Columnas Naranjas: Reporte de Avance (Supervisor)
           </span>
         </div>
       </div>
@@ -458,25 +659,73 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
         <div className="p-4 bg-[#FDE8E8] border border-[#F8B4B4] rounded-xl text-xs text-[#C23939] font-medium">
           {errorMsg}
         </div>
+      ) : rows.length === 0 ? (
+        /* ESTADO VACÍO CON BOTONES DE ACCIÓN PARA EL ADMINISTRADOR */
+        <div className="text-center py-12 px-6 border-2 border-dashed border-[#C9C7BD] rounded-2xl bg-white space-y-4">
+          <FileSpreadsheet className="w-12 h-12 text-[#8B8A84] mx-auto opacity-50" />
+          <div className="max-w-md mx-auto space-y-1">
+            <h4 className="text-sm font-bold text-[#1C1C1A]">
+              No hay especificaciones cargadas para {config.title}
+            </h4>
+            <p className="text-xs text-[#5F5E5A]">
+              {isAdmin
+                ? 'Como Administrador, debes cargar el listado técnico de equipos para que los supervisores puedan reportar avance en planta.'
+                : 'El Administrador aún no ha cargado la lista de especificaciones técnicas para esta especialidad.'}
+            </p>
+          </div>
+
+          {isAdmin && !isCulminated && (
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setCsvContent('');
+                  setCsvFileName('');
+                  setCsvPreview(null);
+                  setShowCsvModal(true);
+                }}
+                className="flex items-center gap-2 h-9 px-4 bg-[#1C1C1A] text-white hover:bg-black rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+                Subir Archivo CSV
+              </button>
+              <button
+                onClick={() => {
+                  setCreateForm({});
+                  setShowCreateModal(true);
+                }}
+                className="flex items-center gap-2 h-9 px-4 bg-white border border-[#C9C7BD] text-[#1C1C1A] hover:bg-[#F7F7F5] rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Agregar Registro Uno a Uno
+              </button>
+              <button
+                onClick={handleLoadSampleData}
+                disabled={loadingSample}
+                className="flex items-center gap-2 h-9 px-4 bg-[#EAF3DE] border border-[#C0DD9D] text-[#27500A] hover:bg-[#D5EAC3] rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                {loadingSample ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                Cargar Datos de Ejemplo
+              </button>
+            </div>
+          )}
+        </div>
       ) : filteredRows.length === 0 ? (
-        <div className="text-center py-12 text-[#8B8A84] space-y-2 border border-dashed border-[#C9C7BD] rounded-xl">
-          <FileSpreadsheet className="w-10 h-10 text-gray-400 mx-auto opacity-40" />
-          <p className="text-sm font-semibold">Sin registros que mostrar</p>
-          <p className="text-xs">
-            {searchTerm
-              ? 'No hay resultados que coincidan con la búsqueda.'
-              : 'No hay filas cargadas para esta especialidad en el proyecto.'}
-          </p>
+        <div className="text-center py-10 text-[#8B8A84] space-y-2 border border-dashed border-[#C9C7BD] rounded-xl bg-white">
+          <p className="text-sm font-semibold">Sin coincidencias para la búsqueda</p>
+          <p className="text-xs">No se encontraron filas con el término "{searchTerm}".</p>
         </div>
       ) : (
         <div className="overflow-x-auto border border-[#E3E1D9] rounded-xl shadow-xs bg-white">
           <table className="w-full text-left text-xs border-collapse">
-            {/* Cabecera de 2 niveles */}
             <thead>
               {/* Nivel 1: Banda de Grupos */}
               <tr className="border-b border-[#E3E1D9] text-[10px] tracking-wider uppercase font-bold text-center">
                 <th
-                  colSpan={config.columns.filter((c) => !c.isOrange).length}
+                  colSpan={adminColumns.length}
                   className="bg-[#1C1C1A] text-white py-1.5 px-3 border-r border-gray-600"
                 >
                   INFORMACIÓN QUE SUBE EL ADMINISTRADOR AL INICIO DEL PROYECTO
@@ -697,6 +946,215 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
               )}
               Confirmar y Guardar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: REGISTRO MANUAL UNO A UNO (Exclusivo Administrador) */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-[#E3E1D9]">
+              <div>
+                <h3 className="text-sm font-bold text-[#1C1C1A]">
+                  Nuevo Registro Técnico — {config.title}
+                </h3>
+                <p className="text-xs text-[#5F5E5A]">
+                  Captura las especificaciones de ingeniería que estarán disponibles para el reporte de avance.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRow} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {adminColumns.map((col) => (
+                  <div key={col.key} className={col.key === 'servicioSuple' || col.key === 'description' || col.key === 'servicioCumple' ? 'sm:col-span-2' : ''}>
+                    <label className="block text-[11px] font-semibold text-[#1C1C1A] mb-1">
+                      {col.label} {col.required && <span className="text-red-500">*</span>}
+                    </label>
+                    {col.type === 'number' ? (
+                      <input
+                        type="number"
+                        required={col.required}
+                        value={createForm[col.key] ?? ''}
+                        onChange={(e) =>
+                          setCreateForm({ ...createForm, [col.key]: e.target.value })
+                        }
+                        className="w-full h-8 px-2.5 bg-white border border-[#C9C7BD] rounded-lg font-medium text-xs focus:outline-hidden focus:border-[#1C1C1A]"
+                        placeholder={col.key === 'cant' ? '1' : '0'}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        required={col.required}
+                        value={createForm[col.key] ?? ''}
+                        onChange={(e) =>
+                          setCreateForm({ ...createForm, [col.key]: e.target.value })
+                        }
+                        className="w-full h-8 px-2.5 bg-white border border-[#C9C7BD] rounded-lg font-medium text-xs focus:outline-hidden focus:border-[#1C1C1A]"
+                        placeholder={`Ingresar ${col.label}...`}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-3 border-t border-[#E3E1D9] flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-3.5 py-2 border border-[#C9C7BD] text-[#5F5E5A] hover:bg-[#F7F7F5] rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingRow}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-[#1C1C1A] hover:bg-black text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {creatingRow ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="w-3.5 h-3.5" />
+                  )}
+                  Guardar Registro
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: CARGA MASIVA VÍA ARCHIVO CSV (Exclusivo Administrador) */}
+      {showCsvModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-[#E3E1D9]">
+              <div>
+                <h3 className="text-sm font-bold text-[#1C1C1A]">
+                  Importar Especificaciones desde CSV — {config.title}
+                </h3>
+                <p className="text-xs text-[#5F5E5A]">
+                  Sube un archivo .csv con las columnas técnicas correspondientes para importarlas masivamente.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCsvModal(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Descarga de plantilla oficial */}
+            <div className="p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-[#C55A11]" />
+                <div>
+                  <span className="font-bold text-[#1C1C1A] block">
+                    ¿No tienes el formato exacto?
+                  </span>
+                  <span className="text-[#5F5E5A] text-[11px]">
+                    Descarga la plantilla oficial con los encabezados requeridos.
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleDownloadCsvTemplate}
+                className="flex items-center gap-1.5 h-8 px-3 bg-white border border-[#C9C7BD] hover:bg-gray-100 text-[#1C1C1A] rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap"
+              >
+                <Download className="w-3.5 h-3.5 text-[#0C447C]" />
+                Descargar Plantilla CSV
+              </button>
+            </div>
+
+            {/* Dropzone / Input de archivo */}
+            <div className="border-2 border-dashed border-[#C9C7BD] rounded-xl p-6 text-center hover:border-[#1C1C1A] transition-colors bg-[#FBFBFA]">
+              <Upload className="w-8 h-8 text-[#8B8A84] mx-auto mb-2 opacity-60" />
+              <label className="cursor-pointer">
+                <span className="text-xs font-bold text-[#0C447C] hover:underline block">
+                  Haz clic para seleccionar tu archivo CSV
+                </span>
+                <span className="text-[11px] text-[#5F5E5A] block mt-1">
+                  Formatos aceptados: .csv (separado por comas o punto y coma)
+                </span>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleCsvFileSelect}
+                  className="hidden"
+                />
+              </label>
+              {csvFileName && (
+                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-[#EAF3DE] text-[#27500A] rounded-full text-xs font-bold">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Archivo cargado: {csvFileName}
+                </div>
+              )}
+            </div>
+
+            {/* Previsualización */}
+            {csvPreview && (
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-[#5F5E5A] uppercase tracking-wider block">
+                  Vista Previa de Columnas Detectadas:
+                </span>
+                <div className="overflow-x-auto border border-[#E3E1D9] rounded-lg max-h-44 text-[11px]">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-[#1C1C1A] text-white">
+                      <tr>
+                        {csvPreview.headers.map((h, i) => (
+                          <th key={i} className="p-2 border-r border-gray-700 whitespace-nowrap">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E3E1D9]">
+                      {csvPreview.rows.map((r, ri) => (
+                        <tr key={ri} className="hover:bg-gray-50">
+                          {r.map((c, ci) => (
+                            <td key={ci} className="p-2 border-r border-[#E3E1D9] whitespace-nowrap">
+                              {c}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-[#E3E1D9] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCsvModal(false)}
+                className="px-3.5 py-2 border border-[#C9C7BD] text-[#5F5E5A] hover:bg-[#F7F7F5] rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitCsvImport}
+                disabled={importingCsv || !csvContent}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#1C1C1A] hover:bg-black text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {importingCsv ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" />
+                )}
+                Confirmar e Importar
+              </button>
+            </div>
           </div>
         </div>
       )}

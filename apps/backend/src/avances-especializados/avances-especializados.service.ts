@@ -69,9 +69,6 @@ export class AvancesEspecializadosService {
   ) {
     const validModulo = this.normalizeModulo(modulo);
 
-    // Auto-seed si el proyecto no tiene registros todavía
-    await this.ensureInitialSeed(projectId, validModulo);
-
     let rows: any[] = [];
     if (validModulo === 'instrumentacion') {
       rows = await this.prisma.avanceInstrumentacion.findMany({
@@ -99,6 +96,496 @@ export class AvancesEspecializadosService {
     }
 
     return { modulo: validModulo, rows };
+  }
+
+  /**
+   * Crea un nuevo registro técnico (columna negra) en la especialidad.
+   * Exclusivo para Administrador.
+   */
+  async createRow(
+    projectId: string,
+    modulo: string,
+    data: Record<string, any>,
+    user: { id: string; rol: Rol },
+  ) {
+    if (user.rol !== Rol.administrador) {
+      throw new ForbiddenException(
+        'Solo el administrador tiene autorización para agregar nuevos registros técnicos.',
+      );
+    }
+
+    const validModulo = this.normalizeModulo(modulo);
+    await this.checkProjectNotCulminated(projectId);
+
+    if (validModulo === 'instrumentacion') {
+      const currentCount = await this.prisma.avanceInstrumentacion.count({
+        where: { proyectoId: projectId },
+      });
+      const item = data.item ? parseInt(data.item, 10) : currentCount + 1;
+      return this.prisma.avanceInstrumentacion.create({
+        data: {
+          proyectoId: projectId,
+          item: isNaN(item) ? currentCount + 1 : item,
+          tipoVariable: String(data.tipoVariable || 'NIVEL').trim(),
+          equipoAsoc: String(data.equipoAsoc || '').trim(),
+          tag: String(data.tag || `TAG-${item}`).trim(),
+          cant: parseInt(data.cant, 10) || 1,
+          servicioSuple: String(data.servicioSuple || '').trim(),
+          ubicacion: String(data.ubicacion || 'NIVEL 0').trim(),
+          evk: String(data.evk || '1').trim(),
+          instaladoPlanta: '0',
+          cableado: '0',
+          cantidadCable: 0,
+          peinadoCinchado: '0',
+          conexionPlanta: '0',
+          conexionTablero: '0',
+          pruebas: '0',
+          nota: data.nota ? String(data.nota).trim() : null,
+        },
+      });
+    } else if (validModulo === 'valvulas') {
+      const currentCount = await this.prisma.avanceValvula.count({
+        where: { proyectoId: projectId },
+      });
+      const item = data.item ? parseInt(data.item, 10) : currentCount + 1;
+      return this.prisma.avanceValvula.create({
+        data: {
+          proyectoId: projectId,
+          item: isNaN(item) ? currentCount + 1 : item,
+          tag: String(data.tag || `VALV-${item}`).trim(),
+          servicioCumple: String(data.servicioCumple || '').trim(),
+          funcionamiento: String(data.funcionamiento || 'Manual').trim(),
+          tipoValvula: String(data.tipoValvula || 'Bola').trim(),
+          ubicacion: String(data.ubicacion || 'Nivel 0').trim(),
+          falla: String(data.falla || '-').trim(),
+          notaAdmin: data.notaAdmin ? String(data.notaAdmin).trim() : null,
+          cableadoNeum: '0',
+          cableNeumInstal: 0,
+          peinadoNeum: '0',
+          conexionPlantaNeum: '0',
+          conexionManifold: '0',
+          pruebasNeum: '0',
+          notasNeum: null,
+          cableadoCtrl: '0',
+          cableCtrlInstal: '0',
+          peinadoCtrl: '0',
+          conexionPlantaCtrl: '0',
+          conexionTableroCtrl: '0',
+          comisioning: '0',
+          comisionamiento: '0',
+          notasCtrl: null,
+        },
+      });
+    } else if (validModulo === 'motor') {
+      const currentCount = await this.prisma.avanceMotor.count({
+        where: { proyectoId: projectId },
+      });
+      const part = String(data.part || `${currentCount + 1}`).trim();
+      return this.prisma.avanceMotor.create({
+        data: {
+          proyectoId: projectId,
+          part,
+          tag: String(data.tag || `MOT-${part}`).trim(),
+          description: String(data.description || '').trim(),
+          operatingMode: String(data.operatingMode || 'ATP').trim(),
+          voltage: String(data.voltage || '440').trim(),
+          hp: String(data.hp || '1').trim(),
+          phases: String(data.phases || '3').trim(),
+          flaCurrent: String(data.flaCurrent || '0').trim(),
+          fla125Current: String(data.fla125Current || '0').trim(),
+          temperatureFactor: String(data.temperatureFactor || '0.82').trim(),
+          groupingFactor: String(data.groupingFactor || '1').trim(),
+          wiresPerPhase: String(data.wiresPerPhase || '1').trim(),
+          voltageLossFactor: String(data.voltageLossFactor || '-').trim(),
+          cableLengthMts: String(data.cableLengthMts || '-').trim(),
+          voltageLossPct: String(data.voltageLossPct || '-').trim(),
+          wireGauge: String(data.wireGauge || '-').trim(),
+          groundWireGauge: String(data.groundWireGauge || '-').trim(),
+          ubicacion: String(data.ubicacion || 'Nivel 0').trim(),
+          tamanoCable: String(data.tamanoCable || '3X10AWG').trim(),
+          cableado: '0',
+          cantidadCable: 0,
+          peinadoCinchado: '0',
+          pruebasAislMotor: '0',
+          pruebasAislCirc: '0',
+          conexionMotor: '0',
+          conexionCcm: '0',
+          motorSoloRun: '0',
+          notas: null,
+        },
+      });
+    }
+  }
+
+  /**
+   * Importa masivamente registros técnicos desde un archivo CSV.
+   * Exclusivo para Administrador.
+   */
+  async importFromCsv(
+    projectId: string,
+    modulo: string,
+    csvContent: string,
+    user: { id: string; rol: Rol },
+  ) {
+    if (user.rol !== Rol.administrador) {
+      throw new ForbiddenException(
+        'Solo el administrador tiene autorización para importar datos vía CSV.',
+      );
+    }
+
+    const validModulo = this.normalizeModulo(modulo);
+    await this.checkProjectNotCulminated(projectId);
+
+    if (!csvContent || typeof csvContent !== 'string') {
+      throw new BadRequestException('El contenido del archivo CSV está vacío.');
+    }
+
+    const { headers, rows } = this.parseCsv(csvContent);
+    if (headers.length === 0 || rows.length === 0) {
+      throw new BadRequestException(
+        'No se detectaron filas de datos válidas en el archivo CSV.',
+      );
+    }
+
+    const normalizedHeaders = headers.map((h) =>
+      h
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim(),
+    );
+
+    let insertedCount = 0;
+
+    if (validModulo === 'instrumentacion') {
+      const getColVal = (row: string[], pattern: RegExp) => {
+        const idx = normalizedHeaders.findIndex((h) => pattern.test(h));
+        return idx !== -1 ? row[idx] : undefined;
+      };
+
+      const startItem =
+        (await this.prisma.avanceInstrumentacion.count({
+          where: { proyectoId: projectId },
+        })) + 1;
+
+      const dataToInsert = rows.map((row, idx) => {
+        const rawItem = getColVal(row, /^item$/i);
+        const item = rawItem ? parseInt(rawItem, 10) : startItem + idx;
+        const tag = getColVal(row, /^tag$/i) || `TAG-${item}`;
+        return {
+          proyectoId: projectId,
+          item: isNaN(item) ? startItem + idx : item,
+          tipoVariable: getColVal(row, /variable|tipo/i) || 'NIVEL',
+          equipoAsoc: getColVal(row, /equipo/i) || '',
+          tag,
+          cant: parseInt(getColVal(row, /cant/i) || '1', 10) || 1,
+          servicioSuple: getColVal(row, /servicio/i) || '',
+          ubicacion: getColVal(row, /ubicacion/i) || 'NIVEL 0',
+          evk: getColVal(row, /evk/i) || '1',
+          instaladoPlanta: '0',
+          cableado: '0',
+          cantidadCable: 0,
+          peinadoCinchado: '0',
+          conexionPlanta: '0',
+          conexionTablero: '0',
+          pruebas: '0',
+          nota: getColVal(row, /nota/i) || null,
+        };
+      });
+
+      if (dataToInsert.length > 0) {
+        const res = await this.prisma.avanceInstrumentacion.createMany({
+          data: dataToInsert,
+        });
+        insertedCount = res.count;
+      }
+    } else if (validModulo === 'valvulas') {
+      const getColVal = (row: string[], pattern: RegExp) => {
+        const idx = normalizedHeaders.findIndex((h) => pattern.test(h));
+        return idx !== -1 ? row[idx] : undefined;
+      };
+
+      const startItem =
+        (await this.prisma.avanceValvula.count({
+          where: { proyectoId: projectId },
+        })) + 1;
+
+      const dataToInsert = rows.map((row, idx) => {
+        const rawItem = getColVal(row, /^item$/i);
+        const item = rawItem ? parseInt(rawItem, 10) : startItem + idx;
+        const tag = getColVal(row, /^tag$/i) || `VALV-${item}`;
+        return {
+          proyectoId: projectId,
+          item: isNaN(item) ? startItem + idx : item,
+          tag,
+          servicioCumple: getColVal(row, /servicio/i) || '',
+          funcionamiento: getColVal(row, /funcionamiento/i) || 'Manual',
+          tipoValvula: getColVal(row, /tipo/i) || 'Bola',
+          ubicacion: getColVal(row, /ubicacion/i) || 'Nivel 0',
+          falla: getColVal(row, /falla/i) || '-',
+          notaAdmin: getColVal(row, /nota/i) || null,
+          cableadoNeum: '0',
+          cableNeumInstal: 0,
+          peinadoNeum: '0',
+          conexionPlantaNeum: '0',
+          conexionManifold: '0',
+          pruebasNeum: '0',
+          notasNeum: null,
+          cableadoCtrl: '0',
+          cableCtrlInstal: '0',
+          peinadoCtrl: '0',
+          conexionPlantaCtrl: '0',
+          conexionTableroCtrl: '0',
+          comisioning: '0',
+          comisionamiento: '0',
+          notasCtrl: null,
+        };
+      });
+
+      if (dataToInsert.length > 0) {
+        const res = await this.prisma.avanceValvula.createMany({
+          data: dataToInsert,
+        });
+        insertedCount = res.count;
+      }
+    } else if (validModulo === 'motor') {
+      const getColVal = (row: string[], pattern: RegExp) => {
+        const idx = normalizedHeaders.findIndex((h) => pattern.test(h));
+        return idx !== -1 ? row[idx] : undefined;
+      };
+
+      const startCount = await this.prisma.avanceMotor.count({
+        where: { proyectoId: projectId },
+      });
+
+      const dataToInsert = rows.map((row, idx) => {
+        const part = getColVal(row, /^part$/i) || `${startCount + idx + 1}`;
+        const tag = getColVal(row, /^tag$/i) || `MOT-${part}`;
+        return {
+          proyectoId: projectId,
+          part,
+          tag,
+          description: getColVal(row, /desc/i) || '',
+          operatingMode: getColVal(row, /operat|modo/i) || 'ATP',
+          voltage: getColVal(row, /volt/i) || '440',
+          hp: getColVal(row, /^hp$/i) || '1',
+          phases: getColVal(row, /phase|fase/i) || '3',
+          flaCurrent: getColVal(row, /fla(?!.*1\.25)/i) || '0',
+          fla125Current: getColVal(row, /1\.25/i) || '0',
+          temperatureFactor: getColVal(row, /temp/i) || '0.82',
+          groupingFactor: getColVal(row, /group|agrup/i) || '1',
+          wiresPerPhase: getColVal(row, /wire.*phase|hilo.*fase/i) || '1',
+          voltageLossFactor: getColVal(row, /loss.*factor|caida.*factor/i) || '-',
+          cableLengthMts: getColVal(row, /length|longitud|mts/i) || '-',
+          voltageLossPct: getColVal(row, /loss.*pct|caida.*%/i) || '-',
+          wireGauge:
+            getColVal(row, /wire.*gauge(?!.*ground)|calibre.*cable/i) || '-',
+          groundWireGauge: getColVal(row, /ground|tierra/i) || '-',
+          ubicacion: getColVal(row, /ubicacion/i) || 'Nivel 0',
+          tamanoCable: getColVal(row, /tamano/i) || '3X10AWG',
+          cableado: '0',
+          cantidadCable: 0,
+          peinadoCinchado: '0',
+          pruebasAislMotor: '0',
+          pruebasAislCirc: '0',
+          conexionMotor: '0',
+          conexionCcm: '0',
+          motorSoloRun: '0',
+          notas: null,
+        };
+      });
+
+      if (dataToInsert.length > 0) {
+        const res = await this.prisma.avanceMotor.createMany({
+          data: dataToInsert,
+        });
+        insertedCount = res.count;
+      }
+    }
+
+    return { success: true, count: insertedCount, modulo: validModulo };
+  }
+
+  /**
+   * Genera el contenido de una plantilla CSV con los encabezados y 1 fila de ejemplo.
+   */
+  generateCsvTemplate(modulo: string): { filename: string; content: string } {
+    const validModulo = this.normalizeModulo(modulo);
+    if (validModulo === 'instrumentacion') {
+      const headers = [
+        'Item',
+        'Tipo de Variable',
+        'Equipo Asociado',
+        'Tag',
+        'Cant',
+        'Servicio que Suple',
+        'Ubicacion',
+        'EVK',
+        'Nota',
+      ];
+      const sample = [
+        '1',
+        'NIVEL',
+        'RA01',
+        'LI001',
+        '1',
+        'Sensor Radar de nivel continuo',
+        'NIVEL 1',
+        '1',
+        'Opcional',
+      ];
+      return {
+        filename: 'Plantilla_Instrumentacion.csv',
+        content: `${headers.join(',')}\n${sample.join(',')}\n`,
+      };
+    } else if (validModulo === 'valvulas') {
+      const headers = [
+        'ITEM',
+        'TAG',
+        'Servicio que Cumple',
+        'Funcionamiento',
+        'Tipo de Valvula',
+        'Ubicacion',
+        'Falla',
+        'Nota',
+      ];
+      const sample = [
+        '1',
+        'GOS01',
+        'Carga a recibidores',
+        'Manual',
+        'Bola',
+        'Nivel 0',
+        '-',
+        'Con sensor de posicion',
+      ];
+      return {
+        filename: 'Plantilla_Valvulas.csv',
+        content: `${headers.join(',')}\n${sample.join(',')}\n`,
+      };
+    } else {
+      const headers = [
+        'Part',
+        'TAG',
+        'Description',
+        'Operating Mode',
+        'Voltage',
+        'HP',
+        'Phases',
+        'FLA Current',
+        'FLA 1.25 Current',
+        'Temperature Factor',
+        'Grouping Factor',
+        'Wires Per Phase',
+        'Voltage Loss Factor',
+        'Cable Length Mts',
+        'Voltage Loss Pct',
+        'Wire Gauge',
+        'Ground Wire Gauge',
+        'Ubicacion',
+        'Tamano Cable',
+      ];
+      const sample = [
+        '0.1',
+        'PA14001',
+        'CHARGING PUMP',
+        'ATP',
+        '440',
+        '5',
+        '3',
+        '7.6',
+        '9.5',
+        '0.82',
+        '1',
+        '1',
+        '-',
+        '-',
+        '-',
+        '-',
+        '-',
+        'Nivel 0',
+        '3X10AWG',
+      ];
+      return {
+        filename: 'Plantilla_Motor.csv',
+        content: `${headers.join(',')}\n${sample.join(',')}\n`,
+      };
+    }
+  }
+
+  /**
+   * Carga manual bajo demanda de los datos del Excel de ejemplo (para facilitar testing del Administrador).
+   */
+  async loadSampleSeed(
+    projectId: string,
+    modulo: string,
+    user: { id: string; rol: Rol },
+  ) {
+    if (user.rol !== Rol.administrador) {
+      throw new ForbiddenException(
+        'Solo el administrador puede cargar los datos de ejemplo.',
+      );
+    }
+    const validModulo = this.normalizeModulo(modulo);
+    await this.checkProjectNotCulminated(projectId);
+    await this.ensureInitialSeed(projectId, validModulo);
+    return {
+      success: true,
+      message: `Datos de ejemplo cargados exitosamente para ${validModulo}`,
+    };
+  }
+
+  private parseCsv(text: string): { headers: string[]; rows: string[][] } {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return { headers: [], rows: [] };
+
+    const firstLine = lines[0];
+    const delimiter =
+      firstLine.includes(';') &&
+      (firstLine.match(/;/g)?.length || 0) > (firstLine.match(/,/g)?.length || 0)
+        ? ';'
+        : ',';
+
+    const parseLine = (line: string): string[] => {
+      const result: string[] = [];
+      let cur = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === delimiter && !inQuotes) {
+          result.push(cur.trim());
+          cur = '';
+        } else {
+          cur += char;
+        }
+      }
+      result.push(cur.trim());
+      return result;
+    };
+
+    const headers = parseLine(lines[0]);
+    const rows = lines.slice(1).map(parseLine);
+    return { headers, rows };
+  }
+
+  private async checkProjectNotCulminated(projectId: string) {
+    const project = await this.prisma.proyecto.findUnique({
+      where: { id: projectId },
+      select: { fechaCulminacion: true },
+    });
+    if (!project) throw new NotFoundException('Proyecto no encontrado');
+    if (project.fechaCulminacion) {
+      throw new BadRequestException(
+        'El proyecto ha sido culminado y se encuentra en modo solo lectura.',
+      );
+    }
   }
 
   /**
