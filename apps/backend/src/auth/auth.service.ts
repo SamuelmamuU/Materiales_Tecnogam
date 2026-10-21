@@ -49,7 +49,7 @@ export class AuthService {
       secret:
         process.env.JWT_ACCESS_SECRET ||
         'super-secret-access-key-control-materiales',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       expiresIn: (process.env.JWT_ACCESS_EXPIRATION || '24h') as any,
     });
 
@@ -58,7 +58,7 @@ export class AuthService {
       { sub: user.id },
       {
         secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         expiresIn: (process.env.JWT_REFRESH_EXPIRATION || '30d') as any,
       },
     );
@@ -102,7 +102,7 @@ export class AuthService {
         secret:
           process.env.JWT_ACCESS_SECRET ||
           'super-secret-access-key-control-materiales',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         expiresIn: (process.env.JWT_ACCESS_EXPIRATION || '24h') as any,
       });
 
@@ -110,7 +110,7 @@ export class AuthService {
         { sub: user.id },
         {
           secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           expiresIn: (process.env.JWT_REFRESH_EXPIRATION || '30d') as any,
         },
       );

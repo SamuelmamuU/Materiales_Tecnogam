@@ -378,7 +378,9 @@ function Dashboard() {
   const [filterFechaInicio, setFilterFechaInicio] = useState<string>('');
   const [filterFechaFin, setFilterFechaFin] = useState<string>('');
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [avanceSubTab, setAvanceSubTab] = useState<'diaria' | 'instrumentacion' | 'valvulas' | 'motor'>('diaria');
+  const [avanceSubTab, setAvanceSubTab] = useState<
+    'diaria' | 'instrumentacion' | 'valvulas' | 'motor'
+  >('diaria');
 
   // Estados de S-Curve y Timeline (Fase 7 / Tarea 5.5)
   const [timelineData, setTimelineData] = useState<TimelinePoint[]>([]);
@@ -434,7 +436,7 @@ function Dashboard() {
   const handleConfirmCulminateProject = async (projectId: string) => {
     if (
       !window.confirm(
-        '¿Confirmar la culminación del proyecto? Una vez culminado, el proyecto quedará congelado en modo solo lectura y se bloqueará el registro o modificación de avances, hitos y datos.'
+        '¿Confirmar la culminación del proyecto? Una vez culminado, el proyecto quedará congelado en modo solo lectura y se bloqueará el registro o modificación de avances, hitos y datos.',
       )
     ) {
       return;
@@ -1397,17 +1399,20 @@ function Dashboard() {
         }),
       });
       if (!response.ok && selectedProjectId) {
-        response = await fetch(`${API_URL}/projects/${selectedProjectId}/extras/${editingAvanceItem.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+        response = await fetch(
+          `${API_URL}/projects/${selectedProjectId}/extras/${editingAvanceItem.id}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              cantidad: Number(editingAvanceItem.cantidad),
+              materialManual: editingAvanceItem.materialManual,
+            }),
           },
-          body: JSON.stringify({
-            cantidad: Number(editingAvanceItem.cantidad),
-            materialManual: editingAvanceItem.materialManual,
-          }),
-        });
+        );
       }
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -1836,7 +1841,9 @@ function Dashboard() {
               className="w-9 h-9 rounded-xl object-contain border border-[#E3E1D9] bg-white p-0.5 shadow-xs"
             />
             <div>
-              <span className="font-bold text-[#1C1C1A] text-sm tracking-tight block">Tecnogam</span>
+              <span className="font-bold text-[#1C1C1A] text-sm tracking-tight block">
+                Tecnogam
+              </span>
               <span className="text-[10px] text-[#5F5E5A] font-medium leading-none block">
                 Gestor de Materiales y Avances
               </span>
@@ -1845,7 +1852,9 @@ function Dashboard() {
           <div className="flex items-center gap-4">
             <div className="text-right">
               <span className="text-xs font-bold text-[#1C1C1A] block">{user.nombre}</span>
-              <span className="text-[10px] text-[#5F5E5A] uppercase font-semibold block">{user.rol}</span>
+              <span className="text-[10px] text-[#5F5E5A] uppercase font-semibold block">
+                {user.rol}
+              </span>
             </div>
             <button
               onClick={handleLogout}
@@ -1868,7 +1877,9 @@ function Dashboard() {
               esperando el supervisor te asigne un proyecto
             </h2>
             <p className="text-xs md:text-sm text-[#5F5E5A] max-w-lg mx-auto mb-6 leading-relaxed">
-              Tu cuenta se encuentra registrada y activa en el sistema. En cuanto tu supervisor o administrador te asigne a un proyecto de obra, tendrás acceso completo a las fichas técnicas, cronogramas, registro de avances y conciliación de materiales.
+              Tu cuenta se encuentra registrada y activa en el sistema. En cuanto tu supervisor o
+              administrador te asigne a un proyecto de obra, tendrás acceso completo a las fichas
+              técnicas, cronogramas, registro de avances y conciliación de materiales.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <button
@@ -1956,14 +1967,15 @@ function Dashboard() {
             >
               <BarChart3 className="w-4 h-4 shrink-0" />
               <span>Vista General / Hitos</span>
-              {dashboardData?.checklistPreArranque && dashboardData.checklistPreArranque.totalPendientes > 0 && (
-                <span
-                  title={`${dashboardData.checklistPreArranque.totalPendientes} requisito(s) crucial(es) pendiente(s)`}
-                  className="ml-auto px-1.5 py-0.5 rounded-full bg-[#BA7517] text-white text-[10px] font-bold flex items-center justify-center animate-pulse"
-                >
-                  {dashboardData.checklistPreArranque.totalPendientes}
-                </span>
-              )}
+              {dashboardData?.checklistPreArranque &&
+                dashboardData.checklistPreArranque.totalPendientes > 0 && (
+                  <span
+                    title={`${dashboardData.checklistPreArranque.totalPendientes} requisito(s) crucial(es) pendiente(s)`}
+                    className="ml-auto px-1.5 py-0.5 rounded-full bg-[#BA7517] text-white text-[10px] font-bold flex items-center justify-center animate-pulse"
+                  >
+                    {dashboardData.checklistPreArranque.totalPendientes}
+                  </span>
+                )}
             </button>
             <button
               onClick={() => setActiveTab('materiales')}
@@ -2377,8 +2389,7 @@ function Dashboard() {
                                 </span>
                               </div>
                               <span className="text-[10px] text-[#5F5E5A] block">
-                                Plazo: {formatDateOnly(hito.fechaObjetivo)} | Alerta
-                                preventiva:{' '}
+                                Plazo: {formatDateOnly(hito.fechaObjetivo)} | Alerta preventiva:{' '}
                                 {hito.diasAlerta ?? (selectedAdminProject.diasAlertaHito || 7)} días
                               </span>
                               {hito.estatus === 'completado' && hito.fechaCompletado && (
@@ -2454,7 +2465,10 @@ function Dashboard() {
                             title="Días previos a la fecha objetivo para cambiar el semáforo a naranja"
                             value={hitoForm.diasAlerta}
                             onChange={(e) =>
-                              setHitoForm({ ...hitoForm, diasAlerta: parseInt(e.target.value) || 7 })
+                              setHitoForm({
+                                ...hitoForm,
+                                diasAlerta: parseInt(e.target.value) || 7,
+                              })
                             }
                             className="h-9 px-3 bg-[#F7F7F5] border border-[#C9C7BD] rounded-lg text-xs"
                           />
@@ -3022,7 +3036,10 @@ function Dashboard() {
               <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-2xl flex items-center gap-3 text-xs shadow-2xs">
                 <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
                 <div className="flex-1 leading-relaxed">
-                  <b className="font-bold">Proyecto Culminado:</b> Este proyecto ha sido marcado como culminado y se encuentra congelado en modo solo lectura para garantizar que no se alteren los datos registrados. No se permiten nuevos reportes ni modificaciones.
+                  <b className="font-bold">Proyecto Culminado:</b> Este proyecto ha sido marcado
+                  como culminado y se encuentra congelado en modo solo lectura para garantizar que
+                  no se alteren los datos registrados. No se permiten nuevos reportes ni
+                  modificaciones.
                 </div>
               </div>
             )}
@@ -3249,383 +3266,408 @@ function Dashboard() {
             {activeTab === 'kpis' && (
               <div className="space-y-6">
                 {/* APARTADO DE NOTIFICACIONES: REQUISITOS PRE-ARRANQUE */}
-                {dashboardData.checklistPreArranque && dashboardData.checklistPreArranque.totalPendientes > 0 && (
-                  <div className="bg-[#FFFDF5] border border-[#F59E0B]/40 rounded-2xl p-5 shadow-xs space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F59E0B]/20 pb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-[#FEF3C7] text-[#BA7517] flex items-center justify-center shrink-0">
-                          <AlertCircle className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-[#1C1C1A]">
-                              Requisitos Previos al Arranque del Proyecto
-                            </h3>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] text-[#B45309] border border-[#F59E0B]/30">
-                              {dashboardData.checklistPreArranque.totalPendientes}{' '}
-                              {dashboardData.checklistPreArranque.totalPendientes === 1
-                                ? 'pendiente'
-                                : 'pendientes'}
-                            </span>
+                {dashboardData.checklistPreArranque &&
+                  dashboardData.checklistPreArranque.totalPendientes > 0 && (
+                    <div className="bg-[#FFFDF5] border border-[#F59E0B]/40 rounded-2xl p-5 shadow-xs space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F59E0B]/20 pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-[#FEF3C7] text-[#BA7517] flex items-center justify-center shrink-0">
+                            <AlertCircle className="w-5 h-5" />
                           </div>
-                          <p className="text-xs text-[#5F5E5A] mt-0.5">
-                            Información crucial requerida antes de comenzar la captura y control operativo. Cada notificación desaparece automáticamente al completarse.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-left sm:text-right shrink-0">
-                        <span className="text-xs font-bold text-[#1C1C1A]">
-                          {5 - dashboardData.checklistPreArranque.totalPendientes} de 5 completados
-                        </span>
-                        <div className="w-32 bg-[#E3E1D9] h-2 rounded-full mt-1 overflow-hidden">
-                          <div
-                            className="bg-[#27500A] h-full rounded-full transition-all duration-300"
-                            style={{
-                              width: `${((5 - dashboardData.checklistPreArranque.totalPendientes) / 5) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                      {/* BOM de Materiales */}
-                      {dashboardData.checklistPreArranque.bomPendiente && (
-                        <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-[#E6F1FB] text-[#0C447C] flex items-center justify-center shrink-0">
-                                <Layers className="w-4 h-4" />
-                              </div>
-                              <span className="text-xs font-bold text-[#1C1C1A]">
-                                BOM de Materiales Cotizados
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-bold text-[#1C1C1A]">
+                                Requisitos Previos al Arranque del Proyecto
+                              </h3>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] text-[#B45309] border border-[#F59E0B]/30">
+                                {dashboardData.checklistPreArranque.totalPendientes}{' '}
+                                {dashboardData.checklistPreArranque.totalPendientes === 1
+                                  ? 'pendiente'
+                                  : 'pendientes'}
                               </span>
                             </div>
-                            <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
-                              El catálogo de materiales cotizados está vacío. Agrega los materiales base para habilitar la conciliación de obra.
+                            <p className="text-xs text-[#5F5E5A] mt-0.5">
+                              Información crucial requerida antes de comenzar la captura y control
+                              operativo. Cada notificación desaparece automáticamente al
+                              completarse.
                             </p>
                           </div>
-                          <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
-                            <span className="text-[10px] text-[#BA7517] font-semibold">0 cotizados</span>
-                            {isAdmin ? (
+                        </div>
+                        <div className="text-left sm:text-right shrink-0">
+                          <span className="text-xs font-bold text-[#1C1C1A]">
+                            {5 - dashboardData.checklistPreArranque.totalPendientes} de 5
+                            completados
+                          </span>
+                          <div className="w-32 bg-[#E3E1D9] h-2 rounded-full mt-1 overflow-hidden">
+                            <div
+                              className="bg-[#27500A] h-full rounded-full transition-all duration-300"
+                              style={{
+                                width: `${((5 - dashboardData.checklistPreArranque.totalPendientes) / 5) * 100}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                        {/* BOM de Materiales */}
+                        {dashboardData.checklistPreArranque.bomPendiente && (
+                          <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-[#E6F1FB] text-[#0C447C] flex items-center justify-center shrink-0">
+                                  <Layers className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-[#1C1C1A]">
+                                  BOM de Materiales Cotizados
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
+                                El catálogo de materiales cotizados está vacío. Agrega los
+                                materiales base para habilitar la conciliación de obra.
+                              </p>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
+                              <span className="text-[10px] text-[#BA7517] font-semibold">
+                                0 cotizados
+                              </span>
+                              {isAdmin ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveTab('bom');
+                                    if (selectedProjectId)
+                                      fetchProjectDetailForAdmin(selectedProjectId);
+                                  }}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-[#0C447C] hover:bg-[#083058] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                                >
+                                  <span>Cargar BOM</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-[#8B8A84] italic">
+                                  Requiere Administrador
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Información Básica */}
+                        {dashboardData.checklistPreArranque.infoBasicaPendiente && (
+                          <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-[#F5F3FF] text-[#7C3AED] flex items-center justify-center shrink-0">
+                                  <FileText className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-[#1C1C1A]">
+                                  Información Básica
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
+                                Faltan por registrar datos de la ficha técnica:{' '}
+                                <b className="text-[#1C1C1A]">
+                                  {dashboardData.checklistPreArranque.missingInfoBasica.join(', ')}
+                                </b>
+                                .
+                              </p>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
+                              <span className="text-[10px] text-[#BA7517] font-semibold">
+                                {dashboardData.checklistPreArranque.missingInfoBasica.length}{' '}
+                                pendiente(s)
+                              </span>
+                              {isAdmin ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenProjectEdit(dashboardData.proyecto)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-[#1C1C1A] hover:bg-[#333330] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                                >
+                                  <span>Editar Ficha</span>
+                                  <Edit className="w-3 h-3" />
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-[#8B8A84] italic">
+                                  Requiere Administrador
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Instrumentación */}
+                        {dashboardData.checklistPreArranque.instrumentacionPendiente && (
+                          <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-[#EAF3DE] text-[#27500A] flex items-center justify-center shrink-0">
+                                  <Activity className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-[#1C1C1A]">
+                                  Listado de Instrumentación
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
+                                0 tags técnicos cargados. Carga la lista inicial mediante archivo
+                                CSV o registro manual uno a uno.
+                              </p>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
+                              <span className="text-[10px] text-[#BA7517] font-semibold">
+                                0 registros
+                              </span>
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setActiveTab('bom');
-                                  if (selectedProjectId) fetchProjectDetailForAdmin(selectedProjectId);
+                                  setActiveTab('avances');
+                                  setAvanceSubTab('instrumentacion');
                                 }}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-[#0C447C] hover:bg-[#083058] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-[#27500A] hover:bg-[#1f4008] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
                               >
-                                <span>Cargar BOM</span>
+                                <span>Cargar Instrumentación</span>
                                 <ArrowRight className="w-3 h-3" />
                               </button>
-                            ) : (
-                              <span className="text-[10px] text-[#8B8A84] italic">Requiere Administrador</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Información Básica */}
-                      {dashboardData.checklistPreArranque.infoBasicaPendiente && (
-                        <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-[#F5F3FF] text-[#7C3AED] flex items-center justify-center shrink-0">
-                                <FileText className="w-4 h-4" />
-                              </div>
-                              <span className="text-xs font-bold text-[#1C1C1A]">
-                                Información Básica
-                              </span>
                             </div>
-                            <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
-                              Faltan por registrar datos de la ficha técnica:{' '}
-                              <b className="text-[#1C1C1A]">{dashboardData.checklistPreArranque.missingInfoBasica.join(', ')}</b>.
-                            </p>
                           </div>
-                          <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
-                            <span className="text-[10px] text-[#BA7517] font-semibold">
-                              {dashboardData.checklistPreArranque.missingInfoBasica.length} pendiente(s)
-                            </span>
-                            {isAdmin ? (
+                        )}
+
+                        {/* Válvulas */}
+                        {dashboardData.checklistPreArranque.valvulasPendiente && (
+                          <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-[#E0F2FE] text-[#0369A1] flex items-center justify-center shrink-0">
+                                  <Activity className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-[#1C1C1A]">
+                                  Listado de Válvulas
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
+                                0 válvulas cargadas. Sube la tabla técnica con especificaciones
+                                mecánicas y tubería.
+                              </p>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
+                              <span className="text-[10px] text-[#BA7517] font-semibold">
+                                0 registros
+                              </span>
                               <button
                                 type="button"
-                                onClick={() => handleOpenProjectEdit(dashboardData.proyecto)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-[#1C1C1A] hover:bg-[#333330] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                                onClick={() => {
+                                  setActiveTab('avances');
+                                  setAvanceSubTab('valvulas');
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-[#0369A1] hover:bg-[#025a8b] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
                               >
-                                <span>Editar Ficha</span>
-                                <Edit className="w-3 h-3" />
+                                <span>Cargar Válvulas</span>
+                                <ArrowRight className="w-3 h-3" />
                               </button>
-                            ) : (
-                              <span className="text-[10px] text-[#8B8A84] italic">Requiere Administrador</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Instrumentación */}
-                      {dashboardData.checklistPreArranque.instrumentacionPendiente && (
-                        <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-[#EAF3DE] text-[#27500A] flex items-center justify-center shrink-0">
-                                <Activity className="w-4 h-4" />
-                              </div>
-                              <span className="text-xs font-bold text-[#1C1C1A]">
-                                Listado de Instrumentación
-                              </span>
                             </div>
-                            <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
-                              0 tags técnicos cargados. Carga la lista inicial mediante archivo CSV o registro manual uno a uno.
-                            </p>
                           </div>
-                          <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
-                            <span className="text-[10px] text-[#BA7517] font-semibold">0 registros</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveTab('avances');
-                                setAvanceSubTab('instrumentacion');
-                              }}
-                              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#27500A] hover:bg-[#1f4008] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
-                            >
-                              <span>Cargar Instrumentación</span>
-                              <ArrowRight className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Válvulas */}
-                      {dashboardData.checklistPreArranque.valvulasPendiente && (
-                        <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-[#E0F2FE] text-[#0369A1] flex items-center justify-center shrink-0">
-                                <Activity className="w-4 h-4" />
+                        {/* Motores */}
+                        {dashboardData.checklistPreArranque.motorPendiente && (
+                          <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
+                                  <Activity className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-[#1C1C1A]">
+                                  Listado de Motores
+                                </span>
                               </div>
-                              <span className="text-xs font-bold text-[#1C1C1A]">
-                                Listado de Válvulas
-                              </span>
+                              <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
+                                0 motores cargados. Define los tags de motores, potencia HP y
+                                especificaciones eléctricas.
+                              </p>
                             </div>
-                            <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
-                              0 válvulas cargadas. Sube la tabla técnica con especificaciones mecánicas y tubería.
-                            </p>
-                          </div>
-                          <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
-                            <span className="text-[10px] text-[#BA7517] font-semibold">0 registros</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveTab('avances');
-                                setAvanceSubTab('valvulas');
-                              }}
-                              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#0369A1] hover:bg-[#025a8b] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
-                            >
-                              <span>Cargar Válvulas</span>
-                              <ArrowRight className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Motores */}
-                      {dashboardData.checklistPreArranque.motorPendiente && (
-                        <div className="bg-white border border-[#E3E1D9] hover:border-[#BA7517]/50 rounded-xl p-4 shadow-2xs flex flex-col justify-between transition-all">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
-                                <Activity className="w-4 h-4" />
-                              </div>
-                              <span className="text-xs font-bold text-[#1C1C1A]">
-                                Listado de Motores
+                            <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
+                              <span className="text-[10px] text-[#BA7517] font-semibold">
+                                0 registros
                               </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveTab('avances');
+                                  setAvanceSubTab('motor');
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-[#D97706] hover:bg-[#b45309] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                              >
+                                <span>Cargar Motores</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
                             </div>
-                            <p className="text-[11px] text-[#5F5E5A] leading-relaxed">
-                              0 motores cargados. Define los tags de motores, potencia HP y especificaciones eléctricas.
-                            </p>
                           </div>
-                          <div className="mt-3 pt-3 border-t border-[#F1EFE8] flex items-center justify-between">
-                            <span className="text-[10px] text-[#BA7517] font-semibold">0 registros</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveTab('avances');
-                                setAvanceSubTab('motor');
-                              }}
-                              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#D97706] hover:bg-[#b45309] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
-                            >
-                              <span>Cargar Motores</span>
-                              <ArrowRight className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Panel S-Curve (Fase 7 / Tareas 7.2-7.4) */}
-                <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-2 space-y-4">
-                  <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
-                    <div>
-                      <h3 className="text-sm font-bold text-[#1C1C1A]">
-                        Curva S de Avance Planeado vs Real
-                      </h3>
-                      <p className="text-[10px] text-[#5F5E5A]">
-                        Progreso acumulado y diario a lo largo del cronograma de obra.
-                      </p>
-                    </div>
-                    {/* Toggle general / diario (Tarea 7.2) */}
-                    <div className="flex bg-[#F7F7F5] border border-[#E3E1D9] p-1 rounded-xl text-[10px] font-bold">
-                      <button
-                        onClick={() => setViewMode('acumulado')}
-                        className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
-                          viewMode === 'acumulado'
-                            ? 'bg-[#1C1C1A] text-white shadow-sm'
-                            : 'text-[#5F5E5A]'
-                        }`}
-                      >
-                        Acumulado
-                      </button>
-                      <button
-                        onClick={() => setViewMode('diario')}
-                        className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
-                          viewMode === 'diario'
-                            ? 'bg-[#1C1C1A] text-white shadow-sm'
-                            : 'text-[#5F5E5A]'
-                        }`}
-                      >
-                        Diario
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Canvas del Gráfico SVG */}
-                  <div className="h-60 flex items-center justify-center bg-[#F7F7F5]/50 border border-[#E3E1D9]/40 rounded-xl p-2">
-                    {timelineData.length > 0 ? (
-                      renderSvgChart()
-                    ) : (
-                      <span className="text-xs text-[#8B8A84] font-medium">
-                        Sin datos de S-Curve
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Leyenda del gráfico */}
-                  <div className="flex gap-4 justify-center text-[10px] font-semibold text-[#5F5E5A]">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-0.5 bg-[#27500A] border-t border-[#27500A]" />
-                      <span>Avance Físico Real</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-0.5 bg-[#8B8A84] border-t border-dashed border-[#8B8A84]" />
-                      <span>Línea Base Planeada (S-Curve)</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Ficha Hitos con Semáforo */}
-                <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-1 space-y-4 flex flex-col justify-between">
-                  <div className="space-y-3">
+                  {/* Panel S-Curve (Fase 7 / Tareas 7.2-7.4) */}
+                  <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-2 space-y-4">
                     <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-[#1C1C1A]">Hitos Clave</h3>
-                        <span className="text-[10px] bg-[#F7F7F5] border border-[#E3E1D9] text-[#5F5E5A] px-2 py-0.5 rounded-full font-bold">
-                          {dashboardData.hitos.length}
+                      <div>
+                        <h3 className="text-sm font-bold text-[#1C1C1A]">
+                          Curva S de Avance Planeado vs Real
+                        </h3>
+                        <p className="text-[10px] text-[#5F5E5A]">
+                          Progreso acumulado y diario a lo largo del cronograma de obra.
+                        </p>
+                      </div>
+                      {/* Toggle general / diario (Tarea 7.2) */}
+                      <div className="flex bg-[#F7F7F5] border border-[#E3E1D9] p-1 rounded-xl text-[10px] font-bold">
+                        <button
+                          onClick={() => setViewMode('acumulado')}
+                          className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
+                            viewMode === 'acumulado'
+                              ? 'bg-[#1C1C1A] text-white shadow-sm'
+                              : 'text-[#5F5E5A]'
+                          }`}
+                        >
+                          Acumulado
+                        </button>
+                        <button
+                          onClick={() => setViewMode('diario')}
+                          className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
+                            viewMode === 'diario'
+                              ? 'bg-[#1C1C1A] text-white shadow-sm'
+                              : 'text-[#5F5E5A]'
+                          }`}
+                        >
+                          Diario
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Canvas del Gráfico SVG */}
+                    <div className="h-60 flex items-center justify-center bg-[#F7F7F5]/50 border border-[#E3E1D9]/40 rounded-xl p-2">
+                      {timelineData.length > 0 ? (
+                        renderSvgChart()
+                      ) : (
+                        <span className="text-xs text-[#8B8A84] font-medium">
+                          Sin datos de S-Curve
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Leyenda del gráfico */}
+                    <div className="flex gap-4 justify-center text-[10px] font-semibold text-[#5F5E5A]">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-0.5 bg-[#27500A] border-t border-[#27500A]" />
+                        <span>Avance Físico Real</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-0.5 bg-[#8B8A84] border-t border-dashed border-[#8B8A84]" />
+                        <span>Línea Base Planeada (S-Curve)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ficha Hitos con Semáforo */}
+                  <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm lg:col-span-1 space-y-4 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-[#1C1C1A]">Hitos Clave</h3>
+                          <span className="text-[10px] bg-[#F7F7F5] border border-[#E3E1D9] text-[#5F5E5A] px-2 py-0.5 rounded-full font-bold">
+                            {dashboardData.hitos.length}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-[#5F5E5A]">
+                          Alerta: {dashboardData.proyecto.diasAlertaHito || 7}d
                         </span>
                       </div>
-                      <span className="text-[10px] text-[#5F5E5A]">
-                        Alerta: {dashboardData.proyecto.diasAlertaHito || 7}d
-                      </span>
+
+                      {dashboardData.hitos.length === 0 ? (
+                        <div className="py-8 text-center text-xs text-[#8B8A84]">
+                          Sin hitos registrados en este proyecto.
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-[#E3E1D9] max-h-60 overflow-y-auto pr-1 space-y-1">
+                          {dashboardData.hitos.map((hito) => {
+                            const sem = getHitoSemaforo(
+                              hito,
+                              dashboardData.proyecto.diasAlertaHito || 7,
+                            );
+                            return (
+                              <div
+                                key={hito.id}
+                                className="py-2.5 flex justify-between items-center gap-2 text-xs"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <span
+                                    className={`font-bold block truncate ${hito.estatus === 'completado' ? 'line-through text-[#8B8A84]' : 'text-[#1C1C1A]'}`}
+                                  >
+                                    {hito.nombre}
+                                  </span>
+                                  <span className="text-[10px] text-[#5F5E5A]">
+                                    Plazo: {formatDateOnly(hito.fechaObjetivo)}
+                                  </span>
+                                  {hito.estatus === 'completado' && hito.fechaCompletado && (
+                                    <span className="text-[10px] text-[#27500A] font-semibold flex items-center gap-1 mt-0.5">
+                                      <CheckCircle className="w-3 h-3 text-[#27500A]" />
+                                      Completado el: {formatDateOnly(hito.fechaCompletado)}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase shrink-0 flex items-center gap-1 ${sem.badgeClass}`}
+                                  >
+                                    <span
+                                      className={`w-1.5 h-1.5 rounded-full ${sem.dotClass}`}
+                                    ></span>
+                                    {sem.label}
+                                  </span>
+                                  {isAdminOrSupervisor && !isCulminated && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleHitoStatus(hito)}
+                                      title={
+                                        hito.estatus === 'completado'
+                                          ? 'Marcar como pendiente'
+                                          : 'Marcar como completado'
+                                      }
+                                      className={`h-6 w-6 rounded flex items-center justify-center transition-all cursor-pointer ${
+                                        hito.estatus === 'completado'
+                                          ? 'bg-[#EAF3DE] text-[#27500A] hover:bg-[#D5EAC3]'
+                                          : 'bg-[#F7F7F5] border border-[#C9C7BD] text-[#5F5E5A] hover:text-[#1C1C1A]'
+                                      }`}
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
-                    {dashboardData.hitos.length === 0 ? (
-                      <div className="py-8 text-center text-xs text-[#8B8A84]">
-                        Sin hitos registrados en este proyecto.
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-[#E3E1D9] max-h-60 overflow-y-auto pr-1 space-y-1">
-                        {dashboardData.hitos.map((hito) => {
-                          const sem = getHitoSemaforo(
-                            hito,
-                            dashboardData.proyecto.diasAlertaHito || 7,
-                          );
-                          return (
-                            <div
-                              key={hito.id}
-                              className="py-2.5 flex justify-between items-center gap-2 text-xs"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <span
-                                  className={`font-bold block truncate ${hito.estatus === 'completado' ? 'line-through text-[#8B8A84]' : 'text-[#1C1C1A]'}`}
-                                >
-                                  {hito.nombre}
-                                </span>
-                                <span className="text-[10px] text-[#5F5E5A]">
-                                  Plazo: {formatDateOnly(hito.fechaObjetivo)}
-                                </span>
-                                {hito.estatus === 'completado' && hito.fechaCompletado && (
-                                  <span className="text-[10px] text-[#27500A] font-semibold flex items-center gap-1 mt-0.5">
-                                    <CheckCircle className="w-3 h-3 text-[#27500A]" />
-                                    Completado el: {formatDateOnly(hito.fechaCompletado)}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase shrink-0 flex items-center gap-1 ${sem.badgeClass}`}
-                                >
-                                  <span
-                                    className={`w-1.5 h-1.5 rounded-full ${sem.dotClass}`}
-                                  ></span>
-                                  {sem.label}
-                                </span>
-                                {isAdminOrSupervisor && !isCulminated && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleHitoStatus(hito)}
-                                    title={
-                                      hito.estatus === 'completado'
-                                        ? 'Marcar como pendiente'
-                                        : 'Marcar como completado'
-                                    }
-                                    className={`h-6 w-6 rounded flex items-center justify-center transition-all cursor-pointer ${
-                                      hito.estatus === 'completado'
-                                        ? 'bg-[#EAF3DE] text-[#27500A] hover:bg-[#D5EAC3]'
-                                        : 'bg-[#F7F7F5] border border-[#C9C7BD] text-[#5F5E5A] hover:text-[#1C1C1A]'
-                                    }`}
-                                  >
-                                    <Check className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Leyenda del Semáforo */}
-                  <div className="pt-3 border-t border-[#E3E1D9] flex flex-wrap justify-between items-center gap-1 text-[9px] text-[#5F5E5A] font-semibold bg-[#F7F7F5] -mx-6 -mb-6 p-3 rounded-b-2xl">
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-[#27500A]"></span>
-                      En tiempo
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-[#D97706]"></span>
-                      Próximo (≤{dashboardData.proyecto.diasAlertaHito || 7}d)
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-[#C23939]"></span>
-                      Vencido
-                    </span>
+                    {/* Leyenda del Semáforo */}
+                    <div className="pt-3 border-t border-[#E3E1D9] flex flex-wrap justify-between items-center gap-1 text-[9px] text-[#5F5E5A] font-semibold bg-[#F7F7F5] -mx-6 -mb-6 p-3 rounded-b-2xl">
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-[#27500A]"></span>
+                        En tiempo
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-[#D97706]"></span>
+                        Próximo (≤{dashboardData.proyecto.diasAlertaHito || 7}d)
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-[#C23939]"></span>
+                        Vencido
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
             )}
 
             {/* VISTA 2: TABLA DE CONCILIACIÓN */}
@@ -3764,288 +3806,296 @@ function Dashboard() {
 
                 {avanceSubTab === 'diaria' ? (
                   <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
-                <div className="pb-2 border-b border-[#E3E1D9] flex justify-between items-center">
-                  <div>
-                    <h3 className="text-sm font-bold text-[#1C1C1A]">
-                      Bitácora Histórica de Avances Diarios
-                    </h3>
-                    <p className="text-xs text-[#5F5E5A]">
-                      Listado de capturas de campo y materiales instalados en obra.
-                    </p>
-                  </div>
-                  {isAdminOrSupervisor && !isCulminated && (
-                    <button
-                      onClick={() => {
-                        setShowAvanceModal(true);
-                        fetchGeneralMaterials();
-                      }}
-                      className="flex items-center gap-2 h-9 px-4 bg-[#1C1C1A] text-white hover:bg-black rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Registrar Avance
-                    </button>
-                  )}
-                </div>
-
-                {/* Filtros de Historial (Tarea 5.4) */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl text-xs print:hidden">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
-                      Clasificación
-                    </label>
-                    <select
-                      value={filterTipo}
-                      onChange={(e) => setFilterTipo(e.target.value)}
-                      className="w-full h-8 px-2 bg-white border border-[#C9C7BD] rounded-lg font-medium cursor-pointer"
-                    >
-                      <option value="">Todos los avances</option>
-                      <option value="planeado">Planeado (Catálogo)</option>
-                      <option value="no_planeado">No Planeado (Manual/Extras)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
-                      Fecha Desde
-                    </label>
-                    <input
-                      type="date"
-                      value={filterFechaInicio}
-                      onChange={(e) => setFilterFechaInicio(e.target.value)}
-                      className="w-full h-8 px-2 bg-white border border-[#C9C7BD] rounded-lg font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
-                      Fecha Hasta
-                    </label>
-                    <input
-                      type="date"
-                      value={filterFechaFin}
-                      onChange={(e) => setFilterFechaFin(e.target.value)}
-                      className="w-full h-8 px-2 bg-white border border-[#C9C7BD] rounded-lg font-medium"
-                    />
-                  </div>
-                </div>
-
-                {loadingHistory ? (
-                  <div className="py-12 flex justify-center">
-                    <RefreshCw className="w-8 h-8 text-[#0C447C] animate-spin" />
-                  </div>
-                ) : avancesHistory.length === 0 ? (
-                  <div className="text-center py-12 text-[#8B8A84] space-y-2">
-                    <Activity className="w-12 h-12 text-gray-400 mx-auto opacity-45" />
-                    <p className="text-sm font-semibold">Sin registros de avance encontrados</p>
-                    <p className="text-xs">
-                      Ajuste los filtros o registre un avance en la app de campo.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {avancesHistory.map((av) => (
-                      <div
-                        key={av.id}
-                        className="p-4 border border-[#E3E1D9] rounded-xl bg-white hover:shadow-xs transition-shadow"
-                      >
-                        <div className="flex flex-wrap justify-between items-start gap-4 pb-2 border-b border-[#E3E1D9] text-xs">
-                          <div className="space-y-1">
-                            <span className="font-bold text-[#1C1C1A] text-sm">{av.frente}</span>
-                            <div className="flex gap-3 text-[10px] text-[#5F5E5A] font-medium">
-                              <span className="flex items-center gap-1">
-                                <User className="w-3 h-3 text-[#8B8A84]" /> {av.autor.nombre}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3 text-[#8B8A84]" />
-                                {new Date(av.fecha).toLocaleDateString()}{' '}
-                                {new Date(av.fecha).toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {av.latitud && av.longitud && (
-                              <span className="inline-flex items-center gap-1 h-6 px-2 bg-[#F1EFE8] rounded text-[9px] font-bold text-[#5F5E5A]">
-                                <MapPin className="w-2.5 h-2.5" /> GPS OK
-                              </span>
-                            )}
-                            {av.evidenciaUrl && (
-                              <a
-                                href={av.evidenciaUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 h-6 px-2.5 bg-[#EAF3DE] text-[#27500A] rounded text-[9px] font-bold hover:bg-[#D5EAC3] transition-colors"
-                              >
-                                <Camera className="w-2.5 h-2.5" /> Ver Evidencia
-                              </a>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Listado de items de avance */}
-                        <div className="pt-2 divide-y divide-[#E3E1D9]/40 text-xs">
-                          {av.items.map((item) => (
-                            <div
-                              key={item.id}
-                              className="py-2 flex justify-between items-center text-xs"
-                            >
-                              <div>
-                                <span
-                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase mr-2 ${
-                                    item.tipo === 'planeado'
-                                      ? 'bg-[#E6F1FB] text-[#0C447C]'
-                                      : 'bg-[#FCF4E6] text-[#BA7517]'
-                                  }`}
-                                >
-                                  {item.tipo === 'planeado'
-                                    ? 'Planeado'
-                                    : `No Planeado (${item.subtipo})`}
-                                </span>
-                                <span className="font-bold text-[#1C1C1A]">
-                                  {item.tipo === 'planeado' ? item.material?.codigo : 'MANUAL'}
-                                </span>
-                                <span className="text-[#5F5E5A] ml-2">
-                                  {item.tipo === 'planeado'
-                                    ? item.material?.descripcion
-                                    : item.materialManual}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-[#27500A] bg-[#EAF3DE]/30 px-2 py-0.5 rounded">
-                                  +{item.cantidad} {item.material?.unidad || 'pza'}
-                                </span>
-                                {canEditOrDeleteAvance(av.autorId, av.autor?.email) && (
-                                  <div className="flex items-center gap-1 ml-2 border-l border-[#E3E1D9] pl-2">
-                                    <button
-                                      type="button"
-                                      title="Modificar registro de material extra"
-                                      onClick={() =>
-                                        setEditingAvanceItem({
-                                          id: item.id,
-                                          materialManual:
-                                            item.materialManual ||
-                                            item.material?.descripcion ||
-                                            '',
-                                          cantidad: item.cantidad,
-                                          subtipo: item.subtipo || 'extra',
-                                        })
-                                      }
-                                      className="p-1 text-[#0C447C] hover:bg-[#E6F1FB] rounded cursor-pointer transition-colors"
-                                    >
-                                      <Edit className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      title="Eliminar registro de material extra"
-                                      onClick={() => handleDeleteAvanceItem(item.id)}
-                                      className="p-1 text-[#C23939] hover:bg-[#FDE8E8] rounded cursor-pointer transition-colors"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Tabla/Tarjeta de Control de Materiales Extras */}
-                {dashboardData?.materialesExtras && dashboardData.materialesExtras.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-[#E3E1D9] space-y-3">
-                    <div className="flex justify-between items-center">
+                    <div className="pb-2 border-b border-[#E3E1D9] flex justify-between items-center">
                       <div>
-                        <h4 className="text-xs font-bold text-[#BA7517] uppercase tracking-wider flex items-center gap-1.5">
-                          <AlertCircle className="w-4 h-4" />
-                          Consolidado de Materiales Extras Registrados ({dashboardData.materialesExtras.length})
-                        </h4>
-                        <p className="text-[11px] text-[#5F5E5A]">
-                          Listado de materiales no planeados capturados en reportes de avance.
+                        <h3 className="text-sm font-bold text-[#1C1C1A]">
+                          Bitácora Histórica de Avances Diarios
+                        </h3>
+                        <p className="text-xs text-[#5F5E5A]">
+                          Listado de capturas de campo y materiales instalados en obra.
                         </p>
                       </div>
+                      {isAdminOrSupervisor && !isCulminated && (
+                        <button
+                          onClick={() => {
+                            setShowAvanceModal(true);
+                            fetchGeneralMaterials();
+                          }}
+                          className="flex items-center gap-2 h-9 px-4 bg-[#1C1C1A] text-white hover:bg-black rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Registrar Avance
+                        </button>
+                      )}
                     </div>
 
-                    <div className="border border-[#E3E1D9] rounded-xl overflow-hidden">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-[#FCF4E6]/60 border-b border-[#E3E1D9] text-[#BA7517] font-bold">
-                            <th className="p-2.5">Descripción del Material</th>
-                            <th className="p-2.5">Subtipo</th>
-                            <th className="p-2.5">Frente / Capturado Por</th>
-                            <th className="p-2.5 text-right">Cantidad</th>
-                            <th className="p-2.5 text-center">Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#E3E1D9] bg-white">
-                          {dashboardData.materialesExtras.map((ext) => (
-                            <tr key={ext.id} className="hover:bg-[#FCF4E6]/20 transition-colors">
-                              <td className="p-2.5 font-bold text-[#1C1C1A]">
-                                {ext.materialManual}
-                              </td>
-                              <td className="p-2.5">
-                                <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-[#FCF4E6] text-[#BA7517]">
-                                  {ext.avanceItem?.subtipo || 'Extra'}
+                    {/* Filtros de Historial (Tarea 5.4) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-[#F7F7F5] border border-[#E3E1D9] rounded-xl text-xs print:hidden">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                          Clasificación
+                        </label>
+                        <select
+                          value={filterTipo}
+                          onChange={(e) => setFilterTipo(e.target.value)}
+                          className="w-full h-8 px-2 bg-white border border-[#C9C7BD] rounded-lg font-medium cursor-pointer"
+                        >
+                          <option value="">Todos los avances</option>
+                          <option value="planeado">Planeado (Catálogo)</option>
+                          <option value="no_planeado">No Planeado (Manual/Extras)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                          Fecha Desde
+                        </label>
+                        <input
+                          type="date"
+                          value={filterFechaInicio}
+                          onChange={(e) => setFilterFechaInicio(e.target.value)}
+                          className="w-full h-8 px-2 bg-white border border-[#C9C7BD] rounded-lg font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-[#5F5E5A] mb-1">
+                          Fecha Hasta
+                        </label>
+                        <input
+                          type="date"
+                          value={filterFechaFin}
+                          onChange={(e) => setFilterFechaFin(e.target.value)}
+                          className="w-full h-8 px-2 bg-white border border-[#C9C7BD] rounded-lg font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    {loadingHistory ? (
+                      <div className="py-12 flex justify-center">
+                        <RefreshCw className="w-8 h-8 text-[#0C447C] animate-spin" />
+                      </div>
+                    ) : avancesHistory.length === 0 ? (
+                      <div className="text-center py-12 text-[#8B8A84] space-y-2">
+                        <Activity className="w-12 h-12 text-gray-400 mx-auto opacity-45" />
+                        <p className="text-sm font-semibold">Sin registros de avance encontrados</p>
+                        <p className="text-xs">
+                          Ajuste los filtros o registre un avance en la app de campo.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {avancesHistory.map((av) => (
+                          <div
+                            key={av.id}
+                            className="p-4 border border-[#E3E1D9] rounded-xl bg-white hover:shadow-xs transition-shadow"
+                          >
+                            <div className="flex flex-wrap justify-between items-start gap-4 pb-2 border-b border-[#E3E1D9] text-xs">
+                              <div className="space-y-1">
+                                <span className="font-bold text-[#1C1C1A] text-sm">
+                                  {av.frente}
                                 </span>
-                              </td>
-                              <td className="p-2.5 text-[#5F5E5A]">
-                                {ext.avanceItem?.avance?.frente || 'En Obra'}
-                                {ext.avanceItem?.avance?.autor?.nombre && (
-                                  <span className="block text-[10px] text-[#8B8A84]">
-                                    por {ext.avanceItem.avance.autor.nombre}
+                                <div className="flex gap-3 text-[10px] text-[#5F5E5A] font-medium">
+                                  <span className="flex items-center gap-1">
+                                    <User className="w-3 h-3 text-[#8B8A84]" /> {av.autor.nombre}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3 text-[#8B8A84]" />
+                                    {new Date(av.fecha).toLocaleDateString()}{' '}
+                                    {new Date(av.fecha).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {av.latitud && av.longitud && (
+                                  <span className="inline-flex items-center gap-1 h-6 px-2 bg-[#F1EFE8] rounded text-[9px] font-bold text-[#5F5E5A]">
+                                    <MapPin className="w-2.5 h-2.5" /> GPS OK
                                   </span>
                                 )}
-                              </td>
-                              <td className="p-2.5 text-right font-bold text-[#27500A]">
-                                +{ext.cantidad} pza
-                              </td>
-                              <td className="p-2.5 text-center">
-                                {canEditOrDeleteAvance(
-                                  (ext.avanceItem?.avance as any)?.autorId || ext.avanceItem?.avance?.autor?.id,
-                                  ext.avanceItem?.avance?.autor?.email,
-                                ) && (
-                                  <div className="flex items-center justify-center gap-1">
-                                    <button
-                                      type="button"
-                                      title="Modificar material extra"
-                                      onClick={() =>
-                                        setEditingAvanceItem({
-                                          id: ext.avanceItemId || ext.id,
-                                          materialManual: ext.materialManual,
-                                          cantidad: ext.cantidad,
-                                          subtipo: ext.avanceItem?.subtipo || 'extra',
-                                        })
-                                      }
-                                      className="p-1 text-[#0C447C] hover:bg-[#E6F1FB] rounded cursor-pointer transition-colors"
-                                    >
-                                      <Edit className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      title="Eliminar material extra"
-                                      onClick={() =>
-                                        handleDeleteAvanceItem(ext.avanceItemId || ext.id)
-                                      }
-                                      className="p-1 text-[#C23939] hover:bg-[#FDE8E8] rounded cursor-pointer transition-colors"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
+                                {av.evidenciaUrl && (
+                                  <a
+                                    href={av.evidenciaUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 h-6 px-2.5 bg-[#EAF3DE] text-[#27500A] rounded text-[9px] font-bold hover:bg-[#D5EAC3] transition-colors"
+                                  >
+                                    <Camera className="w-2.5 h-2.5" /> Ver Evidencia
+                                  </a>
                                 )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                              </div>
+                            </div>
+
+                            {/* Listado de items de avance */}
+                            <div className="pt-2 divide-y divide-[#E3E1D9]/40 text-xs">
+                              {av.items.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="py-2 flex justify-between items-center text-xs"
+                                >
+                                  <div>
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase mr-2 ${
+                                        item.tipo === 'planeado'
+                                          ? 'bg-[#E6F1FB] text-[#0C447C]'
+                                          : 'bg-[#FCF4E6] text-[#BA7517]'
+                                      }`}
+                                    >
+                                      {item.tipo === 'planeado'
+                                        ? 'Planeado'
+                                        : `No Planeado (${item.subtipo})`}
+                                    </span>
+                                    <span className="font-bold text-[#1C1C1A]">
+                                      {item.tipo === 'planeado' ? item.material?.codigo : 'MANUAL'}
+                                    </span>
+                                    <span className="text-[#5F5E5A] ml-2">
+                                      {item.tipo === 'planeado'
+                                        ? item.material?.descripcion
+                                        : item.materialManual}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-[#27500A] bg-[#EAF3DE]/30 px-2 py-0.5 rounded">
+                                      +{item.cantidad} {item.material?.unidad || 'pza'}
+                                    </span>
+                                    {canEditOrDeleteAvance(av.autorId, av.autor?.email) && (
+                                      <div className="flex items-center gap-1 ml-2 border-l border-[#E3E1D9] pl-2">
+                                        <button
+                                          type="button"
+                                          title="Modificar registro de material extra"
+                                          onClick={() =>
+                                            setEditingAvanceItem({
+                                              id: item.id,
+                                              materialManual:
+                                                item.materialManual ||
+                                                item.material?.descripcion ||
+                                                '',
+                                              cantidad: item.cantidad,
+                                              subtipo: item.subtipo || 'extra',
+                                            })
+                                          }
+                                          className="p-1 text-[#0C447C] hover:bg-[#E6F1FB] rounded cursor-pointer transition-colors"
+                                        >
+                                          <Edit className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          title="Eliminar registro de material extra"
+                                          onClick={() => handleDeleteAvanceItem(item.id)}
+                                          className="p-1 text-[#C23939] hover:bg-[#FDE8E8] rounded cursor-pointer transition-colors"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Tabla/Tarjeta de Control de Materiales Extras */}
+                    {dashboardData?.materialesExtras &&
+                      dashboardData.materialesExtras.length > 0 && (
+                        <div className="mt-6 pt-6 border-t border-[#E3E1D9] space-y-3">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h4 className="text-xs font-bold text-[#BA7517] uppercase tracking-wider flex items-center gap-1.5">
+                                <AlertCircle className="w-4 h-4" />
+                                Consolidado de Materiales Extras Registrados (
+                                {dashboardData.materialesExtras.length})
+                              </h4>
+                              <p className="text-[11px] text-[#5F5E5A]">
+                                Listado de materiales no planeados capturados en reportes de avance.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="border border-[#E3E1D9] rounded-xl overflow-hidden">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead>
+                                <tr className="bg-[#FCF4E6]/60 border-b border-[#E3E1D9] text-[#BA7517] font-bold">
+                                  <th className="p-2.5">Descripción del Material</th>
+                                  <th className="p-2.5">Subtipo</th>
+                                  <th className="p-2.5">Frente / Capturado Por</th>
+                                  <th className="p-2.5 text-right">Cantidad</th>
+                                  <th className="p-2.5 text-center">Acciones</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#E3E1D9] bg-white">
+                                {dashboardData.materialesExtras.map((ext) => (
+                                  <tr
+                                    key={ext.id}
+                                    className="hover:bg-[#FCF4E6]/20 transition-colors"
+                                  >
+                                    <td className="p-2.5 font-bold text-[#1C1C1A]">
+                                      {ext.materialManual}
+                                    </td>
+                                    <td className="p-2.5">
+                                      <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-[#FCF4E6] text-[#BA7517]">
+                                        {ext.avanceItem?.subtipo || 'Extra'}
+                                      </span>
+                                    </td>
+                                    <td className="p-2.5 text-[#5F5E5A]">
+                                      {ext.avanceItem?.avance?.frente || 'En Obra'}
+                                      {ext.avanceItem?.avance?.autor?.nombre && (
+                                        <span className="block text-[10px] text-[#8B8A84]">
+                                          por {ext.avanceItem.avance.autor.nombre}
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="p-2.5 text-right font-bold text-[#27500A]">
+                                      +{ext.cantidad} pza
+                                    </td>
+                                    <td className="p-2.5 text-center">
+                                      {canEditOrDeleteAvance(
+                                        (ext.avanceItem?.avance as any)?.autorId ||
+                                          ext.avanceItem?.avance?.autor?.id,
+                                        ext.avanceItem?.avance?.autor?.email,
+                                      ) && (
+                                        <div className="flex items-center justify-center gap-1">
+                                          <button
+                                            type="button"
+                                            title="Modificar material extra"
+                                            onClick={() =>
+                                              setEditingAvanceItem({
+                                                id: ext.avanceItemId || ext.id,
+                                                materialManual: ext.materialManual,
+                                                cantidad: ext.cantidad,
+                                                subtipo: ext.avanceItem?.subtipo || 'extra',
+                                              })
+                                            }
+                                            className="p-1 text-[#0C447C] hover:bg-[#E6F1FB] rounded cursor-pointer transition-colors"
+                                          >
+                                            <Edit className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            title="Eliminar material extra"
+                                            onClick={() =>
+                                              handleDeleteAvanceItem(ext.avanceItemId || ext.id)
+                                            }
+                                            className="p-1 text-[#C23939] hover:bg-[#FDE8E8] rounded cursor-pointer transition-colors"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm">
+                ) : (
+                  <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm">
                     {selectedProjectId ? (
                       <SpecializedAvanceTab
                         projectId={selectedProjectId}

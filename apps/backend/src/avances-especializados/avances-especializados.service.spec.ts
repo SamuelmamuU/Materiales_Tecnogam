@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AvancesEspecializadosService, ORANGE_COLUMNS } from './avances-especializados.service';
+import {
+  AvancesEspecializadosService,
+  ORANGE_COLUMNS,
+} from './avances-especializados.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { Rol } from '@prisma/client';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
@@ -11,10 +14,14 @@ describe('AvancesEspecializadosService', () => {
   beforeEach(async () => {
     prisma = {
       proyecto: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'proj-1', fechaCulminacion: null }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'proj-1', fechaCulminacion: null }),
       } as any,
       usuario: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'user-1', nombre: 'Supervisor Prueba' }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'user-1', nombre: 'Supervisor Prueba' }),
       } as any,
       avanceInstrumentacion: {
         findMany: jest.fn().mockResolvedValue([
@@ -62,7 +69,9 @@ describe('AvancesEspecializadosService', () => {
       ],
     }).compile();
 
-    service = module.get<AvancesEspecializadosService>(AvancesEspecializadosService);
+    service = module.get<AvancesEspecializadosService>(
+      AvancesEspecializadosService,
+    );
   });
 
   it('debe suprimir celdasAudit cuando el rol es supervisor', async () => {

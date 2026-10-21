@@ -124,7 +124,9 @@ export class AvancesService {
               },
             });
           } catch (err) {
-            this.logger.warn(`No se pudo insertar en materiales_extras: ${err}`);
+            this.logger.warn(
+              `No se pudo insertar en materiales_extras: ${err}`,
+            );
           }
         }
       }
@@ -422,9 +424,14 @@ export class AvancesService {
           });
 
           if (capturado) {
-            const updatedCapturadoQty = Math.max(0, capturado.cantidad + diffQty);
+            const updatedCapturadoQty = Math.max(
+              0,
+              capturado.cantidad + diffQty,
+            );
             if (updatedCapturadoQty === 0) {
-              await this.prisma.materialCapturado.delete({ where: { id: capturado.id } });
+              await this.prisma.materialCapturado.delete({
+                where: { id: capturado.id },
+              });
             } else {
               await this.prisma.materialCapturado.update({
                 where: { id: capturado.id },
@@ -442,12 +449,15 @@ export class AvancesService {
           await this.prisma.materialExtra.updateMany({
             where: {
               proyectoId: existingItem.avance.proyectoId,
-              materialManual: existingItem.materialManual || dto.materialManual || '',
+              materialManual:
+                existingItem.materialManual || dto.materialManual || '',
             },
             data: {
               cantidad: newQty,
               materialManual:
-                dto.materialManual !== undefined ? dto.materialManual : undefined,
+                dto.materialManual !== undefined
+                  ? dto.materialManual
+                  : undefined,
             },
           });
         } catch (err) {
@@ -488,13 +498,12 @@ export class AvancesService {
       return updatedExtra;
     }
 
-    throw new NotFoundException('El registro de material extra especificado no existe.');
+    throw new NotFoundException(
+      'El registro de material extra especificado no existe.',
+    );
   }
 
-  async deleteAvanceItem(
-    itemId: string,
-    user?: { sub: string; rol: string },
-  ) {
+  async deleteAvanceItem(itemId: string, user?: { sub: string; rol: string }) {
     // 1. Buscar si existe en AvanceItem
     const existingItem = await this.prisma.avanceItem.findUnique({
       where: { id: itemId },
@@ -545,7 +554,9 @@ export class AvancesService {
             if (pendingToDelete <= 0) break;
             if (cap.cantidad <= pendingToDelete) {
               pendingToDelete -= cap.cantidad;
-              await this.prisma.materialCapturado.delete({ where: { id: cap.id } });
+              await this.prisma.materialCapturado.delete({
+                where: { id: cap.id },
+              });
             } else {
               await this.prisma.materialCapturado.update({
                 where: { id: cap.id },
@@ -625,7 +636,9 @@ export class AvancesService {
       return { status: 'deleted', id: itemId };
     }
 
-    throw new NotFoundException('El registro de material extra especificado no existe.');
+    throw new NotFoundException(
+      'El registro de material extra especificado no existe.',
+    );
   }
 
   async getMaterialesExtras(projectId: string) {

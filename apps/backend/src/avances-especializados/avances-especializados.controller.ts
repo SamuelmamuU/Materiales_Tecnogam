@@ -33,13 +33,12 @@ import { Rol } from '@prisma/client';
 @UseGuards(JwtAuthGuard, ProjectGuard)
 @Controller('projects/:projectId/avances-especializados')
 export class AvancesEspecializadosController {
-  constructor(
-    private readonly service: AvancesEspecializadosService,
-  ) {}
+  constructor(private readonly service: AvancesEspecializadosService) {}
 
   @Get(':modulo')
   @ApiOperation({
-    summary: 'Consultar filas de avance especializado (Instrumentación, Válvulas, Motor)',
+    summary:
+      'Consultar filas de avance especializado (Instrumentación, Válvulas, Motor)',
     description:
       'Retorna filas de la especialidad. Si el usuario es Administrador, incluye celdasAudit con autor y timestamp por celda. Si es Supervisor o Trabajador, la auditoría se remueve por completo.',
   })
@@ -64,12 +63,16 @@ export class AvancesEspecializadosController {
   @Roles('administrador')
   @UseGuards(RolesGuard)
   @ApiOperation({
-    summary: 'Crear un nuevo registro técnico en la tabla (Exclusivo Administrador)',
+    summary:
+      'Crear un nuevo registro técnico en la tabla (Exclusivo Administrador)',
     description:
       'Permite al Administrador registrar una nueva fila técnica (columnas negras) en la especialidad seleccionada.',
   })
   @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
-  @ApiParam({ name: 'modulo', description: 'instrumentacion | valvulas | motor' })
+  @ApiParam({
+    name: 'modulo',
+    description: 'instrumentacion | valvulas | motor',
+  })
   async createRow(
     @Param('projectId') projectId: string,
     @Param('modulo') modulo: string,
@@ -87,12 +90,16 @@ export class AvancesEspecializadosController {
   @Roles('administrador')
   @UseGuards(RolesGuard)
   @ApiOperation({
-    summary: 'Importar masivamente registros técnicos vía archivo CSV (Exclusivo Administrador)',
+    summary:
+      'Importar masivamente registros técnicos vía archivo CSV (Exclusivo Administrador)',
     description:
       'Recibe el contenido en texto de un archivo CSV y crea los registros técnicos para la especialidad.',
   })
   @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
-  @ApiParam({ name: 'modulo', description: 'instrumentacion | valvulas | motor' })
+  @ApiParam({
+    name: 'modulo',
+    description: 'instrumentacion | valvulas | motor',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -122,8 +129,11 @@ export class AvancesEspecializadosController {
       'Retorna un archivo CSV delimitado por comas con los nombres exactos de columnas requeridas.',
   })
   @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
-  @ApiParam({ name: 'modulo', description: 'instrumentacion | valvulas | motor' })
-  async downloadTemplateCsv(
+  @ApiParam({
+    name: 'modulo',
+    description: 'instrumentacion | valvulas | motor',
+  })
+  downloadTemplateCsv(
     @Param('modulo') modulo: string,
     @Response() res: ExpressResponse,
   ) {
@@ -139,12 +149,16 @@ export class AvancesEspecializadosController {
   @Roles('administrador')
   @UseGuards(RolesGuard)
   @ApiOperation({
-    summary: 'Cargar datos de ejemplo desde docs/Tabla de Avances.xlsx (Exclusivo Administrador)',
+    summary:
+      'Cargar datos de ejemplo desde docs/Tabla de Avances.xlsx (Exclusivo Administrador)',
     description:
       'Siembra las especificaciones técnicas completas del Excel de prueba para la especialidad en este proyecto.',
   })
   @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
-  @ApiParam({ name: 'modulo', description: 'instrumentacion | valvulas | motor' })
+  @ApiParam({
+    name: 'modulo',
+    description: 'instrumentacion | valvulas | motor',
+  })
   async loadSample(
     @Param('projectId') projectId: string,
     @Param('modulo') modulo: string,
@@ -164,7 +178,10 @@ export class AvancesEspecializadosController {
       'Supervisores solo pueden actualizar columnas de avance (naranjas). Administradores pueden actualizar cualquier columna. Registra auditoría celda por celda.',
   })
   @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
-  @ApiParam({ name: 'modulo', description: 'instrumentacion | valvulas | motor' })
+  @ApiParam({
+    name: 'modulo',
+    description: 'instrumentacion | valvulas | motor',
+  })
   @ApiParam({ name: 'rowId', description: 'UUID de la fila' })
   async updateRow(
     @Param('projectId') projectId: string,
@@ -174,16 +191,10 @@ export class AvancesEspecializadosController {
     @Request() req: RequestWithUser,
   ) {
     if (!req.user) throw new UnauthorizedException();
-    return this.service.updateRow(
-      projectId,
-      modulo,
-      rowId,
-      updates,
-      {
-        id: req.user.sub,
-        rol: req.user.rol as Rol,
-      },
-    );
+    return this.service.updateRow(projectId, modulo, rowId, updates, {
+      id: req.user.sub,
+      rol: req.user.rol as Rol,
+    });
   }
 
   @Put(':modulo/batch')
@@ -192,23 +203,22 @@ export class AvancesEspecializadosController {
     description: 'Guarda múltiples filas modificadas en una sola llamada.',
   })
   @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
-  @ApiParam({ name: 'modulo', description: 'instrumentacion | valvulas | motor' })
+  @ApiParam({
+    name: 'modulo',
+    description: 'instrumentacion | valvulas | motor',
+  })
   async batchUpdate(
     @Param('projectId') projectId: string,
     @Param('modulo') modulo: string,
-    @Body() body: { rows: Array<{ rowId: string; updates: Record<string, any> }> },
+    @Body()
+    body: { rows: Array<{ rowId: string; updates: Record<string, any> }> },
     @Request() req: RequestWithUser,
   ) {
     if (!req.user) throw new UnauthorizedException();
-    return this.service.batchUpdate(
-      projectId,
-      modulo,
-      body.rows || [],
-      {
-        id: req.user.sub,
-        rol: req.user.rol as Rol,
-      },
-    );
+    return this.service.batchUpdate(projectId, modulo, body.rows || [], {
+      id: req.user.sub,
+      rol: req.user.rol as Rol,
+    });
   }
 
   @Get(':modulo/export')
@@ -218,7 +228,10 @@ export class AvancesEspecializadosController {
       'Descarga archivo Excel con encabezados negros (Admin) y naranjas (Supervisor). Administradores ven columnas de auditoría; supervisores no.',
   })
   @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
-  @ApiParam({ name: 'modulo', description: 'instrumentacion | valvulas | motor' })
+  @ApiParam({
+    name: 'modulo',
+    description: 'instrumentacion | valvulas | motor',
+  })
   async exportExcel(
     @Param('projectId') projectId: string,
     @Param('modulo') modulo: string,
@@ -226,14 +239,10 @@ export class AvancesEspecializadosController {
     @Response() res: ExpressResponse,
   ) {
     if (!req.user) throw new UnauthorizedException();
-    const buffer = await this.service.exportToExcel(
-      projectId,
-      modulo,
-      {
-        id: req.user.sub,
-        rol: req.user.rol as Rol,
-      },
-    );
+    const buffer = await this.service.exportToExcel(projectId, modulo, {
+      id: req.user.sub,
+      rol: req.user.rol as Rol,
+    });
 
     const filename = `Avance_${modulo.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.xlsx`;
     res.set({

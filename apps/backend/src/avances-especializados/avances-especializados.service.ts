@@ -375,7 +375,8 @@ export class AvancesEspecializadosService {
           temperatureFactor: getColVal(row, /temp/i) || '0.82',
           groupingFactor: getColVal(row, /group|agrup/i) || '1',
           wiresPerPhase: getColVal(row, /wire.*phase|hilo.*fase/i) || '1',
-          voltageLossFactor: getColVal(row, /loss.*factor|caida.*factor/i) || '-',
+          voltageLossFactor:
+            getColVal(row, /loss.*factor|caida.*factor/i) || '-',
           cableLengthMts: getColVal(row, /length|longitud|mts/i) || '-',
           voltageLossPct: getColVal(row, /loss.*pct|caida.*%/i) || '-',
           wireGauge:
@@ -542,7 +543,8 @@ export class AvancesEspecializadosService {
     const firstLine = lines[0];
     const delimiter =
       firstLine.includes(';') &&
-      (firstLine.match(/;/g)?.length || 0) > (firstLine.match(/,/g)?.length || 0)
+      (firstLine.match(/;/g)?.length || 0) >
+        (firstLine.match(/,/g)?.length || 0)
         ? ';'
         : ',';
 
@@ -653,18 +655,26 @@ export class AvancesEspecializadosService {
     }
 
     if (!existingRow || existingRow.proyectoId !== projectId) {
-      throw new NotFoundException('Fila de avance no encontrada en este proyecto');
+      throw new NotFoundException(
+        'Fila de avance no encontrada en este proyecto',
+      );
     }
 
     // Actualizar celdasAudit y generar registros inmutables de auditoría
-    const currentAudit: Record<string, any> = (existingRow.celdasAudit as Record<string, any>) || {};
+    const currentAudit: Record<string, any> =
+      (existingRow.celdasAudit as Record<string, any>) || {};
     const nowIso = new Date().toISOString();
     const auditLogsToCreate: any[] = [];
 
     const sanitizedData: Record<string, any> = {};
 
     for (const [colKey, rawVal] of Object.entries(updates)) {
-      if (colKey === 'id' || colKey === 'proyectoId' || colKey === 'celdasAudit') continue;
+      if (
+        colKey === 'id' ||
+        colKey === 'proyectoId' ||
+        colKey === 'celdasAudit'
+      )
+        continue;
 
       let val = rawVal;
       // Convertir a número si la columna es numérica (ej: cantidadCable)
@@ -822,11 +832,14 @@ export class AvancesEspecializadosService {
     // Fila 1: Super Headers
     ws.mergeCells(1, 1, 1, adminColCount);
     const superAdmin = ws.getCell(1, 1);
-    superAdmin.value = 'INFORMACIÓN QUE SUBE EL ADMINISTRADOR AL INICIO DEL PROYECTO';
+    superAdmin.value =
+      'INFORMACIÓN QUE SUBE EL ADMINISTRADOR AL INICIO DEL PROYECTO';
     this.applyHeaderStyle(superAdmin, '1C1C1A', 'FFFFFF');
 
     const supColStart = adminColCount + 1;
-    const totalCols = isAdmin ? adminColCount + supervisorColCount * 2 : adminColCount + supervisorColCount;
+    const totalCols = isAdmin
+      ? adminColCount + supervisorColCount * 2
+      : adminColCount + supervisorColCount;
     ws.mergeCells(1, supColStart, 1, totalCols);
     const superSup = ws.getCell(1, supColStart);
     superSup.value = 'INFORMACIÓN QUE VA INTRODUCIENDO EL SUPERVISOR EN PLANTA';
@@ -836,7 +849,11 @@ export class AvancesEspecializadosService {
     const headers = [
       { key: 'item', label: 'Item', isOrange: false },
       { key: 'tipoVariable', label: 'Tipo de VARIABLE', isOrange: false },
-      { key: 'equipoAsoc', label: 'Equipo asociado al Instrumento', isOrange: false },
+      {
+        key: 'equipoAsoc',
+        label: 'Equipo asociado al Instrumento',
+        isOrange: false,
+      },
       { key: 'tag', label: 'Tag', isOrange: false },
       { key: 'cant', label: 'Cant.', isOrange: false },
       { key: 'servicioSuple', label: 'Servicio que suple', isOrange: false },
@@ -846,8 +863,16 @@ export class AvancesEspecializadosService {
       { key: 'cableado', label: 'CABLEADO', isOrange: true },
       { key: 'cantidadCable', label: 'Cantidad de Cable [m]', isOrange: true },
       { key: 'peinadoCinchado', label: 'Peinado y Cinchado', isOrange: true },
-      { key: 'conexionPlanta', label: 'CONEXIÓN y etiquetado en planta', isOrange: true },
-      { key: 'conexionTablero', label: 'CONEXIÓN y etiquetado en tablero', isOrange: true },
+      {
+        key: 'conexionPlanta',
+        label: 'CONEXIÓN y etiquetado en planta',
+        isOrange: true,
+      },
+      {
+        key: 'conexionTablero',
+        label: 'CONEXIÓN y etiquetado en tablero',
+        isOrange: true,
+      },
       { key: 'pruebas', label: 'PRUEBAs', isOrange: true },
       { key: 'nota', label: 'Nota', isOrange: true },
     ];
@@ -856,11 +881,7 @@ export class AvancesEspecializadosService {
     for (const h of headers) {
       const cell = ws.getCell(2, cIdx);
       cell.value = h.label;
-      this.applyHeaderStyle(
-        cell,
-        h.isOrange ? 'E97132' : '2E2E2C',
-        'FFFFFF',
-      );
+      this.applyHeaderStyle(cell, h.isOrange ? 'E97132' : '2E2E2C', 'FFFFFF');
       cIdx++;
 
       if (h.isOrange && isAdmin) {
@@ -899,11 +920,16 @@ export class AvancesEspecializadosService {
     this.autoFitColumns(ws);
   }
 
-  private buildValvulasExcel(ws: ExcelJS.Worksheet, rows: any[], isAdmin: boolean) {
+  private buildValvulasExcel(
+    ws: ExcelJS.Worksheet,
+    rows: any[],
+    isAdmin: boolean,
+  ) {
     // Fila 1: Super Headers
     ws.mergeCells(1, 1, 1, 8);
     const superAdmin = ws.getCell(1, 1);
-    superAdmin.value = 'DATOS QUE DEBE CONTENER LA TABLA QUE VA A SUBIR EL ADMINISTRADOR';
+    superAdmin.value =
+      'DATOS QUE DEBE CONTENER LA TABLA QUE VA A SUBIR EL ADMINISTRADOR';
     this.applyHeaderStyle(superAdmin, '1C1C1A', 'FFFFFF');
 
     const totalSupCols = isAdmin ? 15 * 2 : 15;
@@ -916,25 +942,57 @@ export class AvancesEspecializadosService {
       { key: 'item', label: 'ITEM', isOrange: false },
       { key: 'tag', label: 'TAG', isOrange: false },
       { key: 'servicioCumple', label: 'Servicio que cumple', isOrange: false },
-      { key: 'funcionamiento', label: 'FUNCIONAMIENTO DE VALVULA', isOrange: false },
+      {
+        key: 'funcionamiento',
+        label: 'FUNCIONAMIENTO DE VALVULA',
+        isOrange: false,
+      },
       { key: 'tipoValvula', label: 'Tipo DE VALVULA', isOrange: false },
       { key: 'ubicacion', label: 'UBICACIÓN', isOrange: false },
       { key: 'falla', label: 'FALLA', isOrange: false },
       { key: 'notaAdmin', label: 'Nota', isOrange: false },
       // Neumática
-      { key: 'cableadoNeum', label: 'CABLEADO NEUMATICO (tubing/manguera)', isOrange: true },
-      { key: 'cableNeumInstal', label: 'Cable NEUMATICO (tubing) Instalado [m]', isOrange: true },
+      {
+        key: 'cableadoNeum',
+        label: 'CABLEADO NEUMATICO (tubing/manguera)',
+        isOrange: true,
+      },
+      {
+        key: 'cableNeumInstal',
+        label: 'Cable NEUMATICO (tubing) Instalado [m]',
+        isOrange: true,
+      },
       { key: 'peinadoNeum', label: 'pinado y cinchado', isOrange: true },
-      { key: 'conexionPlantaNeum', label: 'CONEXIÓN y etiquetado EN PLANTA', isOrange: true },
-      { key: 'conexionManifold', label: 'CONEXIÓN y etiquetado MANINFOLD', isOrange: true },
+      {
+        key: 'conexionPlantaNeum',
+        label: 'CONEXIÓN y etiquetado EN PLANTA',
+        isOrange: true,
+      },
+      {
+        key: 'conexionManifold',
+        label: 'CONEXIÓN y etiquetado MANINFOLD',
+        isOrange: true,
+      },
       { key: 'pruebasNeum', label: 'PRUEBAS', isOrange: true },
       { key: 'notasNeum', label: 'NOTAS (Neum)', isOrange: true },
       // Control
       { key: 'cableadoCtrl', label: 'CABLEADO (Ctrl)', isOrange: true },
       { key: 'cableCtrlInstal', label: 'Cable instalado [m]', isOrange: true },
-      { key: 'peinadoCtrl', label: 'Peinado y Cinchado de cable', isOrange: true },
-      { key: 'conexionPlantaCtrl', label: 'CONEXIÓN Y ETIQUETADO EN PLANTA (Ctrl)', isOrange: true },
-      { key: 'conexionTableroCtrl', label: 'CONEXIÓN Y ETIQUETADO EN TABLERO', isOrange: true },
+      {
+        key: 'peinadoCtrl',
+        label: 'Peinado y Cinchado de cable',
+        isOrange: true,
+      },
+      {
+        key: 'conexionPlantaCtrl',
+        label: 'CONEXIÓN Y ETIQUETADO EN PLANTA (Ctrl)',
+        isOrange: true,
+      },
+      {
+        key: 'conexionTableroCtrl',
+        label: 'CONEXIÓN Y ETIQUETADO EN TABLERO',
+        isOrange: true,
+      },
       { key: 'comisioning', label: 'COMISIONING', isOrange: true },
       { key: 'comisionamiento', label: 'COMISIONAMIENTO', isOrange: true },
       { key: 'notasCtrl', label: 'NOTAS (Ctrl)', isOrange: true },
@@ -982,10 +1040,15 @@ export class AvancesEspecializadosService {
     this.autoFitColumns(ws);
   }
 
-  private buildMotorExcel(ws: ExcelJS.Worksheet, rows: any[], isAdmin: boolean) {
+  private buildMotorExcel(
+    ws: ExcelJS.Worksheet,
+    rows: any[],
+    isAdmin: boolean,
+  ) {
     ws.mergeCells(1, 1, 1, 19);
     const superAdmin = ws.getCell(1, 1);
-    superAdmin.value = 'DATOS QUE DEBE CONTENER LA TABLA QUE VA A SUBIR EL ADMINISTRADOR';
+    superAdmin.value =
+      'DATOS QUE DEBE CONTENER LA TABLA QUE VA A SUBIR EL ADMINISTRADOR';
     this.applyHeaderStyle(superAdmin, '1C1C1A', 'FFFFFF');
 
     const totalSupCols = isAdmin ? 9 * 2 : 9;
@@ -1003,13 +1066,29 @@ export class AvancesEspecializadosService {
       { key: 'hp', label: 'HP', isOrange: false },
       { key: 'phases', label: 'PHASES', isOrange: false },
       { key: 'flaCurrent', label: 'FULL LOAD CURRENT (FLA)', isOrange: false },
-      { key: 'fla125Current', label: 'FULL LOAD CURRENT (FLA) *1.25', isOrange: false },
-      { key: 'temperatureFactor', label: 'TEMPERATURE FACTOR', isOrange: false },
+      {
+        key: 'fla125Current',
+        label: 'FULL LOAD CURRENT (FLA) *1.25',
+        isOrange: false,
+      },
+      {
+        key: 'temperatureFactor',
+        label: 'TEMPERATURE FACTOR',
+        isOrange: false,
+      },
       { key: 'groupingFactor', label: 'GROUPING FACTOR', isOrange: false },
       { key: 'wiresPerPhase', label: 'WIRES PER PHASE', isOrange: false },
-      { key: 'voltageLossFactor', label: 'VOLTAGE LOSS FACTOR', isOrange: false },
+      {
+        key: 'voltageLossFactor',
+        label: 'VOLTAGE LOSS FACTOR',
+        isOrange: false,
+      },
       { key: 'cableLengthMts', label: 'CABLE LENGTH (MTS)', isOrange: false },
-      { key: 'voltageLossPct', label: 'VOLTAGE LOSS PERCENTAGE', isOrange: false },
+      {
+        key: 'voltageLossPct',
+        label: 'VOLTAGE LOSS PERCENTAGE',
+        isOrange: false,
+      },
       { key: 'wireGauge', label: 'WIRE GAUGE', isOrange: false },
       { key: 'groundWireGauge', label: 'GROUND WIRE GAUGE', isOrange: false },
       { key: 'ubicacion', label: 'Ubicación', isOrange: false },
@@ -1017,10 +1096,26 @@ export class AvancesEspecializadosService {
       { key: 'cableado', label: 'CABLEADO', isOrange: true },
       { key: 'cantidadCable', label: 'Cantidad de cable (m)', isOrange: true },
       { key: 'peinadoCinchado', label: 'Peinado y cinchado', isOrange: true },
-      { key: 'pruebasAislMotor', label: 'PRUEBAS AISLAMIENTO MOTOR', isOrange: true },
-      { key: 'pruebasAislCirc', label: 'PRUEBAS AISLAMIENTO CIRCUITO', isOrange: true },
-      { key: 'conexionMotor', label: 'CONEXIÓN y etiquetado motor', isOrange: true },
-      { key: 'conexionCcm', label: 'CONEXIÓN Y ETIQUETADO CCM', isOrange: true },
+      {
+        key: 'pruebasAislMotor',
+        label: 'PRUEBAS AISLAMIENTO MOTOR',
+        isOrange: true,
+      },
+      {
+        key: 'pruebasAislCirc',
+        label: 'PRUEBAS AISLAMIENTO CIRCUITO',
+        isOrange: true,
+      },
+      {
+        key: 'conexionMotor',
+        label: 'CONEXIÓN y etiquetado motor',
+        isOrange: true,
+      },
+      {
+        key: 'conexionCcm',
+        label: 'CONEXIÓN Y ETIQUETADO CCM',
+        isOrange: true,
+      },
       { key: 'motorSoloRun', label: 'MOTOR SOLO-RUN', isOrange: true },
       { key: 'notas', label: 'NOTAS', isOrange: true },
     ];
@@ -1067,7 +1162,11 @@ export class AvancesEspecializadosService {
     this.autoFitColumns(ws);
   }
 
-  private applyHeaderStyle(cell: ExcelJS.Cell, bgColor: string, fgColor: string) {
+  private applyHeaderStyle(
+    cell: ExcelJS.Cell,
+    bgColor: string,
+    fgColor: string,
+  ) {
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
@@ -1079,7 +1178,11 @@ export class AvancesEspecializadosService {
       bold: true,
       color: { argb: 'FF' + fgColor },
     };
-    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    cell.alignment = {
+      vertical: 'middle',
+      horizontal: 'center',
+      wrapText: true,
+    };
     cell.border = {
       top: { style: 'thin', color: { argb: 'FFB0B0B0' } },
       left: { style: 'thin', color: { argb: 'FFB0B0B0' } },
@@ -1111,16 +1214,25 @@ export class AvancesEspecializadosService {
 
   // --- Seeder inicial desde docs/Tabla de Avances.xlsx ---
 
-  private async ensureInitialSeed(projectId: string, modulo: 'instrumentacion' | 'valvulas' | 'motor') {
+  private async ensureInitialSeed(
+    projectId: string,
+    modulo: 'instrumentacion' | 'valvulas' | 'motor',
+  ) {
     try {
       if (modulo === 'instrumentacion') {
-        const count = await this.prisma.avanceInstrumentacion.count({ where: { proyectoId: projectId } });
+        const count = await this.prisma.avanceInstrumentacion.count({
+          where: { proyectoId: projectId },
+        });
         if (count > 0) return;
       } else if (modulo === 'valvulas') {
-        const count = await this.prisma.avanceValvula.count({ where: { proyectoId: projectId } });
+        const count = await this.prisma.avanceValvula.count({
+          where: { proyectoId: projectId },
+        });
         if (count > 0) return;
       } else if (modulo === 'motor') {
-        const count = await this.prisma.avanceMotor.count({ where: { proyectoId: projectId } });
+        const count = await this.prisma.avanceMotor.count({
+          where: { proyectoId: projectId },
+        });
         if (count > 0) return;
       }
 
@@ -1132,7 +1244,9 @@ export class AvancesEspecializadosService {
       ];
       const excelPath = candidates.find((p) => fs.existsSync(p));
       if (!excelPath) {
-        this.logger.warn(`No se encontró docs/Tabla de Avances.xlsx para auto-seed en ${projectId}`);
+        this.logger.warn(
+          `No se encontró docs/Tabla de Avances.xlsx para auto-seed en ${projectId}`,
+        );
         return;
       }
 
@@ -1140,12 +1254,14 @@ export class AvancesEspecializadosService {
       await workbook.xlsx.readFile(excelPath);
 
       if (modulo === 'instrumentacion') {
-        const ws = workbook.getWorksheet('INSTRUMENTACIÓN') || workbook.getWorksheet('INSTRUMENTACION');
+        const ws =
+          workbook.getWorksheet('INSTRUMENTACIÓN') ||
+          workbook.getWorksheet('INSTRUMENTACION');
         if (ws) {
           const rowsToInsert: any[] = [];
           for (let r = 5; r <= ws.rowCount; r++) {
             const itemVal = ws.getCell(r, 2).text?.trim(); // Col B
-            const tagVal = ws.getCell(r, 5).text?.trim();  // Col E
+            const tagVal = ws.getCell(r, 5).text?.trim(); // Col E
             if (!itemVal && !tagVal) continue;
 
             const item = parseInt(itemVal) || r - 4;
@@ -1160,7 +1276,8 @@ export class AvancesEspecializadosService {
             // Supervisor inicial
             const instaladoPlanta = ws.getCell(r, 10).text?.trim() || '0';
             const cableado = ws.getCell(r, 11).text?.trim() || '0';
-            const cantidadCable = parseFloat(ws.getCell(r, 12).text?.trim()) || 0;
+            const cantidadCable =
+              parseFloat(ws.getCell(r, 12).text?.trim()) || 0;
             const peinadoCinchado = ws.getCell(r, 13).text?.trim() || '0';
             const conexionPlanta = ws.getCell(r, 14).text?.trim() || '0';
             const conexionTablero = ws.getCell(r, 15).text?.trim() || '0';
@@ -1189,8 +1306,12 @@ export class AvancesEspecializadosService {
           }
 
           if (rowsToInsert.length > 0) {
-            await this.prisma.avanceInstrumentacion.createMany({ data: rowsToInsert });
-            this.logger.log(`Se sembraron ${rowsToInsert.length} filas en AvanceInstrumentacion para proyecto ${projectId}`);
+            await this.prisma.avanceInstrumentacion.createMany({
+              data: rowsToInsert,
+            });
+            this.logger.log(
+              `Se sembraron ${rowsToInsert.length} filas en AvanceInstrumentacion para proyecto ${projectId}`,
+            );
           }
         }
       } else if (modulo === 'valvulas') {
@@ -1199,7 +1320,7 @@ export class AvancesEspecializadosService {
           const rowsToInsert: any[] = [];
           for (let r = 5; r <= ws.rowCount; r++) {
             const itemVal = ws.getCell(r, 2).text?.trim(); // Col B
-            const tagVal = ws.getCell(r, 3).text?.trim();  // Col C
+            const tagVal = ws.getCell(r, 3).text?.trim(); // Col C
             if (!itemVal && !tagVal) continue;
 
             const item = parseInt(itemVal) || r - 4;
@@ -1213,7 +1334,8 @@ export class AvancesEspecializadosService {
 
             // Neumática (J..P -> cols 10..16)
             const cableadoNeum = ws.getCell(r, 10).text?.trim() || '0';
-            const cableNeumInstal = parseFloat(ws.getCell(r, 11).text?.trim()) || 0;
+            const cableNeumInstal =
+              parseFloat(ws.getCell(r, 11).text?.trim()) || 0;
             const peinadoNeum = ws.getCell(r, 12).text?.trim() || '0';
             const conexionPlantaNeum = ws.getCell(r, 13).text?.trim() || '0';
             const conexionManifold = ws.getCell(r, 14).text?.trim() || '0';
@@ -1260,7 +1382,9 @@ export class AvancesEspecializadosService {
 
           if (rowsToInsert.length > 0) {
             await this.prisma.avanceValvula.createMany({ data: rowsToInsert });
-            this.logger.log(`Se sembraron ${rowsToInsert.length} filas en AvanceValvula para proyecto ${projectId}`);
+            this.logger.log(
+              `Se sembraron ${rowsToInsert.length} filas en AvanceValvula para proyecto ${projectId}`,
+            );
           }
         }
       } else if (modulo === 'motor') {
@@ -1269,7 +1393,7 @@ export class AvancesEspecializadosService {
           const rowsToInsert: any[] = [];
           for (let r = 10; r <= ws.rowCount; r++) {
             const partVal = ws.getCell(r, 1).text?.trim(); // Col A
-            const tagVal = ws.getCell(r, 2).text?.trim();  // Col B
+            const tagVal = ws.getCell(r, 2).text?.trim(); // Col B
             if (!partVal && !tagVal) continue;
 
             const part = partVal || `${r - 9}`;
@@ -1294,7 +1418,8 @@ export class AvancesEspecializadosService {
 
             // Supervisor (T..AB -> cols 20..28)
             const cableado = ws.getCell(r, 20).text?.trim() || '0';
-            const cantidadCable = parseFloat(ws.getCell(r, 21).text?.trim()) || 0;
+            const cantidadCable =
+              parseFloat(ws.getCell(r, 21).text?.trim()) || 0;
             const peinadoCinchado = ws.getCell(r, 22).text?.trim() || '0';
             const pruebasAislMotor = ws.getCell(r, 23).text?.trim() || '0';
             const pruebasAislCirc = ws.getCell(r, 24).text?.trim() || '0';
@@ -1338,7 +1463,9 @@ export class AvancesEspecializadosService {
 
           if (rowsToInsert.length > 0) {
             await this.prisma.avanceMotor.createMany({ data: rowsToInsert });
-            this.logger.log(`Se sembraron ${rowsToInsert.length} filas en AvanceMotor para proyecto ${projectId}`);
+            this.logger.log(
+              `Se sembraron ${rowsToInsert.length} filas en AvanceMotor para proyecto ${projectId}`,
+            );
           }
         }
       }

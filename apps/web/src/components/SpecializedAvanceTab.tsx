@@ -40,11 +40,16 @@ const MODULO_CONFIG: Record<
 > = {
   instrumentacion: {
     title: 'Avance de Instrumentación',
-    description:
-      'Control de instalación, cableado, peinado y pruebas de instrumentos de planta.',
+    description: 'Control de instalación, cableado, peinado y pruebas de instrumentos de planta.',
     columns: [
       { key: 'item', label: 'Item', isOrange: false, type: 'number' },
-      { key: 'tipoVariable', label: 'Tipo de VARIABLE', isOrange: false, type: 'text', required: true },
+      {
+        key: 'tipoVariable',
+        label: 'Tipo de VARIABLE',
+        isOrange: false,
+        type: 'text',
+        required: true,
+      },
       { key: 'equipoAsoc', label: 'Equipo asociado', isOrange: false, type: 'text' },
       { key: 'tag', label: 'Tag', isOrange: false, type: 'text', required: true },
       { key: 'cant', label: 'Cant.', isOrange: false, type: 'number' },
@@ -56,16 +61,27 @@ const MODULO_CONFIG: Record<
       { key: 'cableado', label: 'Cableado', isOrange: true, type: 'check' },
       { key: 'cantidadCable', label: 'Cant. Cable [m]', isOrange: true, type: 'number' },
       { key: 'peinadoCinchado', label: 'Peinado y Cinchado', isOrange: true, type: 'check' },
-      { key: 'conexionPlanta', label: 'Conexión Planta', isOrange: true, type: 'options', options: ['0', '1', 'CONECTADO'] },
-      { key: 'conexionTablero', label: 'Conexión Tablero', isOrange: true, type: 'options', options: ['0', '1', 'CONECTADO'] },
+      {
+        key: 'conexionPlanta',
+        label: 'Conexión Planta',
+        isOrange: true,
+        type: 'options',
+        options: ['0', '1', 'CONECTADO'],
+      },
+      {
+        key: 'conexionTablero',
+        label: 'Conexión Tablero',
+        isOrange: true,
+        type: 'options',
+        options: ['0', '1', 'CONECTADO'],
+      },
       { key: 'pruebas', label: 'Pruebas', isOrange: true, type: 'check' },
       { key: 'nota', label: 'Nota', isOrange: true, type: 'text' },
     ],
   },
   valvulas: {
     title: 'Avance de Válvulas',
-    description:
-      'Control de instalación neumática y control eléctrico de válvulas de proceso.',
+    description: 'Control de instalación neumática y control eléctrico de válvulas de proceso.',
     columns: [
       { key: 'item', label: 'ITEM', isOrange: false, type: 'number' },
       { key: 'tag', label: 'TAG', isOrange: false, type: 'text', required: true },
@@ -76,28 +92,118 @@ const MODULO_CONFIG: Record<
       { key: 'falla', label: 'Falla', isOrange: false, type: 'text' },
       { key: 'notaAdmin', label: 'Nota Admin', isOrange: false, type: 'text' },
       // Supervisor - Neumática
-      { key: 'cableadoNeum', label: 'Cableado Tubing', isOrange: true, type: 'check', subgroup: 'Neumática' },
-      { key: 'cableNeumInstal', label: 'Tubing Instalado [m]', isOrange: true, type: 'number', subgroup: 'Neumática' },
-      { key: 'peinadoNeum', label: 'Peinado/Cinchado', isOrange: true, type: 'check', subgroup: 'Neumática' },
-      { key: 'conexionPlantaNeum', label: 'Conexión Planta', isOrange: true, type: 'check', subgroup: 'Neumática' },
-      { key: 'conexionManifold', label: 'Conexión Manifold', isOrange: true, type: 'check', subgroup: 'Neumática' },
-      { key: 'pruebasNeum', label: 'Pruebas Neum', isOrange: true, type: 'check', subgroup: 'Neumática' },
-      { key: 'notasNeum', label: 'Notas Neumática', isOrange: true, type: 'text', subgroup: 'Neumática' },
+      {
+        key: 'cableadoNeum',
+        label: 'Cableado Tubing',
+        isOrange: true,
+        type: 'check',
+        subgroup: 'Neumática',
+      },
+      {
+        key: 'cableNeumInstal',
+        label: 'Tubing Instalado [m]',
+        isOrange: true,
+        type: 'number',
+        subgroup: 'Neumática',
+      },
+      {
+        key: 'peinadoNeum',
+        label: 'Peinado/Cinchado',
+        isOrange: true,
+        type: 'check',
+        subgroup: 'Neumática',
+      },
+      {
+        key: 'conexionPlantaNeum',
+        label: 'Conexión Planta',
+        isOrange: true,
+        type: 'check',
+        subgroup: 'Neumática',
+      },
+      {
+        key: 'conexionManifold',
+        label: 'Conexión Manifold',
+        isOrange: true,
+        type: 'check',
+        subgroup: 'Neumática',
+      },
+      {
+        key: 'pruebasNeum',
+        label: 'Pruebas Neum',
+        isOrange: true,
+        type: 'check',
+        subgroup: 'Neumática',
+      },
+      {
+        key: 'notasNeum',
+        label: 'Notas Neumática',
+        isOrange: true,
+        type: 'text',
+        subgroup: 'Neumática',
+      },
       // Supervisor - Control
-      { key: 'cableadoCtrl', label: 'Cableado Eléc.', isOrange: true, type: 'check', subgroup: 'Control' },
-      { key: 'cableCtrlInstal', label: 'Cable Instalado [m]', isOrange: true, type: 'text', subgroup: 'Control' },
-      { key: 'peinadoCtrl', label: 'Peinado Cable', isOrange: true, type: 'check', subgroup: 'Control' },
-      { key: 'conexionPlantaCtrl', label: 'Conexión Planta', isOrange: true, type: 'check', subgroup: 'Control' },
-      { key: 'conexionTableroCtrl', label: 'Conexión Tablero', isOrange: true, type: 'check', subgroup: 'Control' },
-      { key: 'comisioning', label: 'Comisioning', isOrange: true, type: 'options', options: ['0', 'LISTO', '----------'], subgroup: 'Control' },
-      { key: 'comisionamiento', label: 'Comisionamiento', isOrange: true, type: 'check', subgroup: 'Control' },
-      { key: 'notasCtrl', label: 'Notas Control', isOrange: true, type: 'text', subgroup: 'Control' },
+      {
+        key: 'cableadoCtrl',
+        label: 'Cableado Eléc.',
+        isOrange: true,
+        type: 'check',
+        subgroup: 'Control',
+      },
+      {
+        key: 'cableCtrlInstal',
+        label: 'Cable Instalado [m]',
+        isOrange: true,
+        type: 'text',
+        subgroup: 'Control',
+      },
+      {
+        key: 'peinadoCtrl',
+        label: 'Peinado Cable',
+        isOrange: true,
+        type: 'check',
+        subgroup: 'Control',
+      },
+      {
+        key: 'conexionPlantaCtrl',
+        label: 'Conexión Planta',
+        isOrange: true,
+        type: 'check',
+        subgroup: 'Control',
+      },
+      {
+        key: 'conexionTableroCtrl',
+        label: 'Conexión Tablero',
+        isOrange: true,
+        type: 'check',
+        subgroup: 'Control',
+      },
+      {
+        key: 'comisioning',
+        label: 'Comisioning',
+        isOrange: true,
+        type: 'options',
+        options: ['0', 'LISTO', '----------'],
+        subgroup: 'Control',
+      },
+      {
+        key: 'comisionamiento',
+        label: 'Comisionamiento',
+        isOrange: true,
+        type: 'check',
+        subgroup: 'Control',
+      },
+      {
+        key: 'notasCtrl',
+        label: 'Notas Control',
+        isOrange: true,
+        type: 'text',
+        subgroup: 'Control',
+      },
     ],
   },
   motor: {
     title: 'Avance de Motores',
-    description:
-      'Control de cableado de fuerza, pruebas de aislamiento motor/circuito y solo-run.',
+    description: 'Control de cableado de fuerza, pruebas de aislamiento motor/circuito y solo-run.',
     columns: [
       { key: 'part', label: 'Part', isOrange: false, type: 'text', required: true },
       { key: 'tag', label: 'TAG', isOrange: false, type: 'text', required: true },
@@ -173,7 +279,9 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
   const [showCsvModal, setShowCsvModal] = useState<boolean>(false);
   const [csvContent, setCsvContent] = useState<string>('');
   const [csvFileName, setCsvFileName] = useState<string>('');
-  const [csvPreview, setCsvPreview] = useState<{ headers: string[]; rows: string[][] } | null>(null);
+  const [csvPreview, setCsvPreview] = useState<{ headers: string[]; rows: string[][] } | null>(
+    null,
+  );
   const [importingCsv, setImportingCsv] = useState<boolean>(false);
   const [loadingSample, setLoadingSample] = useState<boolean>(false);
 
@@ -188,14 +296,11 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
     try {
       setLoading(true);
       setErrorMsg(null);
-      const res = await fetch(
-        `${apiUrl}/projects/${projectId}/avances-especializados/${modulo}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const res = await fetch(`${apiUrl}/projects/${projectId}/avances-especializados/${modulo}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
       if (!res.ok) {
         throw new Error(`Error ${res.status}: Fallo al cargar datos de ${modulo}`);
       }
@@ -266,9 +371,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `Error ${res.status} al guardar los avances`,
-        );
+        throw new Error(errorData.message || `Error ${res.status} al guardar los avances`);
       }
 
       await fetchRows();
@@ -353,7 +456,9 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
       if (lines.length > 0) {
         const delim = lines[0].includes(';') ? ';' : ',';
         const headers = lines[0].split(delim).map((h) => h.replace(/^"|"$/g, '').trim());
-        const previewRows = lines.slice(1, 6).map((l) => l.split(delim).map((c) => c.replace(/^"|"$/g, '').trim()));
+        const previewRows = lines
+          .slice(1, 6)
+          .map((l) => l.split(delim).map((c) => c.replace(/^"|"$/g, '').trim()));
         setCsvPreview({ headers, rows: previewRows });
       }
     };
@@ -436,7 +541,11 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
 
   // Cargar datos de ejemplo (seed)
   const handleLoadSampleData = async () => {
-    if (!confirm('¿Desea cargar los registros de especificaciones de ejemplo desde la plantilla Excel?')) {
+    if (
+      !confirm(
+        '¿Desea cargar los registros de especificaciones de ejemplo desde la plantilla Excel?',
+      )
+    ) {
       return;
     }
     try {
@@ -469,12 +578,24 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
     const term = searchTerm.toLowerCase();
     return rows.filter((r) => {
       return (
-        String(r.tag || '').toLowerCase().includes(term) ||
-        String(r.item || '').toLowerCase().includes(term) ||
-        String(r.part || '').toLowerCase().includes(term) ||
-        String(r.servicioCumple || r.servicioSuple || r.description || '').toLowerCase().includes(term) ||
-        String(r.ubicacion || '').toLowerCase().includes(term) ||
-        String(r.tipoVariable || '').toLowerCase().includes(term)
+        String(r.tag || '')
+          .toLowerCase()
+          .includes(term) ||
+        String(r.item || '')
+          .toLowerCase()
+          .includes(term) ||
+        String(r.part || '')
+          .toLowerCase()
+          .includes(term) ||
+        String(r.servicioCumple || r.servicioSuple || r.description || '')
+          .toLowerCase()
+          .includes(term) ||
+        String(r.ubicacion || '')
+          .toLowerCase()
+          .includes(term) ||
+        String(r.tipoVariable || '')
+          .toLowerCase()
+          .includes(term)
       );
     });
   }, [rows, searchTerm]);
@@ -517,7 +638,8 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
             </span>
             {stats.total > 0 && (
               <span className="px-2 py-0.5 rounded-full bg-[#EAF3DE] text-[#27500A] text-[11px] font-bold">
-                Cableado: {stats.cableadoCount}/{stats.total} ({Math.round((stats.cableadoCount / stats.total) * 100)}%)
+                Cableado: {stats.cableadoCount}/{stats.total} (
+                {Math.round((stats.cableadoCount / stats.total) * 100)}%)
               </span>
             )}
           </div>
@@ -744,9 +866,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                   <th
                     key={col.key}
                     className={`py-2 px-3 whitespace-nowrap border-r border-[#E3E1D9] ${
-                      col.isOrange
-                        ? 'bg-[#FFF3E0] text-[#8C3B00]'
-                        : 'bg-[#F1EFE8] text-[#1C1C1A]'
+                      col.isOrange ? 'bg-[#FFF3E0] text-[#8C3B00]' : 'bg-[#F1EFE8] text-[#1C1C1A]'
                     }`}
                   >
                     {col.label}
@@ -765,11 +885,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                   <tr
                     key={row.id}
                     className={`transition-colors ${
-                      isRowDirty
-                        ? 'bg-[#FFF8E7]'
-                        : rIdx % 2 === 0
-                          ? 'bg-white'
-                          : 'bg-[#FBFBFA]'
+                      isRowDirty ? 'bg-[#FFF8E7]' : rIdx % 2 === 0 ? 'bg-white' : 'bg-[#FBFBFA]'
                     } hover:bg-[#F2F1EC]`}
                   >
                     {config.columns.map((col) => {
@@ -790,11 +906,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    handleCellChange(
-                                      row.id,
-                                      col.key,
-                                      val === '1' ? '0' : '1',
-                                    )
+                                    handleCellChange(row.id, col.key, val === '1' ? '0' : '1')
                                   }
                                   className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
                                     val === '1'
@@ -871,9 +983,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                               ) : (
                                 <span
                                   className={`${
-                                    col.isOrange
-                                      ? 'font-medium text-[#1C1C1A]'
-                                      : 'text-[#3B3A36]'
+                                    col.isOrange ? 'font-medium text-[#1C1C1A]' : 'text-[#3B3A36]'
                                   }`}
                                 >
                                   {val ?? '-'}
@@ -960,7 +1070,8 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                   Nuevo Registro Técnico — {config.title}
                 </h3>
                 <p className="text-xs text-[#5F5E5A]">
-                  Captura las especificaciones de ingeniería que estarán disponibles para el reporte de avance.
+                  Captura las especificaciones de ingeniería que estarán disponibles para el reporte
+                  de avance.
                 </p>
               </div>
               <button
@@ -974,7 +1085,16 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
             <form onSubmit={handleCreateRow} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 {adminColumns.map((col) => (
-                  <div key={col.key} className={col.key === 'servicioSuple' || col.key === 'description' || col.key === 'servicioCumple' ? 'sm:col-span-2' : ''}>
+                  <div
+                    key={col.key}
+                    className={
+                      col.key === 'servicioSuple' ||
+                      col.key === 'description' ||
+                      col.key === 'servicioCumple'
+                        ? 'sm:col-span-2'
+                        : ''
+                    }
+                  >
                     <label className="block text-[11px] font-semibold text-[#1C1C1A] mb-1">
                       {col.label} {col.required && <span className="text-red-500">*</span>}
                     </label>
@@ -1041,7 +1161,8 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                   Importar Especificaciones desde CSV — {config.title}
                 </h3>
                 <p className="text-xs text-[#5F5E5A]">
-                  Sube un archivo .csv con las columnas técnicas correspondientes para importarlas masivamente.
+                  Sube un archivo .csv con las columnas técnicas correspondientes para importarlas
+                  masivamente.
                 </p>
               </div>
               <button
@@ -1121,7 +1242,10 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                       {csvPreview.rows.map((r, ri) => (
                         <tr key={ri} className="hover:bg-gray-50">
                           {r.map((c, ci) => (
-                            <td key={ci} className="p-2 border-r border-[#E3E1D9] whitespace-nowrap">
+                            <td
+                              key={ci}
+                              className="p-2 border-r border-[#E3E1D9] whitespace-nowrap"
+                            >
                               {c}
                             </td>
                           ))}

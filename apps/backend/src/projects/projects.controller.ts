@@ -263,8 +263,7 @@ export class ProjectsController {
   @Roles('administrador')
   @UseGuards(ProjectGuard)
   @ApiOperation({
-    summary:
-      'Actualizar un proyecto existente (Exclusivo Administrador)',
+    summary: 'Actualizar un proyecto existente (Exclusivo Administrador)',
   })
   @ApiResponse({ status: 200, description: 'Proyecto actualizado con éxito.' })
   @ApiResponse({ status: 404, description: 'El proyecto no existe.' })
@@ -300,7 +299,8 @@ export class ProjectsController {
   @Roles('administrador')
   @UseGuards(ProjectGuard)
   @ApiOperation({
-    summary: 'Culminar un proyecto y bloquearlo para modificaciones (Solo Administrador)',
+    summary:
+      'Culminar un proyecto y bloquearlo para modificaciones (Solo Administrador)',
   })
   @ApiResponse({ status: 200, description: 'Proyecto culminado con éxito.' })
   async culminateProject(@Param('projectId') projectId: string) {
@@ -527,7 +527,8 @@ export class ProjectsController {
   @Get(':projectId/extras')
   @UseGuards(ProjectGuard)
   @ApiOperation({
-    summary: 'Obtener la lista de materiales extras registrados para un proyecto',
+    summary:
+      'Obtener la lista de materiales extras registrados para un proyecto',
   })
   @ApiParam({ name: 'projectId', description: 'ID del proyecto' })
   async getProjectExtras(@Param('projectId') projectId: string) {
@@ -538,9 +539,13 @@ export class ProjectsController {
   @Roles('administrador', 'supervisor')
   @UseGuards(ProjectGuard)
   @ApiOperation({
-    summary: 'Modificar un registro de material extra directamente por ID (Admin y Supervisor)',
+    summary:
+      'Modificar un registro de material extra directamente por ID (Admin y Supervisor)',
   })
-  @ApiParam({ name: 'extraId', description: 'ID del registro de material extra' })
+  @ApiParam({
+    name: 'extraId',
+    description: 'ID del registro de material extra',
+  })
   async updateMaterialExtra(
     @Param('extraId') extraId: string,
     @Body() dto: UpdateMaterialExtraDto,
@@ -553,9 +558,13 @@ export class ProjectsController {
   @Roles('administrador', 'supervisor')
   @UseGuards(ProjectGuard)
   @ApiOperation({
-    summary: 'Eliminar un registro de material extra directamente por ID (Admin y Supervisor)',
+    summary:
+      'Eliminar un registro de material extra directamente por ID (Admin y Supervisor)',
   })
-  @ApiParam({ name: 'extraId', description: 'ID del registro de material extra' })
+  @ApiParam({
+    name: 'extraId',
+    description: 'ID del registro de material extra',
+  })
   async deleteMaterialExtra(
     @Param('extraId') extraId: string,
     @Request() req: RequestWithUser,
@@ -567,9 +576,13 @@ export class ProjectsController {
   @Roles('administrador', 'supervisor')
   @UseGuards(ProjectGuard)
   @ApiOperation({
-    summary: 'Modificar un item de avance o material extra (Admin y Supervisor)',
+    summary:
+      'Modificar un item de avance o material extra (Admin y Supervisor)',
   })
-  @ApiParam({ name: 'itemId', description: 'ID del item de avance a modificar' })
+  @ApiParam({
+    name: 'itemId',
+    description: 'ID del item de avance a modificar',
+  })
   async updateProjectAvanceItem(
     @Param('itemId') itemId: string,
     @Body() dto: UpdateAvanceItemDto,

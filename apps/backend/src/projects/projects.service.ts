@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
@@ -215,15 +219,20 @@ export class ProjectsService {
     ).length;
 
     const [countInstru, countValv, countMotor] = await Promise.all([
-      this.prisma.avanceInstrumentacion.count({ where: { proyectoId: projectId } }),
+      this.prisma.avanceInstrumentacion.count({
+        where: { proyectoId: projectId },
+      }),
       this.prisma.avanceValvula.count({ where: { proyectoId: projectId } }),
       this.prisma.avanceMotor.count({ where: { proyectoId: projectId } }),
     ]);
 
     const missingInfoBasica: string[] = [];
-    if (!project.liderCliente?.trim()) missingInfoBasica.push('Líder del Cliente');
-    if (!project.telefonoLiderCliente?.trim()) missingInfoBasica.push('Teléfono de Contacto');
-    if (!project.liderTecnogam?.trim()) missingInfoBasica.push('Líder Tecnogam');
+    if (!project.liderCliente?.trim())
+      missingInfoBasica.push('Líder del Cliente');
+    if (!project.telefonoLiderCliente?.trim())
+      missingInfoBasica.push('Teléfono de Contacto');
+    if (!project.liderTecnogam?.trim())
+      missingInfoBasica.push('Líder Tecnogam');
     if (!project.fechaFinEstimada) missingInfoBasica.push('Fecha Fin Estimada');
     if (hitos.length === 0) missingInfoBasica.push('Cronograma de Hitos');
 
