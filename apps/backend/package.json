@@ -15,7 +15,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "prisma db push --skip-generate && node dist/src/main",
+    "start:prod": "prisma db push && node dist/src/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "db:import-materials": "ts-node src/scripts/import-materials.ts",
     "test": "jest",
