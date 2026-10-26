@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -78,12 +80,12 @@ class _LoginScreenState extends State<LoginScreen> {
               'rol': _selectedRole,
             }),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 60));
 
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode != 200) {
-        throw Exception(responseData['message'] ?? 'Error de inicio de sesión');
+        throw Exception(responseData['message'] ?? 'Credenciales inválidas o no autorizado para el rol seleccionado.');
       }
 
       // Guardar tokens y usuario en configuración persistente
@@ -109,10 +111,33 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       });
-    } catch (e) {
+    } on TimeoutException {
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _errorMessage =
+            'El servidor en la nube tardó en responder porque estaba en reposo (Render Free Tier). Ya ha despertado; por favor presiona "Entrar" nuevamente.';
       });
+    } on SocketException {
+      setState(() {
+        _errorMessage =
+            'No se pudo conectar al servidor. Si estás en una red WiFi empresarial, prueba cambiando temporalmente a datos móviles (4G/5G).';
+      });
+    } catch (e) {
+      final msg = e.toString().replaceAll('Exception: ', '');
+      if (msg.contains('TimeoutException') || msg.contains('Future not completed')) {
+        setState(() {
+          _errorMessage =
+              'El servidor en la nube tardó en responder porque estaba en reposo (Render Free Tier). Ya ha despertado; por favor presiona "Entrar" nuevamente.';
+        });
+      } else if (msg.contains('SocketException') || msg.contains('Failed host lookup')) {
+        setState(() {
+          _errorMessage =
+              'No se pudo conectar al servidor. Si estás en una red WiFi empresarial, prueba cambiando temporalmente a datos móviles (4G/5G).';
+        });
+      } else {
+        setState(() {
+          _errorMessage = msg;
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -40,10 +41,16 @@ class ApiService {
       final headers = await _getHeaders();
 
       final response = await http.get(url, headers: headers).timeout(
-            const Duration(seconds: 15),
+            const Duration(seconds: 60),
           );
 
       return _handleResponse(response);
+    } on TimeoutException {
+      return ApiResponse(
+        success: false,
+        statusCode: 408,
+        errorMessage: 'Tiempo de espera agotado. El servidor en la nube tardó en responder.',
+      );
     } on SocketException {
       return ApiResponse(
         success: false,
@@ -71,9 +78,15 @@ class ApiService {
             headers: headers,
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 60));
 
       return _handleResponse(response);
+    } on TimeoutException {
+      return ApiResponse(
+        success: false,
+        statusCode: 408,
+        errorMessage: 'Tiempo de espera agotado. El servidor en la nube tardó en responder.',
+      );
     } on SocketException {
       return ApiResponse(
         success: false,
@@ -101,9 +114,15 @@ class ApiService {
             headers: headers,
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 60));
 
       return _handleResponse(response);
+    } on TimeoutException {
+      return ApiResponse(
+        success: false,
+        statusCode: 408,
+        errorMessage: 'Tiempo de espera agotado. El servidor en la nube tardó en responder.',
+      );
     } on SocketException {
       return ApiResponse(
         success: false,
