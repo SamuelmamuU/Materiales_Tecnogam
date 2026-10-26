@@ -4,7 +4,7 @@ class ApiConfig {
   static final ApiConfig instance = ApiConfig._init();
   ApiConfig._init();
 
-  static const String defaultRenderUrl = 'https://materiales-tecnogam.onrender.com';
+  static const String defaultRenderUrl = 'https://control-materiales-backend.onrender.com';
   static const String defaultLocalhostUrl = 'http://10.0.2.2:3000';
   static const String defaultLanUrl = 'http://192.168.1.100:3000';
 
@@ -19,7 +19,12 @@ class ApiConfig {
 
   Future<String> getBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyBaseUrl) ?? defaultRenderUrl;
+    final saved = prefs.getString(_keyBaseUrl);
+    if (saved == null || saved.contains('materiales-tecnogam.onrender.com')) {
+      await prefs.setString(_keyBaseUrl, defaultRenderUrl);
+      return defaultRenderUrl;
+    }
+    return saved;
   }
 
   Future<void> setBaseUrl(String url) async {
