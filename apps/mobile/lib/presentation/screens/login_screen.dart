@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/sources/api_config.dart';
 import 'dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   String? _successMessage;
+  String _currentServerUrl = ApiConfig.defaultRenderUrl;
 
   final List<Map<String, String>> _roles = [
     {'value': 'trabajador', 'label': 'Trabajador'},
@@ -27,6 +29,21 @@ class _LoginScreenState extends State<LoginScreen> {
     {'value': 'administrador', 'label': 'Administrador'},
     {'value': 'cliente', 'label': 'Cliente'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServerUrl();
+  }
+
+  Future<void> _loadServerUrl() async {
+    final url = await ApiConfig.instance.getBaseUrl();
+    if (mounted) {
+      setState(() {
+        _currentServerUrl = url;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -48,17 +65,20 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text.trim();
 
     try {
-      // 10.0.2.2 redirige al localhost de la máquina hospedera en el emulador Android
-      final url = Uri.parse('http://10.0.2.2:3000/auth/login');
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-          'rol': _selectedRole,
-        }),
-      );
+      final baseUrl = await ApiConfig.instance.getBaseUrl();
+      final url = Uri.parse('$baseUrl/auth/login');
+
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': email,
+              'password': password,
+              'rol': _selectedRole,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       final responseData = jsonDecode(response.body);
 
@@ -66,7 +86,12 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception(responseData['message'] ?? 'Error de inicio de sesión');
       }
 
-      // Guardar tokens y datos de usuario en SharedPreferences
+      // Guardar tokens y usuario en configuración persistente
+      await ApiConfig.instance.setTokens(
+        responseData['accessToken'],
+        responseData['refreshToken'],
+      );
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('accessToken', responseData['accessToken']);
       await prefs.setString('refreshToken', responseData['refreshToken']);
@@ -77,14 +102,13 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       // Redireccionar al Dashboard
-      Future.delayed(const Duration(seconds: 1), () {
+      Future.delayed(const Duration(milliseconds: 600), () {
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const DashboardScreen()),
           );
         }
       });
-
     } catch (e) {
       setState(() {
         _errorMessage = e.toString().replaceAll('Exception: ', '');
@@ -98,9 +122,91 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _showServerConfigDialog() async {
+    final controller = TextEditingController(text: _currentServerUrl);
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.dns, color: Color(0xFF0C447C), size: 20),
+            SizedBox(width: 8),
+            Text('Servidor Backend', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Selecciona o ingresa la URL base del backend:',
+              style: TextStyle(fontSize: 12, color: Color(0xFF5F5E5A)),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  label: const Text('☁️ Render Nube', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = ApiConfig.defaultRenderUrl,
+                ),
+                ActionChip(
+                  label: const Text('📱 Emulador (10.0.2.2)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = ApiConfig.defaultLocalhostUrl,
+                ),
+                ActionChip(
+                  label: const Text('💻 Red Local (192.168.x)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = ApiConfig.defaultLanUrl,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'URL del Backend',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C1C1A)),
+            onPressed: () async {
+              final newUrl = controller.text.trim();
+              if (newUrl.isNotEmpty) {
+                await ApiConfig.instance.setBaseUrl(newUrl);
+                if (!mounted) return;
+                setState(() {
+                  _currentServerUrl = newUrl;
+                });
+                if (ctx.mounted) {
+                  Navigator.of(ctx).pop();
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Servidor configurado: $newUrl')),
+                  );
+                }
+              }
+            },
+            child: const Text('Guardar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Definición de colores premium de la marca
     const surface0 = Color(0xFFF7F7F5);
     const surface1 = Color(0xFFF1EFE8);
     const textPrimary = Color(0xFF1C1C1A);
@@ -112,10 +218,10 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: surface0,
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 360),
-            padding: const EdgeInsets.all(24.0),
+            constraints: const BoxConstraints(maxWidth: 380),
+            padding: const EdgeInsets.all(22.0),
             decoration: BoxDecoration(
               color: surface1,
               borderRadius: BorderRadius.circular(16),
@@ -134,10 +240,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Icon(Icons.business, color: accentColor, size: 24),
                       const SizedBox(width: 8),
                       Text(
-                        'Control de materiales',
+                        'Control de Materiales',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               color: textPrimary,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.bold,
                             ),
                       ),
                     ],
@@ -148,13 +254,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(color: textSecondary, fontSize: 12),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
                   // Mensajes de Alerta
                   if (_errorMessage != null)
                     Container(
                       padding: const EdgeInsets.all(10),
-                      margin: const EdgeInsets.only(bottom: 16),
+                      margin: const EdgeInsets.only(bottom: 14),
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
                         borderRadius: BorderRadius.circular(8),
@@ -169,7 +275,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (_successMessage != null)
                     Container(
                       padding: const EdgeInsets.all(10),
-                      margin: const EdgeInsets.only(bottom: 16),
+                      margin: const EdgeInsets.only(bottom: 14),
                       decoration: BoxDecoration(
                         color: Colors.green.shade50,
                         borderRadius: BorderRadius.circular(8),
@@ -213,7 +319,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
 
                   // Campo Contraseña
                   const Text(
@@ -258,7 +364,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
 
                   // Selector de Perfil/Rol
                   const Text(
@@ -296,7 +402,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             }
                           },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
                   // Botón Enviar
                   ElevatedButton(
@@ -321,14 +427,44 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                           ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
+
+                  // Botón de Configuración de Servidor
+                  InkWell(
+                    onTap: _showServerConfigDialog,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.dns, size: 13, color: Color(0xFF5F5E5A)),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              _currentServerUrl.contains('render')
+                                  ? 'Servidor: Nube (Render)'
+                                  : 'Servidor: $_currentServerUrl',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF5F5E5A),
+                                decoration: TextDecoration.underline,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
 
                   // Indicador Offline
+                  const SizedBox(height: 6),
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.wifi_off, color: Colors.grey, size: 14),
-                      SizedBox(width: 6),
+                      Icon(Icons.wifi_off, color: Colors.grey, size: 13),
+                      SizedBox(width: 5),
                       Text(
                         'Funciona también sin conexión',
                         style: TextStyle(color: Colors.grey, fontSize: 11),

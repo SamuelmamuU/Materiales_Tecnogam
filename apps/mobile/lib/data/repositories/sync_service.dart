@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../sources/local_database.dart';
+import '../sources/api_config.dart';
 
 class SyncService {
   static final SyncService instance = SyncService._init();
@@ -92,7 +93,8 @@ class SyncService {
     if (refreshToken.isEmpty) return null;
 
     try {
-      final url = Uri.parse('http://10.0.2.2:3000/auth/refresh');
+      final baseUrl = await ApiConfig.instance.getBaseUrl();
+      final url = Uri.parse('$baseUrl/auth/refresh');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -114,7 +116,8 @@ class SyncService {
   // Envía un avance individual al backend
   Future<bool> _uploadAvance(Map<String, dynamic> row, String token, SharedPreferences prefs, {bool retried = false}) async {
     try {
-      final url = Uri.parse('http://10.0.2.2:3000/avances');
+      final baseUrl = await ApiConfig.instance.getBaseUrl();
+      final url = Uri.parse('$baseUrl/avances');
       final items = jsonDecode(row['items_json']);
 
       String? evidenceUrl = row['evidencia_url'];
@@ -162,7 +165,8 @@ class SyncService {
   // Envía un tiempo muerto individual al backend
   Future<bool> _uploadTiempoMuerto(Map<String, dynamic> row, String token, SharedPreferences prefs, {bool retried = false}) async {
     try {
-      final url = Uri.parse('http://10.0.2.2:3000/tiempos-muertos');
+      final baseUrl = await ApiConfig.instance.getBaseUrl();
+      final url = Uri.parse('$baseUrl/tiempos-muertos');
       final response = await http.post(
         url,
         headers: {
@@ -195,7 +199,8 @@ class SyncService {
   // Envía un incidente individual al backend
   Future<bool> _uploadIncidente(Map<String, dynamic> row, String token, SharedPreferences prefs, {bool retried = false}) async {
     try {
-      final url = Uri.parse('http://10.0.2.2:3000/incidentes');
+      final baseUrl = await ApiConfig.instance.getBaseUrl();
+      final url = Uri.parse('$baseUrl/incidentes');
 
       String? evidenceUrl = row['evidencia_url'];
       if (evidenceUrl != null && !evidenceUrl.startsWith('http')) {
@@ -246,7 +251,8 @@ class SyncService {
     }
 
     try {
-      final url = Uri.parse('http://10.0.2.2:3000/media/upload');
+      final baseUrl = await ApiConfig.instance.getBaseUrl();
+      final url = Uri.parse('$baseUrl/media/upload');
       final request = http.MultipartRequest('POST', url);
       request.headers['Authorization'] = 'Bearer $token';
 

@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/sources/local_database.dart';
 import '../../data/repositories/sync_service.dart';
+import '../../data/repositories/jornada_service.dart';
+import '../../data/sources/api_config.dart';
+import 'control_jornada_screen.dart';
+import 'capture_avance_especializado_screen.dart';
 import 'capture_avance_screen.dart';
 import 'capture_tiempo_muerto_screen.dart';
 import 'capture_incidente_screen.dart';
@@ -20,17 +24,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _userRole = 'trabajador';
   int _pendingCount = 0;
   bool _syncing = false;
+  JornadaLaboral? _jornadaHoy;
+  String _activeProjectId = ApiConfig.defaultProjectId;
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
     _refreshPendingCount();
+    _loadJornada();
   }
 
   Future<void> _loadUserProfile() async {
     final prefs = await SharedPreferences.getInstance();
     final userJson = prefs.getString('user');
+    final pid = await ApiConfig.instance.getActiveProjectId();
+    if (pid != null) {
+      _activeProjectId = pid;
+    }
     if (userJson != null) {
       try {
         final Map<String, dynamic> parsed = jsonDecode(userJson);
@@ -44,6 +55,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _userRole = 'supervisor';
         });
       }
+    }
+  }
+
+  Future<void> _loadJornada() async {
+    try {
+      final j = await JornadaService.instance.getJornadaHoy(_activeProjectId);
+      if (mounted) {
+        setState(() {
+          _jornadaHoy = j;
+        });
+      }
+    } catch (_) {
+      // Ignorar errores menores de consulta
     }
   }
 
@@ -66,6 +90,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final stats = await SyncService.instance.syncPendingData();
     await _refreshPendingCount();
+    await _loadJornada();
 
     if (mounted) {
       setState(() {
@@ -87,8 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _handleLogout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await ApiConfig.instance.clearAuth();
     if (mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -104,6 +128,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const textSecondary = Color(0xFF5F5E5A);
     const fillPrimary = Color(0xFF1C1C1A);
 
+    final estadoJornada = _jornadaHoy?.estado ?? 'INACTIVA';
+
     return Scaffold(
       backgroundColor: surface0,
       appBar: AppBar(
@@ -114,19 +140,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh, color: textSecondary, size: 20),
+            onPressed: () {
+              _loadUserProfile();
+              _refreshPendingCount();
+              _loadJornada();
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout, color: textSecondary, size: 20),
             onPressed: _handleLogout,
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Panel de Perfil
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: surface1,
                 borderRadius: BorderRadius.circular(12),
@@ -145,7 +179,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         Text(
                           _userName,
-                          style: const TextStyle(color: textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Text(
                           'Rol: ${_userRole.toUpperCase()}',
@@ -157,7 +195,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // Tarjeta Destacada de Control de Jornada (Supervisores)
+            _buildJornadaSummaryCard(context, estadoJornada),
+            const SizedBox(height: 16),
 
             // Panel de Sincronización
             Card(
@@ -168,7 +210,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 side: const BorderSide(color: Color(0xFFE3E1D9), width: 0.5),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(14.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -177,14 +219,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         const Text(
                           'Cola de Sincronización',
-                          style: TextStyle(color: textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
-                          '$_pendingCount registros pendientes offline',
+                          '$_pendingCount registros offline',
                           style: TextStyle(
                             color: _pendingCount > 0 ? Colors.amber.shade900 : textSecondary,
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -210,44 +256,158 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             const Text(
-              'Captura en Campo',
-              style: TextStyle(color: textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+              'Operación en Campo',
+              style: TextStyle(color: textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
 
-            // Opciones de Captura
+            // 1. Control de Jornada y Tiempos Muertos
+            _buildMenuButton(
+              context: context,
+              icon: Icons.timer,
+              title: 'Control de Jornada Laboral',
+              subtitle: 'Cronómetro en vivo, tiempos muertos y comida',
+              color: const Color(0xFFC55A11),
+              bgColor: const Color(0xFFFFF3E0),
+              screen: ControlJornadaScreen(projectId: _activeProjectId),
+            ),
+            const SizedBox(height: 10),
+
+            // 2. Avances Especializados (Instrumentación, Válvulas, Motores)
+            _buildMenuButton(
+              context: context,
+              icon: Icons.checklist_rtl,
+              title: 'Avances Especializados',
+              subtitle: 'Instrumentación, Válvulas y Motores (Checkboxes)',
+              color: const Color(0xFF0C447C),
+              bgColor: const Color(0xFFE6F1FB),
+              screen: CaptureAvanceEspecializadoScreen(projectId: _activeProjectId),
+            ),
+            const SizedBox(height: 10),
+
+            // 3. Avance Físico Diario (BOM)
             _buildMenuButton(
               context: context,
               icon: Icons.add_chart,
-              title: 'Capturar Avance Diario',
-              subtitle: 'Reportar avance físico e instalación',
+              title: 'Capturar Avance de Materiales (BOM)',
+              subtitle: 'Reportar instalación física y cantidades',
               color: const Color(0xFF27500A),
               bgColor: const Color(0xFFEAF3DE),
               screen: const CaptureAvanceScreen(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+
+            // 4. Reportar Tiempo Muerto Manual
             _buildMenuButton(
               context: context,
               icon: Icons.timer_off,
-              title: 'Reportar Tiempo Muerto',
-              subtitle: 'Paros y retrasos operacionales',
+              title: 'Reportar Paro / Tiempo Muerto',
+              subtitle: 'Registro manual con frente y causa',
               color: const Color(0xFFBA7517),
               bgColor: const Color(0xFFFCF4E6),
               screen: const CaptureTiempoMuertoScreen(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+
+            // 5. Reportar Incidente
             _buildMenuButton(
               context: context,
               icon: Icons.warning_amber_rounded,
               title: 'Reportar Incidente',
-              subtitle: 'Eventos de seguridad y calidad',
+              subtitle: 'Eventos de seguridad y calidad con foto y GPS',
               color: const Color(0xFFC23939),
               bgColor: const Color(0xFFFDE8E8),
               screen: const CaptureIncidenteScreen(),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJornadaSummaryCard(BuildContext context, String estado) {
+    Color bg;
+    Color fg;
+    String estadoTexto;
+
+    switch (estado) {
+      case 'TRABAJANDO':
+        bg = const Color(0xFFEAF3DE);
+        fg = const Color(0xFF27500A);
+        estadoTexto = 'Jornada Activa: Trabajando';
+        break;
+      case 'TIEMPO_MUERTO':
+        bg = const Color(0xFFFFF3E0);
+        fg = const Color(0xFF8C3B00);
+        estadoTexto = 'Tiempo Muerto (Paro en Obra)';
+        break;
+      case 'COMIDA':
+        bg = const Color(0xFFE6F1FB);
+        fg = const Color(0xFF0C447C);
+        estadoTexto = 'Hora de Comida (Pausado)';
+        break;
+      case 'FINALIZADA':
+        bg = Colors.grey.shade100;
+        fg = Colors.grey.shade800;
+        estadoTexto = 'Jornada Finalizada';
+        break;
+      default:
+        bg = Colors.grey.shade100;
+        fg = Colors.grey.shade600;
+        estadoTexto = 'Sin Iniciar Hoy';
+        break;
+    }
+
+    return InkWell(
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ControlJornadaScreen(projectId: _activeProjectId),
+          ),
+        );
+        _loadJornada();
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: fg.withAlpha(77), width: 1),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.schedule, color: fg, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    estadoTexto,
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _jornadaHoy != null
+                        ? 'Trabajado: ${_jornadaHoy!.horasTrabajadas.toStringAsFixed(2)}h | T. Muerto: ${_jornadaHoy!.horasTiempoMuerto.toStringAsFixed(2)}h'
+                        : 'Toca aquí para iniciar tu turno de obra',
+                    style: TextStyle(
+                      color: fg.withAlpha(217),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: fg, size: 14),
           ],
         ),
       ),
@@ -269,10 +429,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           MaterialPageRoute(builder: (_) => screen),
         );
         _refreshPendingCount();
+        _loadJornada();
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -281,22 +442,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: bgColor,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: color, size: 22),
+              child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(color: Color(0xFF1C1C1A), fontSize: 13, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Color(0xFF1C1C1A),
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
