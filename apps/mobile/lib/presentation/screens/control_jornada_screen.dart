@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../data/repositories/jornada_service.dart';
 import '../../data/sources/api_config.dart';
+import '../widgets/project_header_banner.dart';
 
 class ControlJornadaScreen extends StatefulWidget {
   final String? projectId;
@@ -300,6 +301,18 @@ class _ControlJornadaScreenState extends State<ControlJornadaScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Banner de Proyecto Activo con Logos Tecnogam y Cliente
+                  ProjectHeaderBanner(
+                    compact: true,
+                    onProjectChanged: (p) {
+                      setState(() {
+                        _activeProjectId = p.id;
+                      });
+                      _loadJornada();
+                    },
+                  ),
+                  const SizedBox(height: 14),
+
                   // Badge de Estado Actual
                   _buildStatusHeader(estado),
                   const SizedBox(height: 16),

@@ -13,8 +13,11 @@ class ApiConfig {
   static const String _keyRefreshToken = 'refreshToken';
   static const String _keyUser = 'user';
   static const String _keyActiveProjectId = 'active_project_id';
+  static const String _keyActiveProjectName = 'active_project_name';
+  static const String _keyActiveProjectClient = 'active_project_client';
+  static const String _keyActiveProjectLogo = 'active_project_logo';
 
-  // Default default fallback project ID if none selected
+  // Default fallback project ID if none selected
   static const String defaultProjectId = 'e5911ce8-c7ff-44f6-9f6a-48472f25e77f';
 
   Future<String> getBaseUrl() async {
@@ -52,6 +55,37 @@ class ApiConfig {
   Future<void> setActiveProjectId(String projectId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyActiveProjectId, projectId);
+  }
+
+  Future<void> setActiveProjectInfo({
+    required String id,
+    required String nombre,
+    required String cliente,
+    String? logoCliente,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyActiveProjectId, id);
+    await prefs.setString(_keyActiveProjectName, nombre);
+    await prefs.setString(_keyActiveProjectClient, cliente);
+    if (logoCliente != null && logoCliente.isNotEmpty) {
+      await prefs.setString(_keyActiveProjectLogo, logoCliente);
+    } else {
+      await prefs.remove(_keyActiveProjectLogo);
+    }
+  }
+
+  Future<Map<String, String?>> getActiveProjectInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getString(_keyActiveProjectId);
+    final name = prefs.getString(_keyActiveProjectName);
+    final client = prefs.getString(_keyActiveProjectClient);
+    final logo = prefs.getString(_keyActiveProjectLogo);
+    return {
+      'id': id,
+      'nombre': name,
+      'cliente': client,
+      'logoCliente': logo,
+    };
   }
 
   Future<void> clearAuth() async {

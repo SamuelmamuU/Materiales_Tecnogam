@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/repositories/specialized_avance_service.dart';
 import '../../data/sources/api_config.dart';
+import '../widgets/project_header_banner.dart';
 
 class CaptureAvanceEspecializadoScreen extends StatefulWidget {
   final String? projectId;
@@ -132,6 +133,20 @@ class _CaptureAvanceEspecializadoScreenState
       ),
       body: Column(
         children: [
+          // Banner de Proyecto Activo con Logos Tecnogam y Cliente
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+            child: ProjectHeaderBanner(
+              compact: true,
+              onProjectChanged: (p) {
+                setState(() {
+                  _activeProjectId = p.id;
+                });
+                _loadRows();
+              },
+            ),
+          ),
+
           // Selector de Módulo
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

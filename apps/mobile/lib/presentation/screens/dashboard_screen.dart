@@ -5,6 +5,7 @@ import '../../data/sources/local_database.dart';
 import '../../data/repositories/sync_service.dart';
 import '../../data/repositories/jornada_service.dart';
 import '../../data/sources/api_config.dart';
+import '../widgets/project_header_banner.dart';
 import 'control_jornada_screen.dart';
 import 'capture_avance_especializado_screen.dart';
 import 'capture_avance_screen.dart';
@@ -158,6 +159,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Banner de Proyecto Activo con Logos de Tecnogam y Cliente
+            ProjectHeaderBanner(
+              onProjectChanged: (p) {
+                setState(() {
+                  _activeProjectId = p.id;
+                });
+                _loadJornada();
+              },
+            ),
+            const SizedBox(height: 14),
+
             // Panel de Perfil
             Container(
               padding: const EdgeInsets.all(14),
@@ -296,7 +308,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               subtitle: 'Reportar instalación física y cantidades',
               color: const Color(0xFF27500A),
               bgColor: const Color(0xFFEAF3DE),
-              screen: const CaptureAvanceScreen(),
+              screen: CaptureAvanceScreen(projectId: _activeProjectId),
             ),
             const SizedBox(height: 10),
 
@@ -308,7 +320,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               subtitle: 'Registro manual con frente y causa',
               color: const Color(0xFFBA7517),
               bgColor: const Color(0xFFFCF4E6),
-              screen: const CaptureTiempoMuertoScreen(),
+              screen: CaptureTiempoMuertoScreen(projectId: _activeProjectId),
             ),
             const SizedBox(height: 10),
 
@@ -320,7 +332,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               subtitle: 'Eventos de seguridad y calidad con foto y GPS',
               color: const Color(0xFFC23939),
               bgColor: const Color(0xFFFDE8E8),
-              screen: const CaptureIncidenteScreen(),
+              screen: CaptureIncidenteScreen(projectId: _activeProjectId),
             ),
           ],
         ),
