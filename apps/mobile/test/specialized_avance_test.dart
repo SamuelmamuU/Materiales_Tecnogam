@@ -35,9 +35,9 @@ void main() {
       expect(keys, contains('pruebas'));
     });
 
-    test('getColumnsForModule returns correct columns for Valvulas (including conectorRapido, sensorPosicion and comisioning)', () {
+    test('getColumnsForModule returns correct columns for Valvulas (including conectorRapido, sensorPosicion and without comisioning)', () {
       final cols = SpecializedAvanceService.instance.getColumnsForModule('valvulas');
-      expect(cols.length, 13);
+      expect(cols.length, 12);
       final keys = cols.map((c) => c.key).toList();
       expect(keys, contains('cableadoNeum'));
       expect(keys, contains('peinadoNeum'));
@@ -50,7 +50,7 @@ void main() {
       expect(keys, contains('sensorPosicion'));
       expect(keys, contains('conexionPlantaCtrl'));
       expect(keys, contains('conexionTableroCtrl'));
-      expect(keys, contains('comisioning'));
+      expect(keys, isNot(contains('comisioning')));
       expect(keys, contains('comisionamiento'));
 
       final conectorCol = cols.firstWhere((c) => c.key == 'conectorRapido');

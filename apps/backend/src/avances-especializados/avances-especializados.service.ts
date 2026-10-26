@@ -37,7 +37,6 @@ export const ORANGE_COLUMNS: Record<string, string[]> = {
     'sensorPosicion',
     'conexionPlantaCtrl',
     'conexionTableroCtrl',
-    'comisioning',
     'comisionamiento',
     'notasCtrl',
   ],
@@ -175,7 +174,6 @@ export class AvancesEspecializadosService {
           sensorPosicion: 'Pendiente',
           conexionPlantaCtrl: '0',
           conexionTableroCtrl: '0',
-          comisioning: '0',
           comisionamiento: '0',
           notasCtrl: null,
         },
@@ -342,7 +340,6 @@ export class AvancesEspecializadosService {
           sensorPosicion: 'Pendiente',
           conexionPlantaCtrl: '0',
           conexionTableroCtrl: '0',
-          comisioning: '0',
           comisionamiento: '0',
           notasCtrl: null,
         };
@@ -938,7 +935,7 @@ export class AvancesEspecializadosService {
       'DATOS QUE DEBE CONTENER LA TABLA QUE VA A SUBIR EL ADMINISTRADOR';
     this.applyHeaderStyle(superAdmin, '1C1C1A', 'FFFFFF');
 
-    const totalSupCols = isAdmin ? 17 * 2 : 17;
+    const totalSupCols = isAdmin ? 16 * 2 : 16;
     ws.mergeCells(1, 9, 1, 8 + totalSupCols);
     const superSup = ws.getCell(1, 9);
     superSup.value = 'INFORMACIÓN QUE VA A LLENAR EL SUPERVISOR EN PLANTA';
@@ -1001,7 +998,6 @@ export class AvancesEspecializadosService {
         label: 'CONEXIÓN Y ETIQUETADO EN TABLERO',
         isOrange: true,
       },
-      { key: 'comisioning', label: 'COMISIONING', isOrange: true },
       { key: 'comisionamiento', label: 'COMISIONAMIENTO', isOrange: true },
       { key: 'notasCtrl', label: 'NOTAS (Ctrl)', isOrange: true },
     ];
@@ -1356,8 +1352,11 @@ export class AvancesEspecializadosService {
             const peinadoCtrl = ws.getCell(r, 20).text?.trim() || '0';
             const conexionPlantaCtrl = ws.getCell(r, 21).text?.trim() || '0';
             const conexionTableroCtrl = ws.getCell(r, 22).text?.trim() || '0';
-            const comisioning = ws.getCell(r, 23).text?.trim() || '0';
-            const comisionamiento = ws.getCell(r, 24).text?.trim() || '0';
+            // En plantillas previas la col 23 era comisioning y col 24 comisionamiento; unificamos en comisionamiento
+            const rawCol23 = ws.getCell(r, 23).text?.trim() || '0';
+            const rawCol24 = ws.getCell(r, 24).text?.trim() || '0';
+            const comisionamiento =
+              rawCol24 !== '0' && rawCol24 !== '' ? rawCol24 : rawCol23;
             const notasCtrl = ws.getCell(r, 25).text?.trim() || '';
 
             rowsToInsert.push({
@@ -1384,7 +1383,6 @@ export class AvancesEspecializadosService {
               sensorPosicion: 'Pendiente',
               conexionPlantaCtrl,
               conexionTableroCtrl,
-              comisioning,
               comisionamiento,
               notasCtrl,
             });

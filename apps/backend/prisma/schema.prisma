@@ -368,7 +368,6 @@ model AvanceValvula {
   sensorPosicion      String?  @default("Pendiente") @map("sensor_posicion")
   conexionPlantaCtrl  String?  @default("0") @map("conexion_planta_ctrl")
   conexionTableroCtrl String?  @default("0") @map("conexion_tablero_ctrl")
-  comisioning         String?  @default("0")
   comisionamiento     String?  @default("0")
   notasCtrl           String?  @map("notas_control")
 

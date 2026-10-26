@@ -185,13 +185,6 @@ const MODULO_CONFIG: Record<
         subgroup: 'Control',
       },
       {
-        key: 'comisioning',
-        label: 'Comisioning',
-        isOrange: true,
-        type: 'check',
-        subgroup: 'Control',
-      },
-      {
         key: 'comisionamiento',
         label: 'Comisionamiento',
         isOrange: true,
@@ -847,31 +840,31 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
           <p className="text-xs">No se encontraron filas con el término "{searchTerm}".</p>
         </div>
       ) : (
-        <div className="overflow-x-auto border border-[#E3E1D9] rounded-xl shadow-xs bg-white">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
+        <div className="overflow-auto max-h-[calc(100vh-260px)] min-h-[380px] border border-[#E3E1D9] rounded-xl shadow-xs bg-white relative">
+          <table className="w-full text-left text-xs border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20 shadow-xs">
               {/* Nivel 1: Banda de Grupos */}
-              <tr className="border-b border-[#E3E1D9] text-[10px] tracking-wider uppercase font-bold text-center">
+              <tr className="text-[10px] tracking-wider uppercase font-bold text-center">
                 <th
                   colSpan={adminColumns.length}
-                  className="bg-[#1C1C1A] text-white py-1.5 px-3 border-r border-gray-600"
+                  className="bg-[#1C1C1A] text-white py-1.5 px-3 border-b border-r border-gray-600 sticky top-0 z-20 h-[28px]"
                 >
                   INFORMACIÓN QUE SUBE EL ADMINISTRADOR AL INICIO DEL PROYECTO
                 </th>
                 <th
                   colSpan={config.columns.filter((c) => c.isOrange).length}
-                  className="bg-[#C55A11] text-white py-1.5 px-3"
+                  className="bg-[#C55A11] text-white py-1.5 px-3 border-b border-[#E3E1D9] sticky top-0 z-20 h-[28px]"
                 >
                   INFORMACIÓN QUE VA INTRODUCIENDO EL SUPERVISOR EN PLANTA
                 </th>
               </tr>
 
               {/* Nivel 2: Títulos de columnas */}
-              <tr className="border-b border-[#E3E1D9] text-[11px] font-bold">
+              <tr className="text-[11px] font-bold">
                 {config.columns.map((col) => (
                   <th
                     key={col.key}
-                    className={`py-2 px-3 whitespace-nowrap border-r border-[#E3E1D9] ${
+                    className={`py-2 px-3 whitespace-nowrap border-b border-r border-[#E3E1D9] sticky top-[28px] z-20 ${
                       col.isOrange ? 'bg-[#FFF3E0] text-[#8C3B00]' : 'bg-[#F1EFE8] text-[#1C1C1A]'
                     }`}
                   >
@@ -882,7 +875,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
             </thead>
 
             {/* Cuerpo de Filas */}
-            <tbody className="divide-y divide-[#E3E1D9]">
+            <tbody>
               {filteredRows.map((row, rIdx) => {
                 const rowAudit = (row.celdasAudit as Record<string, any>) || {};
                 const isRowDirty = !!editedRows[row.id];
@@ -901,7 +894,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                       return (
                         <td
                           key={col.key}
-                          className={`py-2 px-3 whitespace-nowrap border-r border-[#E3E1D9] text-xs ${
+                          className={`py-2 px-3 whitespace-nowrap border-b border-r border-[#E3E1D9] text-xs ${
                             col.isOrange ? 'bg-orange-50/20' : ''
                           }`}
                         >
@@ -1247,24 +1240,27 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                 <span className="text-[11px] font-bold text-[#5F5E5A] uppercase tracking-wider block">
                   Vista Previa de Columnas Detectadas:
                 </span>
-                <div className="overflow-x-auto border border-[#E3E1D9] rounded-lg max-h-44 text-[11px]">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-[#1C1C1A] text-white">
+                <div className="overflow-auto border border-[#E3E1D9] rounded-lg max-h-48 text-[11px] relative">
+                  <table className="w-full text-left border-separate border-spacing-0">
+                    <thead className="bg-[#1C1C1A] text-white sticky top-0 z-10 shadow-xs">
                       <tr>
                         {csvPreview.headers.map((h, i) => (
-                          <th key={i} className="p-2 border-r border-gray-700 whitespace-nowrap">
+                          <th
+                            key={i}
+                            className="p-2 border-b border-r border-gray-700 whitespace-nowrap sticky top-0 bg-[#1C1C1A] z-10"
+                          >
                             {h}
                           </th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#E3E1D9]">
+                    <tbody>
                       {csvPreview.rows.map((r, ri) => (
                         <tr key={ri} className="hover:bg-gray-50">
                           {r.map((c, ci) => (
                             <td
                               key={ci}
-                              className="p-2 border-r border-[#E3E1D9] whitespace-nowrap"
+                              className="p-2 border-b border-r border-[#E3E1D9] whitespace-nowrap"
                             >
                               {c}
                             </td>

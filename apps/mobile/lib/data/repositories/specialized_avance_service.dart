@@ -49,7 +49,6 @@ class SpecializedAvanceService {
     ),
     SpecializedColumnDef(key: 'conexionPlantaCtrl', label: 'Conexión Planta Ctrl'),
     SpecializedColumnDef(key: 'conexionTableroCtrl', label: 'Conexión Tablero Ctrl'),
-    SpecializedColumnDef(key: 'comisioning', label: 'Comisioning'),
     SpecializedColumnDef(key: 'comisionamiento', label: 'Comisionamiento'),
   ];
 

@@ -244,7 +244,6 @@ export class ProjectsService {
           sensorPosicion: true,
           conexionPlantaCtrl: true,
           conexionTableroCtrl: true,
-          comisioning: true,
           comisionamiento: true,
         },
       }),
@@ -311,14 +310,13 @@ export class ProjectsService {
       if (isDone(r.sensorPosicion)) rTasks++;
       if (isDone(r.conexionPlantaCtrl)) rTasks++;
       if (isDone(r.conexionTableroCtrl)) rTasks++;
-      if (isDone(r.comisioning)) rTasks++;
       if (isDone(r.comisionamiento)) rTasks++;
       tareasValvCompletadas += rTasks;
-      if (isDone(r.comisioning) || isDone(r.comisionamiento) || rTasks === 13) {
+      if (isDone(r.comisionamiento) || rTasks === 12) {
         valvCompletadas++;
       }
     }
-    const totalTareasValv = countValv * 13;
+    const totalTareasValv = countValv * 12;
     const avanceValvPct =
       totalTareasValv > 0 ? (tareasValvCompletadas / totalTareasValv) * 100 : 0;
 
