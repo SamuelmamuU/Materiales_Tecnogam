@@ -81,10 +81,9 @@ export const ControlJornadaWidget: React.FC<Props> = ({
   const [showFinishModal, setShowFinishModal] = useState<boolean>(false);
   const [notasCierre, setNotasCierre] = useState<string>('');
 
-  // Cronómetros en segundos en vivo
+  // Cronómetros en segundos en vivo (solo tiempo trabajado y tiempo muerto)
   const [workedSec, setWorkedSec] = useState<number>(0);
   const [deadSec, setDeadSec] = useState<number>(0);
-  const [lunchSec, setLunchSec] = useState<number>(0);
 
   // Cargar jornada de hoy
   const fetchJornadaHoy = useCallback(async () => {
@@ -128,12 +127,11 @@ export const ControlJornadaWidget: React.FC<Props> = ({
     void fetchHistorial();
   }, [fetchJornadaHoy, fetchHistorial]);
 
-  // Cronómetro local reactivo cada 1s
+  // Cronómetro local reactivo cada 1s (tiempo trabajado y tiempo muerto)
   useEffect(() => {
     if (!jornada) {
       setWorkedSec(0);
       setDeadSec(0);
-      setLunchSec(0);
       return;
     }
 
@@ -144,24 +142,17 @@ export const ControlJornadaWidget: React.FC<Props> = ({
 
       const baseWorked = Math.floor(jornada.horasTrabajadas * 3600);
       const baseDead = Math.floor(jornada.horasTiempoMuerto * 3600);
-      const baseLunch = Math.floor(jornada.horasComida * 3600);
 
       if (jornada.estado === 'TRABAJANDO') {
         setWorkedSec(baseWorked + deltaSec);
         setDeadSec(baseDead);
-        setLunchSec(baseLunch);
       } else if (jornada.estado === 'TIEMPO_MUERTO') {
         setWorkedSec(baseWorked);
         setDeadSec(baseDead + deltaSec);
-        setLunchSec(baseLunch);
-      } else if (jornada.estado === 'COMIDA') {
-        setWorkedSec(baseWorked);
-        setDeadSec(baseDead);
-        setLunchSec(baseLunch + deltaSec);
       } else {
+        // En COMIDA, FINALIZADA o INACTIVA, ambos relojes se mantienen detenidos
         setWorkedSec(baseWorked);
         setDeadSec(baseDead);
-        setLunchSec(baseLunch);
       }
     };
 
@@ -331,8 +322,8 @@ export const ControlJornadaWidget: React.FC<Props> = ({
         </button>
       </div>
 
-      {/* Relojes y Métricas del Día */}
-      <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white">
+      {/* Relojes y Métricas del Día (Tiempo Trabajado y Tiempo Muerto) */}
+      <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white">
         {/* Reloj Tiempo Trabajado */}
         <div
           className={`p-4 rounded-xl border transition-all ${
@@ -384,33 +375,6 @@ export const ControlJornadaWidget: React.FC<Props> = ({
           </div>
           <div className="text-[11px] text-[#5F5E5A] mt-1 font-medium">
             {(deadSec / 3600).toFixed(2)} horas perdidas
-          </div>
-        </div>
-
-        {/* Reloj Comida */}
-        <div
-          className={`p-4 rounded-xl border transition-all ${
-            estado === 'COMIDA'
-              ? 'bg-[#F0F7FD] border-[#B5D8F6] shadow-xs'
-              : 'bg-[#FBFBFA] border-[#E3E1D9]'
-          }`}
-        >
-          <div className="flex items-center justify-between text-xs font-semibold text-[#5F5E5A] mb-1">
-            <span className="flex items-center gap-1.5">
-              <Utensils className="w-3.5 h-3.5 text-[#0C447C]" />
-              Hora de Comida
-            </span>
-            {estado === 'COMIDA' && (
-              <span className="text-[10px] font-bold text-[#0C447C] uppercase tracking-wide">
-                En Receso
-              </span>
-            )}
-          </div>
-          <div className="text-2xl font-black text-[#0C447C] font-mono tracking-tight">
-            {formatSecondsToHMS(lunchSec)}
-          </div>
-          <div className="text-[11px] text-[#5F5E5A] mt-1 font-medium">
-            {(lunchSec / 3600).toFixed(2)} horas de receso
           </div>
         </div>
       </div>
@@ -547,7 +511,6 @@ export const ControlJornadaWidget: React.FC<Props> = ({
                     <th className="p-2.5">Estado</th>
                     <th className="p-2.5 text-right">Trabajado</th>
                     <th className="p-2.5 text-right">Tiempo Muerto</th>
-                    <th className="p-2.5 text-right">Comida</th>
                     <th className="p-2.5">Notas</th>
                   </tr>
                 </thead>
@@ -581,9 +544,6 @@ export const ControlJornadaWidget: React.FC<Props> = ({
                       </td>
                       <td className="p-2.5 text-right font-mono font-semibold text-[#C55A11]">
                         {h.horasTiempoMuerto.toFixed(2)} hrs
-                      </td>
-                      <td className="p-2.5 text-right font-mono text-[#0C447C]">
-                        {h.horasComida.toFixed(2)} hrs
                       </td>
                       <td className="p-2.5 text-[#5F5E5A] max-w-xs truncate" title={h.notas || ''}>
                         {h.notas || '-'}
