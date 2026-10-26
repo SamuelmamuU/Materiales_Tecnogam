@@ -20,6 +20,9 @@ import {
 
 export type ModuloEspecializado = 'instrumentacion' | 'valvulas' | 'motor';
 
+export const isCheckedValue = (v: any): boolean =>
+  v === '1' || v === 1 || v === 'LISTO' || v === 'CONECTADO';
+
 interface ColumnDef {
   key: string;
   label: string;
@@ -61,20 +64,8 @@ const MODULO_CONFIG: Record<
       { key: 'cableado', label: 'Cableado', isOrange: true, type: 'check' },
       { key: 'cantidadCable', label: 'Cant. Cable [m]', isOrange: true, type: 'number' },
       { key: 'peinadoCinchado', label: 'Peinado y Cinchado', isOrange: true, type: 'check' },
-      {
-        key: 'conexionPlanta',
-        label: 'Conexión Planta',
-        isOrange: true,
-        type: 'options',
-        options: ['0', '1', 'CONECTADO'],
-      },
-      {
-        key: 'conexionTablero',
-        label: 'Conexión Tablero',
-        isOrange: true,
-        type: 'options',
-        options: ['0', '1', 'CONECTADO'],
-      },
+      { key: 'conexionPlanta', label: 'Conexión Planta', isOrange: true, type: 'check' },
+      { key: 'conexionTablero', label: 'Conexión Tablero', isOrange: true, type: 'check' },
       { key: 'pruebas', label: 'Pruebas', isOrange: true, type: 'check' },
       { key: 'nota', label: 'Nota', isOrange: true, type: 'text' },
     ],
@@ -181,8 +172,7 @@ const MODULO_CONFIG: Record<
         key: 'comisioning',
         label: 'Comisioning',
         isOrange: true,
-        type: 'options',
-        options: ['0', 'LISTO', '----------'],
+        type: 'check',
         subgroup: 'Control',
       },
       {
@@ -906,15 +896,19 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    handleCellChange(row.id, col.key, val === '1' ? '0' : '1')
+                                    handleCellChange(
+                                      row.id,
+                                      col.key,
+                                      isCheckedValue(val) ? '0' : '1',
+                                    )
                                   }
                                   className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                    val === '1'
+                                    isCheckedValue(val)
                                       ? 'bg-[#EAF3DE] text-[#27500A] border border-[#C0DD9D]'
                                       : 'bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-300'
                                   }`}
                                 >
-                                  {val === '1' ? (
+                                  {isCheckedValue(val) ? (
                                     <>
                                       <CheckCircle2 className="w-3.5 h-3.5" />
                                       Listo (1)
@@ -969,12 +963,12 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                               {col.type === 'check' ? (
                                 <span
                                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold ${
-                                    val === '1'
+                                    isCheckedValue(val)
                                       ? 'bg-[#EAF3DE] text-[#27500A]'
                                       : 'bg-gray-100 text-gray-400'
                                   }`}
                                 >
-                                  {val === '1' ? '1 (Sí)' : '0'}
+                                  {isCheckedValue(val) ? '1 (Listo)' : '0 (Pendiente)'}
                                 </span>
                               ) : col.type === 'options' && val === 'CONECTADO' ? (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-[#E6F1FB] text-[#0C447C]">

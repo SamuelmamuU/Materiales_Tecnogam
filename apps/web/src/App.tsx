@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Login from './pages/Login';
 import { SpecializedAvanceTab } from './components/SpecializedAvanceTab';
+import { ControlJornadaWidget } from './components/ControlJornadaWidget';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 import {
@@ -33,6 +34,9 @@ import {
   Upload,
   MapPin,
   ArrowRight,
+  Gauge,
+  Workflow,
+  Zap,
 } from 'lucide-react';
 
 // Componente simple para proteger rutas privadas
@@ -277,6 +281,27 @@ interface DashboardData {
     totalTiemposMuertosHoras: number;
     openIncidentes: number;
     resolvedIncidentes: number;
+    avanceInstrumentacion?: {
+      porcentaje: number;
+      total: number;
+      completados: number;
+      tareasCompletadas?: number;
+      totalTareas?: number;
+    };
+    avanceValvulas?: {
+      porcentaje: number;
+      total: number;
+      completados: number;
+      tareasCompletadas?: number;
+      totalTareas?: number;
+    };
+    avanceMotores?: {
+      porcentaje: number;
+      total: number;
+      completados: number;
+      tareasCompletadas?: number;
+      totalTareas?: number;
+    };
   };
   hitos: Hito[];
   reconciliation: ReconciliationItem[];
@@ -3184,80 +3209,186 @@ function Dashboard() {
             </div>
 
             {/* GRILLA DE KPIS DE CONTROL */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-[#EAF3DE] flex items-center justify-center text-[#27500A] shrink-0">
-                  <Activity className="w-6 h-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="block text-xs font-semibold text-[#5F5E5A]">Avance General</span>
-                  <span className="block text-2xl font-bold text-[#1C1C1A] leading-none mt-1">
-                    {dashboardData.kpis.avanceGeneral.toFixed(1)}%
-                  </span>
-                  <div className="w-full bg-[#F7F7F5] h-1.5 rounded-full mt-2 overflow-hidden border border-[#E3E1D9]">
-                    <div
-                      className="bg-[#27500A] h-full rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(dashboardData.kpis.avanceGeneral, 100)}%` }}
-                    />
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#EAF3DE] flex items-center justify-center text-[#27500A] shrink-0">
+                    <Activity className="w-5 h-5" />
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-semibold text-[#5F5E5A]">
+                      Avance General
+                    </span>
+                    <span className="block text-xl font-bold text-[#1C1C1A] leading-tight">
+                      {dashboardData.kpis.avanceGeneral.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full bg-[#F7F7F5] h-1.5 rounded-full mt-3 overflow-hidden border border-[#E3E1D9]">
+                  <div
+                    className="bg-[#27500A] h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(dashboardData.kpis.avanceGeneral, 100)}%` }}
+                  />
                 </div>
               </div>
 
-              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-[#E6F1FB] flex items-center justify-center text-[#0C447C] shrink-0">
-                  <Layers className="w-6 h-6" />
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 shadow-sm flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#E6F1FB] flex items-center justify-center text-[#0C447C] shrink-0">
+                  <Layers className="w-5 h-5" />
                 </div>
-                <div>
-                  <span className="block text-xs font-semibold text-[#5F5E5A]">
+                <div className="min-w-0">
+                  <span className="block text-[11px] font-semibold text-[#5F5E5A]">
                     Instalado / Cotizado
                   </span>
-                  <span className="block text-lg font-bold text-[#1C1C1A] mt-1">
+                  <span className="block text-base font-bold text-[#1C1C1A] truncate">
                     {dashboardData.kpis.totalInstalado.toLocaleString()} /{' '}
                     {dashboardData.kpis.totalCotizado.toLocaleString()}
                   </span>
-                  <span className="block text-[10px] text-[#5F5E5A]">Cantidad de materiales</span>
+                  <span className="block text-[10px] text-[#5F5E5A]">Materiales</span>
                 </div>
               </div>
 
-              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-5 shadow-sm flex items-center gap-4">
+              {/* KPI NUEVO: INSTRUMENTACIÓN */}
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#EAF3DE] flex items-center justify-center text-[#27500A] shrink-0">
+                    <Gauge className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-semibold text-[#5F5E5A] truncate">
+                      Instrumentación
+                    </span>
+                    <span className="block text-xl font-bold text-[#1C1C1A] leading-tight">
+                      {(dashboardData.kpis.avanceInstrumentacion?.porcentaje ?? 0).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="w-full bg-[#F7F7F5] h-1.5 rounded-full mt-3 overflow-hidden border border-[#E3E1D9]">
+                    <div
+                      className="bg-[#27500A] h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(
+                          dashboardData.kpis.avanceInstrumentacion?.porcentaje ?? 0,
+                          100,
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="block text-[10px] text-[#5F5E5A] mt-1">
+                    {dashboardData.kpis.avanceInstrumentacion?.completados ?? 0} /{' '}
+                    {dashboardData.kpis.avanceInstrumentacion?.total ?? 0} equipos
+                  </span>
+                </div>
+              </div>
+
+              {/* KPI NUEVO: VÁLVULAS */}
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#FFF3E0] flex items-center justify-center text-[#8C3B00] shrink-0">
+                    <Workflow className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-semibold text-[#5F5E5A] truncate">
+                      Válvulas
+                    </span>
+                    <span className="block text-xl font-bold text-[#1C1C1A] leading-tight">
+                      {(dashboardData.kpis.avanceValvulas?.porcentaje ?? 0).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="w-full bg-[#F7F7F5] h-1.5 rounded-full mt-3 overflow-hidden border border-[#E3E1D9]">
+                    <div
+                      className="bg-[#C55A11] h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(
+                          dashboardData.kpis.avanceValvulas?.porcentaje ?? 0,
+                          100,
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="block text-[10px] text-[#5F5E5A] mt-1">
+                    {dashboardData.kpis.avanceValvulas?.completados ?? 0} /{' '}
+                    {dashboardData.kpis.avanceValvulas?.total ?? 0} válvulas
+                  </span>
+                </div>
+              </div>
+
+              {/* KPI NUEVO: MOTORES */}
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#F3E8FF] flex items-center justify-center text-[#6B21A8] shrink-0">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-semibold text-[#5F5E5A] truncate">
+                      Motores
+                    </span>
+                    <span className="block text-xl font-bold text-[#1C1C1A] leading-tight">
+                      {(dashboardData.kpis.avanceMotores?.porcentaje ?? 0).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="w-full bg-[#F7F7F5] h-1.5 rounded-full mt-3 overflow-hidden border border-[#E3E1D9]">
+                    <div
+                      className="bg-[#7C3AED] h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(
+                          dashboardData.kpis.avanceMotores?.porcentaje ?? 0,
+                          100,
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="block text-[10px] text-[#5F5E5A] mt-1">
+                    {dashboardData.kpis.avanceMotores?.completados ?? 0} /{' '}
+                    {dashboardData.kpis.avanceMotores?.total ?? 0} motores
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 shadow-sm flex items-center gap-3">
                 <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                     dashboardData.kpis.openIncidentes > 0
                       ? 'bg-[#FDE8E8] text-[#C23939]'
                       : 'bg-[#EAF3DE] text-[#27500A]'
                   }`}
                 >
-                  <AlertTriangle className="w-6 h-6" />
+                  <AlertTriangle className="w-5 h-5" />
                 </div>
-                <div>
-                  <span className="block text-xs font-semibold text-[#5F5E5A]">
+                <div className="min-w-0">
+                  <span className="block text-[11px] font-semibold text-[#5F5E5A]">
                     Incidentes Activos
                   </span>
                   <span
-                    className={`block text-2xl font-bold leading-none mt-1 ${
+                    className={`block text-xl font-bold leading-tight ${
                       dashboardData.kpis.openIncidentes > 0 ? 'text-[#C23939]' : 'text-[#27500A]'
                     }`}
                   >
                     {dashboardData.kpis.openIncidentes}
                   </span>
-                  <span className="block text-[10px] text-[#5F5E5A] mt-1">
-                    {dashboardData.kpis.resolvedIncidentes} incidentes resueltos
+                  <span className="block text-[10px] text-[#5F5E5A]">
+                    {dashboardData.kpis.resolvedIncidentes} resueltos
                   </span>
                 </div>
               </div>
 
-              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-[#FCF4E6] flex items-center justify-center text-[#BA7517] shrink-0">
-                  <Clock className="w-6 h-6" />
+              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-4 shadow-sm flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#FCF4E6] flex items-center justify-center text-[#BA7517] shrink-0">
+                  <Clock className="w-5 h-5" />
                 </div>
-                <div>
-                  <span className="block text-xs font-semibold text-[#5F5E5A]">
+                <div className="min-w-0">
+                  <span className="block text-[11px] font-semibold text-[#5F5E5A]">
                     Tiempos Muertos
                   </span>
-                  <span className="block text-2xl font-bold text-[#1C1C1A] leading-none mt-1">
+                  <span className="block text-xl font-bold text-[#1C1C1A] leading-tight">
                     {dashboardData.kpis.totalTiemposMuertosHoras.toFixed(1)} hrs
                   </span>
-                  <span className="block text-[10px] text-[#5F5E5A] mt-1">Demoras acumuladas</span>
+                  <span className="block text-[10px] text-[#5F5E5A]">Demoras acumuladas</span>
                 </div>
               </div>
             </div>
@@ -4233,56 +4364,71 @@ function Dashboard() {
               </div>
             )}
 
-            {/* VISTA 5: BITÁCORA DE TIEMPOS MUERTOS */}
+            {/* VISTA 5: BITÁCORA DE TIEMPOS MUERTOS & CONTROL DE JORNADA */}
             {activeTab === 'tiempos' && (
-              <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
-                <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
-                  <div>
-                    <h3 className="text-sm font-bold text-[#1C1C1A]">
-                      Registro de Tiempos Muertos y Paros
-                    </h3>
-                    <p className="text-xs text-[#5F5E5A]">
-                      Catálogo de horas perdidas clasificadas por frente de obra y causa.
-                    </p>
-                  </div>
-                </div>
+              <div className="space-y-6">
+                {/* WIDGET INTERACTIVO DE JORNADA Y CRONÓMETRO EN VIVO */}
+                <ControlJornadaWidget
+                  projectId={selectedProjectId}
+                  apiUrl={API_URL}
+                  token={localStorage.getItem('accessToken')}
+                  isCulminated={isCulminated}
+                  onJornadaChanged={() => {
+                    if (selectedProjectId) {
+                      fetchDashboardData(selectedProjectId);
+                    }
+                  }}
+                />
 
-                {dashboardData.tiemposMuertos.length === 0 ? (
-                  <div className="text-center py-12 text-[#8B8A84] space-y-2">
-                    <Clock className="w-12 h-12 text-[#BA7517] mx-auto opacity-40 animate-pulse" />
-                    <p className="text-sm font-semibold">Sin paros reportados</p>
-                    <p className="text-xs">
-                      No se han registrado tiempos muertos en este proyecto.
-                    </p>
+                <div className="bg-white border border-[#E3E1D9] rounded-2xl p-6 shadow-sm space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
+                    <div>
+                      <h3 className="text-sm font-bold text-[#1C1C1A]">
+                        Registro de Tiempos Muertos y Paros
+                      </h3>
+                      <p className="text-xs text-[#5F5E5A]">
+                        Catálogo de horas perdidas clasificadas por frente de obra y causa.
+                      </p>
+                    </div>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-[#E3E1D9] bg-[#F7F7F5] text-[#5F5E5A]">
-                          <th className="p-3 font-semibold">Fecha</th>
-                          <th className="p-3 font-semibold">Frente de Trabajo</th>
-                          <th className="p-3 font-semibold">Causa del Retraso</th>
-                          <th className="p-3 font-semibold text-right">Duración (Horas)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#E3E1D9]">
-                        {dashboardData.tiemposMuertos.map((tm) => (
-                          <tr key={tm.id} className="hover:bg-[#F7F7F5]/50 transition-colors">
-                            <td className="p-3 text-[#1C1C1A]">
-                              {new Date(tm.fecha).toLocaleDateString()}
-                            </td>
-                            <td className="p-3 font-bold text-[#1C1C1A]">{tm.frente}</td>
-                            <td className="p-3 font-medium text-[#5F5E5A]">{tm.causa}</td>
-                            <td className="p-3 text-right font-bold text-[#BA7517]">
-                              {tm.duracion.toFixed(1)} hrs
-                            </td>
+
+                  {dashboardData.tiemposMuertos.length === 0 ? (
+                    <div className="text-center py-12 text-[#8B8A84] space-y-2">
+                      <Clock className="w-12 h-12 text-[#BA7517] mx-auto opacity-40 animate-pulse" />
+                      <p className="text-sm font-semibold">Sin paros reportados</p>
+                      <p className="text-xs">
+                        No se han registrado tiempos muertos en este proyecto.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-[#E3E1D9] bg-[#F7F7F5] text-[#5F5E5A]">
+                            <th className="p-3 font-semibold">Fecha</th>
+                            <th className="p-3 font-semibold">Frente de Trabajo</th>
+                            <th className="p-3 font-semibold">Causa del Retraso</th>
+                            <th className="p-3 font-semibold text-right">Duración (Horas)</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        </thead>
+                        <tbody className="divide-y divide-[#E3E1D9]">
+                          {dashboardData.tiemposMuertos.map((tm) => (
+                            <tr key={tm.id} className="hover:bg-[#F7F7F5]/50 transition-colors">
+                              <td className="p-3 text-[#1C1C1A]">
+                                {new Date(tm.fecha).toLocaleDateString()}
+                              </td>
+                              <td className="p-3 font-bold text-[#1C1C1A]">{tm.frente}</td>
+                              <td className="p-3 font-medium text-[#5F5E5A]">{tm.causa}</td>
+                              <td className="p-3 text-right font-bold text-[#BA7517]">
+                                {tm.duracion.toFixed(1)} hrs
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

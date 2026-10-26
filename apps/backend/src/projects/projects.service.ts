@@ -218,13 +218,120 @@ export class ProjectsService {
       (i) => i.estatus === 'resuelto',
     ).length;
 
-    const [countInstru, countValv, countMotor] = await Promise.all([
-      this.prisma.avanceInstrumentacion.count({
+    const [rowsInstru, rowsValv, rowsMotor] = await Promise.all([
+      this.prisma.avanceInstrumentacion.findMany({
         where: { proyectoId: projectId },
+        select: {
+          instaladoPlanta: true,
+          cableado: true,
+          peinadoCinchado: true,
+          conexionPlanta: true,
+          conexionTablero: true,
+          pruebas: true,
+        },
       }),
-      this.prisma.avanceValvula.count({ where: { proyectoId: projectId } }),
-      this.prisma.avanceMotor.count({ where: { proyectoId: projectId } }),
+      this.prisma.avanceValvula.findMany({
+        where: { proyectoId: projectId },
+        select: {
+          cableadoNeum: true,
+          peinadoNeum: true,
+          conexionPlantaNeum: true,
+          conexionManifold: true,
+          pruebasNeum: true,
+          cableadoCtrl: true,
+          peinadoCtrl: true,
+          conexionPlantaCtrl: true,
+          conexionTableroCtrl: true,
+          comisioning: true,
+          comisionamiento: true,
+        },
+      }),
+      this.prisma.avanceMotor.findMany({
+        where: { proyectoId: projectId },
+        select: {
+          cableado: true,
+          peinadoCinchado: true,
+          pruebasAislMotor: true,
+          pruebasAislCirc: true,
+          conexionMotor: true,
+          conexionCcm: true,
+          motorSoloRun: true,
+        },
+      }),
     ]);
+
+    const countInstru = rowsInstru.length;
+    const countValv = rowsValv.length;
+    const countMotor = rowsMotor.length;
+
+    const isDone = (v: any) =>
+      v === '1' || v === 1 || v === 'LISTO' || v === 'CONECTADO';
+
+    // KPI Instrumentación
+    let tareasInstruCompletadas = 0;
+    let instruCompletados = 0;
+    for (const r of rowsInstru) {
+      let rTasks = 0;
+      if (isDone(r.instaladoPlanta)) rTasks++;
+      if (isDone(r.cableado)) rTasks++;
+      if (isDone(r.peinadoCinchado)) rTasks++;
+      if (isDone(r.conexionPlanta)) rTasks++;
+      if (isDone(r.conexionTablero)) rTasks++;
+      if (isDone(r.pruebas)) rTasks++;
+      tareasInstruCompletadas += rTasks;
+      if (isDone(r.pruebas) || rTasks === 6) instruCompletados++;
+    }
+    const totalTareasInstru = countInstru * 6;
+    const avanceInstruPct =
+      totalTareasInstru > 0
+        ? (tareasInstruCompletadas / totalTareasInstru) * 100
+        : 0;
+
+    // KPI Válvulas
+    let tareasValvCompletadas = 0;
+    let valvCompletadas = 0;
+    for (const r of rowsValv) {
+      let rTasks = 0;
+      if (isDone(r.cableadoNeum)) rTasks++;
+      if (isDone(r.peinadoNeum)) rTasks++;
+      if (isDone(r.conexionPlantaNeum)) rTasks++;
+      if (isDone(r.conexionManifold)) rTasks++;
+      if (isDone(r.pruebasNeum)) rTasks++;
+      if (isDone(r.cableadoCtrl)) rTasks++;
+      if (isDone(r.peinadoCtrl)) rTasks++;
+      if (isDone(r.conexionPlantaCtrl)) rTasks++;
+      if (isDone(r.conexionTableroCtrl)) rTasks++;
+      if (isDone(r.comisioning)) rTasks++;
+      if (isDone(r.comisionamiento)) rTasks++;
+      tareasValvCompletadas += rTasks;
+      if (isDone(r.comisioning) || isDone(r.comisionamiento) || rTasks === 11) {
+        valvCompletadas++;
+      }
+    }
+    const totalTareasValv = countValv * 11;
+    const avanceValvPct =
+      totalTareasValv > 0 ? (tareasValvCompletadas / totalTareasValv) * 100 : 0;
+
+    // KPI Motores
+    let tareasMotorCompletadas = 0;
+    let motorCompletados = 0;
+    for (const r of rowsMotor) {
+      let rTasks = 0;
+      if (isDone(r.cableado)) rTasks++;
+      if (isDone(r.peinadoCinchado)) rTasks++;
+      if (isDone(r.pruebasAislMotor)) rTasks++;
+      if (isDone(r.pruebasAislCirc)) rTasks++;
+      if (isDone(r.conexionMotor)) rTasks++;
+      if (isDone(r.conexionCcm)) rTasks++;
+      if (isDone(r.motorSoloRun)) rTasks++;
+      tareasMotorCompletadas += rTasks;
+      if (isDone(r.motorSoloRun) || rTasks === 7) motorCompletados++;
+    }
+    const totalTareasMotor = countMotor * 7;
+    const avanceMotorPct =
+      totalTareasMotor > 0
+        ? (tareasMotorCompletadas / totalTareasMotor) * 100
+        : 0;
 
     const missingInfoBasica: string[] = [];
     if (!project.liderCliente?.trim())
@@ -285,6 +392,27 @@ export class ProjectsService {
         totalTiemposMuertosHoras,
         openIncidentes,
         resolvedIncidentes,
+        avanceInstrumentacion: {
+          porcentaje: Number(avanceInstruPct.toFixed(1)),
+          total: countInstru,
+          completados: instruCompletados,
+          tareasCompletadas: tareasInstruCompletadas,
+          totalTareas: totalTareasInstru,
+        },
+        avanceValvulas: {
+          porcentaje: Number(avanceValvPct.toFixed(1)),
+          total: countValv,
+          completados: valvCompletadas,
+          tareasCompletadas: tareasValvCompletadas,
+          totalTareas: totalTareasValv,
+        },
+        avanceMotores: {
+          porcentaje: Number(avanceMotorPct.toFixed(1)),
+          total: countMotor,
+          completados: motorCompletados,
+          tareasCompletadas: tareasMotorCompletadas,
+          totalTareas: totalTareasMotor,
+        },
       },
       checklistPreArranque,
       hitos,

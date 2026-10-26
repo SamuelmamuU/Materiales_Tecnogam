@@ -10,6 +10,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { MediaModule } from './media/media.module';
 import { AvancesModule } from './avances/avances.module';
 import { AvancesEspecializadosModule } from './avances-especializados/avances-especializados.module';
+import { JornadasModule } from './jornadas/jornadas.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AvancesEspecializadosModule } from './avances-especializados/avances-es
     MediaModule,
     AvancesModule,
     AvancesEspecializadosModule,
+    JornadasModule,
   ],
   controllers: [AppController],
   providers: [AppService],

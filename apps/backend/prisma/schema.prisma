@@ -44,6 +44,13 @@ enum IncidenteEstatus {
   resuelto
 }
 
+enum EstadoJornada {
+  TRABAJANDO
+  TIEMPO_MUERTO
+  COMIDA
+  FINALIZADA
+}
+
 model Usuario {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -57,6 +64,7 @@ model Usuario {
   proyectos MemberProyecto[]
   avances   Avance[]
   auditoriasCelda AvanceCeldaAuditoria[]
+  jornadas        JornadaLaboral[]
 
   @@map("usuarios")
 }
@@ -88,6 +96,7 @@ model Proyecto {
   avancesInstrumentacion AvanceInstrumentacion[]
   avancesValvulas        AvanceValvula[]
   avancesMotores         AvanceMotor[]
+  jornadas               JornadaLaboral[]
 
   @@map("proyectos")
 }
@@ -419,4 +428,44 @@ model AvanceMotor {
 
   @@index([proyectoId])
   @@map("avances_motores")
+}
+
+model JornadaLaboral {
+  id                 String        @id @default(uuid())
+  proyectoId         String        @map("proyecto_id")
+  supervisorId       String        @map("supervisor_id")
+  fecha              DateTime
+  estado             EstadoJornada @default(TRABAJANDO)
+  horaInicio         DateTime      @default(now()) @map("hora_inicio")
+  horaFin            DateTime?     @map("hora_fin")
+  horasTrabajadas    Float         @default(0) @map("horas_trabajadas")
+  horasTiempoMuerto  Float         @default(0) @map("horas_tiempo_muerto")
+  horasComida        Float         @default(0) @map("horas_comida")
+  ultimoCambioEstado DateTime      @default(now()) @map("ultimo_cambio_estado")
+  notas              String?
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  proyecto   Proyecto        @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  supervisor Usuario         @relation(fields: [supervisorId], references: [id], onDelete: Cascade)
+  eventos    JornadaEvento[]
+
+  @@unique([proyectoId, supervisorId, fecha])
+  @@index([proyectoId, fecha])
+  @@map("jornadas_laborales")
+}
+
+model JornadaEvento {
+  id         String        @id @default(uuid())
+  jornadaId  String        @map("jornada_id")
+  tipoEstado EstadoJornada @map("tipo_estado")
+  inicio     DateTime      @default(now())
+  fin        DateTime?
+  duracion   Float?
+  motivo     String?
+
+  jornada JornadaLaboral @relation(fields: [jornadaId], references: [id], onDelete: Cascade)
+
+  @@index([jornadaId])
+  @@map("jornadas_eventos")
 }
