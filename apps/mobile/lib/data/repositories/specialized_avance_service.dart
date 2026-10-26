@@ -4,11 +4,13 @@ class SpecializedColumnDef {
   final String key;
   final String label;
   final bool isCheck;
+  final List<String>? options;
 
   const SpecializedColumnDef({
     required this.key,
     required this.label,
     this.isCheck = true,
+    this.options,
   });
 }
 
@@ -26,13 +28,25 @@ class SpecializedAvanceService {
   ];
 
   static const List<SpecializedColumnDef> columnsValvulas = [
-    SpecializedColumnDef(key: 'cableadoNeum', label: 'Cableado Neum.'),
-    SpecializedColumnDef(key: 'peinadoNeum', label: 'Peinado Neum.'),
+    SpecializedColumnDef(key: 'cableadoNeum', label: 'Cableado Tubing'),
+    SpecializedColumnDef(key: 'peinadoNeum', label: 'Peinado/Cinchado'),
+    SpecializedColumnDef(
+      key: 'conectorRapido',
+      label: 'Conector Rápido',
+      isCheck: false,
+      options: ['Pendiente', 'Listo', 'No Aplica'],
+    ),
     SpecializedColumnDef(key: 'conexionPlantaNeum', label: 'Conexión Planta Neum.'),
     SpecializedColumnDef(key: 'conexionManifold', label: 'Conexión Manifold'),
     SpecializedColumnDef(key: 'pruebasNeum', label: 'Pruebas Neumáticas'),
-    SpecializedColumnDef(key: 'cableadoCtrl', label: 'Cableado Control'),
-    SpecializedColumnDef(key: 'peinadoCtrl', label: 'Peinado Control'),
+    SpecializedColumnDef(key: 'cableadoCtrl', label: 'Cableado Eléc.'),
+    SpecializedColumnDef(key: 'peinadoCtrl', label: 'Peinado Cable'),
+    SpecializedColumnDef(
+      key: 'sensorPosicion',
+      label: 'Sensor de posición',
+      isCheck: false,
+      options: ['Pendiente', 'Listo', 'No Aplica'],
+    ),
     SpecializedColumnDef(key: 'conexionPlantaCtrl', label: 'Conexión Planta Ctrl'),
     SpecializedColumnDef(key: 'conexionTableroCtrl', label: 'Conexión Tablero Ctrl'),
     SpecializedColumnDef(key: 'comisioning', label: 'Comisioning'),
@@ -52,7 +66,7 @@ class SpecializedAvanceService {
   static bool isChecked(dynamic val) {
     if (val == null) return false;
     final str = val.toString().trim().toUpperCase();
-    return str == '1' || str == 'LISTO' || str == 'CONECTADO';
+    return str == '1' || str == 'LISTO' || str == 'CONECTADO' || str == 'NO APLICA';
   }
 
   List<SpecializedColumnDef> getColumnsForModule(String modulo) {

@@ -9,6 +9,8 @@ void main() {
       expect(SpecializedAvanceService.isChecked('LISTO'), isTrue);
       expect(SpecializedAvanceService.isChecked('listo'), isTrue);
       expect(SpecializedAvanceService.isChecked('CONECTADO'), isTrue);
+      expect(SpecializedAvanceService.isChecked('No Aplica'), isTrue);
+      expect(SpecializedAvanceService.isChecked('NO APLICA'), isTrue);
       expect(SpecializedAvanceService.isChecked('  1  '), isTrue);
     });
 
@@ -33,16 +35,29 @@ void main() {
       expect(keys, contains('pruebas'));
     });
 
-    test('getColumnsForModule returns correct columns for Valvulas (including comisioning)', () {
+    test('getColumnsForModule returns correct columns for Valvulas (including conectorRapido, sensorPosicion and comisioning)', () {
       final cols = SpecializedAvanceService.instance.getColumnsForModule('valvulas');
-      expect(cols.length, 11);
+      expect(cols.length, 13);
       final keys = cols.map((c) => c.key).toList();
       expect(keys, contains('cableadoNeum'));
+      expect(keys, contains('peinadoNeum'));
+      expect(keys, contains('conectorRapido'));
       expect(keys, contains('conexionPlantaNeum'));
       expect(keys, contains('conexionManifold'));
       expect(keys, contains('pruebasNeum'));
+      expect(keys, contains('cableadoCtrl'));
+      expect(keys, contains('peinadoCtrl'));
+      expect(keys, contains('sensorPosicion'));
+      expect(keys, contains('conexionPlantaCtrl'));
+      expect(keys, contains('conexionTableroCtrl'));
       expect(keys, contains('comisioning'));
       expect(keys, contains('comisionamiento'));
+
+      final conectorCol = cols.firstWhere((c) => c.key == 'conectorRapido');
+      expect(conectorCol.options, ['Pendiente', 'Listo', 'No Aplica']);
+
+      final sensorCol = cols.firstWhere((c) => c.key == 'sensorPosicion');
+      expect(sensorCol.options, ['Pendiente', 'Listo', 'No Aplica']);
     });
 
     test('getColumnsForModule returns correct columns for Motores', () {

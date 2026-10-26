@@ -39,7 +39,7 @@ void main() {
     await tester.pump();
 
     // Verify AppBar title
-    expect(find.text('Control de Jornada Laboral'), findsOneWidget);
+    expect(find.text('Reporte de Jornada'), findsOneWidget);
 
     // Verify Trabajado and Tiempo Muerto cards exist
     expect(find.text('Trabajado'), findsOneWidget);

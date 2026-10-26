@@ -121,4 +121,9 @@ describe('AvancesEspecializadosService', () => {
     expect(res.celdasAudit).toBeUndefined();
     expect(res.instaladoPlanta).toBe('1');
   });
+
+  it('debe incluir conectorRapido y sensorPosicion en las columnas mutables de valvulas', () => {
+    expect(ORANGE_COLUMNS.valvulas).toContain('conectorRapido');
+    expect(ORANGE_COLUMNS.valvulas).toContain('sensorPosicion');
+  });
 });

@@ -79,7 +79,7 @@ class _CaptureTiempoMuertoScreenState extends State<CaptureTiempoMuertoScreen> {
     return Scaffold(
       backgroundColor: surface0,
       appBar: AppBar(
-        title: const Text('Reportar Tiempo Muerto', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        title: const Text('Reportar Paro de Jornada', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -170,7 +170,7 @@ class _CaptureTiempoMuertoScreenState extends State<CaptureTiempoMuertoScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Guardar Tiempo Muerto', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                child: const Text('Guardar Paro de Jornada', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
               ),
             ],
           ),

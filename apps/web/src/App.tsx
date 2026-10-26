@@ -2049,7 +2049,7 @@ function Dashboard() {
               }`}
             >
               <Clock className="w-4 h-4" />
-              Tiempos Muertos
+              Reporte de Jornada
             </button>
             {isAdmin && (
               <>
@@ -3383,7 +3383,7 @@ function Dashboard() {
                 </div>
                 <div className="min-w-0">
                   <span className="block text-[11px] font-semibold text-[#5F5E5A]">
-                    Tiempos Muertos
+                    Reporte de Jornada
                   </span>
                   <span className="block text-xl font-bold text-[#1C1C1A] leading-tight">
                     {dashboardData.kpis.totalTiemposMuertosHoras.toFixed(1)} hrs
@@ -4384,10 +4384,10 @@ function Dashboard() {
                   <div className="flex justify-between items-center pb-2 border-b border-[#E3E1D9]">
                     <div>
                       <h3 className="text-sm font-bold text-[#1C1C1A]">
-                        Registro de Tiempos Muertos y Paros
+                        Reporte de Jornada: Tiempos Muertos y Paros
                       </h3>
                       <p className="text-xs text-[#5F5E5A]">
-                        Catálogo de horas perdidas clasificadas por frente de obra y causa.
+                        Control de jornada laboral y catálogo de horas perdidas clasificadas por frente de obra.
                       </p>
                     </div>
                   </div>

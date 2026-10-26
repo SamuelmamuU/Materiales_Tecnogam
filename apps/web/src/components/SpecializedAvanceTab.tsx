@@ -105,6 +105,14 @@ const MODULO_CONFIG: Record<
         subgroup: 'Neumática',
       },
       {
+        key: 'conectorRapido',
+        label: 'Conector Rapido',
+        isOrange: true,
+        type: 'options',
+        options: ['Pendiente', 'Listo', 'No Aplica'],
+        subgroup: 'Neumática',
+      },
+      {
         key: 'conexionPlantaNeum',
         label: 'Conexión Planta',
         isOrange: true,
@@ -152,6 +160,14 @@ const MODULO_CONFIG: Record<
         label: 'Peinado Cable',
         isOrange: true,
         type: 'check',
+        subgroup: 'Control',
+      },
+      {
+        key: 'sensorPosicion',
+        label: 'Sensor de posición',
+        isOrange: true,
+        type: 'options',
+        options: ['Pendiente', 'Listo', 'No Aplica'],
         subgroup: 'Control',
       },
       {
@@ -922,7 +938,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                                 </button>
                               ) : col.type === 'options' ? (
                                 <select
-                                  value={val ?? '0'}
+                                  value={val ?? col.options?.[0] ?? 'Pendiente'}
                                   onChange={(e) =>
                                     handleCellChange(row.id, col.key, e.target.value)
                                   }
@@ -970,9 +986,19 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                                 >
                                   {isCheckedValue(val) ? '1 (Listo)' : '0 (Pendiente)'}
                                 </span>
-                              ) : col.type === 'options' && val === 'CONECTADO' ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-[#E6F1FB] text-[#0C447C]">
-                                  CONECTADO
+                              ) : col.type === 'options' ? (
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold ${
+                                    val === 'Listo' || val === 'LISTO' || val === '1'
+                                      ? 'bg-[#EAF3DE] text-[#27500A]'
+                                      : val === 'No Aplica' || val === 'NO APLICA'
+                                      ? 'bg-[#F1EFE8] text-[#5F5E5A]'
+                                      : val === 'CONECTADO'
+                                      ? 'bg-[#E6F1FB] text-[#0C447C]'
+                                      : 'bg-[#FCF4E6] text-[#BA7517]'
+                                  }`}
+                                >
+                                  {val ?? col.options?.[0] ?? 'Pendiente'}
                                 </span>
                               ) : (
                                 <span

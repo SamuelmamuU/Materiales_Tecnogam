@@ -100,6 +100,45 @@ class _CaptureAvanceEspecializadoScreenState
     }
   }
 
+  Future<void> _updateOptionCell(String rowId, String columnKey, String newVal, dynamic oldVal) async {
+    // Actualización optimista local
+    setState(() {
+      final index = _rows.indexWhere((r) => r['id'] == rowId);
+      if (index != -1) {
+        _rows[index][columnKey] = newVal;
+      }
+    });
+
+    try {
+      final ok = await SpecializedAvanceService.instance.updateRow(
+        _activeProjectId,
+        _selectedModulo,
+        rowId,
+        {columnKey: newVal},
+      );
+      if (!ok && mounted) {
+        setState(() {
+          final index = _rows.indexWhere((r) => r['id'] == rowId);
+          if (index != -1) {
+            _rows[index][columnKey] = oldVal;
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al guardar cambio en servidor.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          final index = _rows.indexWhere((r) => r['id'] == rowId);
+          if (index != -1) {
+            _rows[index][columnKey] = oldVal;
+          }
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const surface0 = Color(0xFFF7F7F5);
@@ -332,11 +371,62 @@ class _CaptureAvanceEspecializadoScreenState
             const Divider(height: 1, color: Color(0xFFF1EFE8)),
             const SizedBox(height: 8),
 
-            // Grid de Checkboxes táctiles
+            // Grid de Checkboxes y Selectores táctiles
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: columns.map((col) {
+                if (col.options != null && col.options!.isNotEmpty) {
+                  final opts = col.options!;
+                  final currentVal = row[col.key]?.toString() ?? opts.first;
+                  final currentIdx = opts.indexOf(currentVal);
+                  final nextVal = opts[(currentIdx == -1 ? 0 : currentIdx + 1) % opts.length];
+
+                  final isListo = currentVal.toLowerCase() == 'listo';
+                  final isNoAplica = currentVal.toLowerCase().contains('no aplica');
+
+                  final Color bg = isListo
+                      ? const Color(0xFFEAF3DE)
+                      : (isNoAplica ? const Color(0xFFF1EFE8) : const Color(0xFFFCF4E6));
+                  final Color border = isListo
+                      ? const Color(0xFFC0DD9D)
+                      : (isNoAplica ? const Color(0xFFD4D0C5) : const Color(0xFFE6D2B5));
+                  final Color textCol = isListo
+                      ? const Color(0xFF27500A)
+                      : (isNoAplica ? const Color(0xFF5F5E5A) : const Color(0xFF8C3B00));
+                  final IconData icon = isListo
+                      ? Icons.check_circle
+                      : (isNoAplica ? Icons.block : Icons.radio_button_unchecked);
+
+                  return InkWell(
+                    onTap: () => _updateOptionCell(rowId, col.key, nextVal, row[col.key]),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: bg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: border, width: 1),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(icon, size: 15, color: textCol),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${col.label}: $currentVal',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: textCol,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
                 final isDone = SpecializedAvanceService.isChecked(row[col.key]);
                 return InkWell(
                   onTap: () => _toggleCell(rowId, col.key, row[col.key]),

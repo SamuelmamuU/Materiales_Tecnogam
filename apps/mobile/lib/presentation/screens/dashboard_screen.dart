@@ -276,12 +276,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 10),
 
-            // 1. Control de Jornada y Tiempos Muertos
+            // 1. Reporte de Jornada
             _buildMenuButton(
               context: context,
               icon: Icons.timer,
-              title: 'Control de Jornada Laboral',
-              subtitle: 'Cronómetro en vivo, tiempos muertos y comida',
+              title: 'Reporte de Jornada',
+              subtitle: 'Cronómetro en vivo, tiempos trabajados y paros',
               color: const Color(0xFFC55A11),
               bgColor: const Color(0xFFFFF3E0),
               screen: ControlJornadaScreen(projectId: _activeProjectId),
@@ -312,11 +312,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 10),
 
-            // 4. Reportar Tiempo Muerto Manual
+            // 4. Reportar Paro de Jornada
             _buildMenuButton(
               context: context,
               icon: Icons.timer_off,
-              title: 'Reportar Paro / Tiempo Muerto',
+              title: 'Reportar Paro de Jornada',
               subtitle: 'Registro manual con frente y causa',
               color: const Color(0xFFBA7517),
               bgColor: const Color(0xFFFCF4E6),

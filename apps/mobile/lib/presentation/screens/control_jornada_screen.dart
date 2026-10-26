@@ -284,7 +284,7 @@ class _ControlJornadaScreenState extends State<ControlJornadaScreen> {
       appBar: AppBar(
         backgroundColor: surface1,
         title: const Text(
-          'Control de Jornada Laboral',
+          'Reporte de Jornada',
           style: TextStyle(color: textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
         ),
         actions: [

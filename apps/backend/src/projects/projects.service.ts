@@ -235,11 +235,13 @@ export class ProjectsService {
         select: {
           cableadoNeum: true,
           peinadoNeum: true,
+          conectorRapido: true,
           conexionPlantaNeum: true,
           conexionManifold: true,
           pruebasNeum: true,
           cableadoCtrl: true,
           peinadoCtrl: true,
+          sensorPosicion: true,
           conexionPlantaCtrl: true,
           conexionTableroCtrl: true,
           comisioning: true,
@@ -265,7 +267,13 @@ export class ProjectsService {
     const countMotor = rowsMotor.length;
 
     const isDone = (v: any) =>
-      v === '1' || v === 1 || v === 'LISTO' || v === 'CONECTADO';
+      v === '1' ||
+      v === 1 ||
+      v === 'LISTO' ||
+      v === 'Listo' ||
+      v === 'CONECTADO' ||
+      v === 'No Aplica' ||
+      v === 'NO APLICA';
 
     // KPI Instrumentación
     let tareasInstruCompletadas = 0;
@@ -294,21 +302,23 @@ export class ProjectsService {
       let rTasks = 0;
       if (isDone(r.cableadoNeum)) rTasks++;
       if (isDone(r.peinadoNeum)) rTasks++;
+      if (isDone(r.conectorRapido)) rTasks++;
       if (isDone(r.conexionPlantaNeum)) rTasks++;
       if (isDone(r.conexionManifold)) rTasks++;
       if (isDone(r.pruebasNeum)) rTasks++;
       if (isDone(r.cableadoCtrl)) rTasks++;
       if (isDone(r.peinadoCtrl)) rTasks++;
+      if (isDone(r.sensorPosicion)) rTasks++;
       if (isDone(r.conexionPlantaCtrl)) rTasks++;
       if (isDone(r.conexionTableroCtrl)) rTasks++;
       if (isDone(r.comisioning)) rTasks++;
       if (isDone(r.comisionamiento)) rTasks++;
       tareasValvCompletadas += rTasks;
-      if (isDone(r.comisioning) || isDone(r.comisionamiento) || rTasks === 11) {
+      if (isDone(r.comisioning) || isDone(r.comisionamiento) || rTasks === 13) {
         valvCompletadas++;
       }
     }
-    const totalTareasValv = countValv * 11;
+    const totalTareasValv = countValv * 13;
     const avanceValvPct =
       totalTareasValv > 0 ? (tareasValvCompletadas / totalTareasValv) * 100 : 0;
 

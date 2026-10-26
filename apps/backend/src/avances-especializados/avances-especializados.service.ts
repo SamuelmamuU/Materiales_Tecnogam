@@ -26,6 +26,7 @@ export const ORANGE_COLUMNS: Record<string, string[]> = {
     'cableadoNeum',
     'cableNeumInstal',
     'peinadoNeum',
+    'conectorRapido',
     'conexionPlantaNeum',
     'conexionManifold',
     'pruebasNeum',
@@ -33,6 +34,7 @@ export const ORANGE_COLUMNS: Record<string, string[]> = {
     'cableadoCtrl',
     'cableCtrlInstal',
     'peinadoCtrl',
+    'sensorPosicion',
     'conexionPlantaCtrl',
     'conexionTableroCtrl',
     'comisioning',
@@ -162,6 +164,7 @@ export class AvancesEspecializadosService {
           cableadoNeum: '0',
           cableNeumInstal: 0,
           peinadoNeum: '0',
+          conectorRapido: 'Pendiente',
           conexionPlantaNeum: '0',
           conexionManifold: '0',
           pruebasNeum: '0',
@@ -169,6 +172,7 @@ export class AvancesEspecializadosService {
           cableadoCtrl: '0',
           cableCtrlInstal: '0',
           peinadoCtrl: '0',
+          sensorPosicion: 'Pendiente',
           conexionPlantaCtrl: '0',
           conexionTableroCtrl: '0',
           comisioning: '0',
@@ -327,6 +331,7 @@ export class AvancesEspecializadosService {
           cableadoNeum: '0',
           cableNeumInstal: 0,
           peinadoNeum: '0',
+          conectorRapido: 'Pendiente',
           conexionPlantaNeum: '0',
           conexionManifold: '0',
           pruebasNeum: '0',
@@ -334,6 +339,7 @@ export class AvancesEspecializadosService {
           cableadoCtrl: '0',
           cableCtrlInstal: '0',
           peinadoCtrl: '0',
+          sensorPosicion: 'Pendiente',
           conexionPlantaCtrl: '0',
           conexionTableroCtrl: '0',
           comisioning: '0',
@@ -932,7 +938,7 @@ export class AvancesEspecializadosService {
       'DATOS QUE DEBE CONTENER LA TABLA QUE VA A SUBIR EL ADMINISTRADOR';
     this.applyHeaderStyle(superAdmin, '1C1C1A', 'FFFFFF');
 
-    const totalSupCols = isAdmin ? 15 * 2 : 15;
+    const totalSupCols = isAdmin ? 17 * 2 : 17;
     ws.mergeCells(1, 9, 1, 8 + totalSupCols);
     const superSup = ws.getCell(1, 9);
     superSup.value = 'INFORMACIÓN QUE VA A LLENAR EL SUPERVISOR EN PLANTA';
@@ -963,6 +969,7 @@ export class AvancesEspecializadosService {
         isOrange: true,
       },
       { key: 'peinadoNeum', label: 'pinado y cinchado', isOrange: true },
+      { key: 'conectorRapido', label: 'Conector Rápido', isOrange: true },
       {
         key: 'conexionPlantaNeum',
         label: 'CONEXIÓN y etiquetado EN PLANTA',
@@ -983,6 +990,7 @@ export class AvancesEspecializadosService {
         label: 'Peinado y Cinchado de cable',
         isOrange: true,
       },
+      { key: 'sensorPosicion', label: 'Sensor de posición', isOrange: true },
       {
         key: 'conexionPlantaCtrl',
         label: 'CONEXIÓN Y ETIQUETADO EN PLANTA (Ctrl)',
@@ -1365,6 +1373,7 @@ export class AvancesEspecializadosService {
               cableadoNeum,
               cableNeumInstal,
               peinadoNeum,
+              conectorRapido: 'Pendiente',
               conexionPlantaNeum,
               conexionManifold,
               pruebasNeum,
@@ -1372,6 +1381,7 @@ export class AvancesEspecializadosService {
               cableadoCtrl,
               cableCtrlInstal,
               peinadoCtrl,
+              sensorPosicion: 'Pendiente',
               conexionPlantaCtrl,
               conexionTableroCtrl,
               comisioning,
