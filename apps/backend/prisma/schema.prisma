@@ -310,10 +310,8 @@ model AvanceInstrumentacion {
   tipoVariable    String   @map("tipo_variable")
   equipoAsoc      String   @map("equipo_asociado")
   tag             String
-  cant            Int      @default(1)
   servicioSuple   String   @map("servicio_suple")
   ubicacion       String
-  evk             String
 
   // Columnas Naranjas (Supervisor)
   instaladoPlanta String?  @default("0") @map("instalado_planta")
@@ -395,16 +393,6 @@ model AvanceMotor {
   voltage           String
   hp                String
   phases            String
-  flaCurrent        String   @map("fla_current")
-  fla125Current     String   @map("fla_125_current")
-  temperatureFactor String   @map("temperature_factor")
-  groupingFactor    String   @map("grouping_factor")
-  wiresPerPhase     String   @map("wires_per_phase")
-  voltageLossFactor String   @map("voltage_loss_factor")
-  cableLengthMts    String   @map("cable_length_mts")
-  voltageLossPct    String   @map("voltage_loss_pct")
-  wireGauge         String   @map("wire_gauge")
-  groundWireGauge   String   @map("ground_wire_gauge")
   ubicacion         String
   tamanoCable       String   @map("tamano_cable")
 

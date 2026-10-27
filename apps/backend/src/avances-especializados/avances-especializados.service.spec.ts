@@ -128,4 +128,41 @@ describe('AvancesEspecializadosService', () => {
     expect(ORANGE_COLUMNS.valvulas).not.toContain('comisioning');
     expect(ORANGE_COLUMNS.valvulas).toContain('comisionamiento');
   });
+
+  it('debe generar plantilla CSV para instrumentacion sin Cant ni EVK', () => {
+    const { content } = service.generateCsvTemplate('instrumentacion');
+    const headerLine = content.split('\n')[0];
+    const headers = headerLine.split(',');
+    expect(headers).not.toContain('Cant');
+    expect(headers).not.toContain('EVK');
+    expect(headers).toContain('Item');
+    expect(headers).toContain('Tag');
+    expect(headers).toContain('Servicio que Suple');
+    expect(headers).toContain('Ubicacion');
+  });
+
+  it('debe generar plantilla CSV para motor sin las 10 columnas tecnicas eliminadas', () => {
+    const { content } = service.generateCsvTemplate('motor');
+    const headerLine = content.split('\n')[0];
+    const headers = headerLine.split(',');
+    expect(headers).not.toContain('FLA Current');
+    expect(headers).not.toContain('FLA 1.25 Current');
+    expect(headers).not.toContain('Temperature Factor');
+    expect(headers).not.toContain('Grouping Factor');
+    expect(headers).not.toContain('Wires Per Phase');
+    expect(headers).not.toContain('Voltage Loss Factor');
+    expect(headers).not.toContain('Cable Length Mts');
+    expect(headers).not.toContain('Voltage Loss Pct');
+    expect(headers).not.toContain('Wire Gauge');
+    expect(headers).not.toContain('Ground Wire Gauge');
+    expect(headers).toContain('Part');
+    expect(headers).toContain('TAG');
+    expect(headers).toContain('Description');
+    expect(headers).toContain('Operating Mode');
+    expect(headers).toContain('Voltage');
+    expect(headers).toContain('HP');
+    expect(headers).toContain('Phases');
+    expect(headers).toContain('Ubicacion');
+    expect(headers).toContain('Tamano Cable');
+  });
 });

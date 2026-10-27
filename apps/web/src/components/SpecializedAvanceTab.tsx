@@ -55,10 +55,8 @@ const MODULO_CONFIG: Record<
       },
       { key: 'equipoAsoc', label: 'Equipo asociado', isOrange: false, type: 'text' },
       { key: 'tag', label: 'Tag', isOrange: false, type: 'text', required: true },
-      { key: 'cant', label: 'Cant.', isOrange: false, type: 'number' },
       { key: 'servicioSuple', label: 'Servicio que suple', isOrange: false, type: 'text' },
       { key: 'ubicacion', label: 'Ubicación', isOrange: false, type: 'text' },
-      { key: 'evk', label: 'EVK', isOrange: false, type: 'text' },
       // Supervisor
       { key: 'instaladoPlanta', label: 'Instalado Planta', isOrange: true, type: 'check' },
       { key: 'cableado', label: 'Cableado', isOrange: true, type: 'check' },
@@ -211,16 +209,6 @@ const MODULO_CONFIG: Record<
       { key: 'voltage', label: 'Voltaje', isOrange: false, type: 'text' },
       { key: 'hp', label: 'HP', isOrange: false, type: 'text' },
       { key: 'phases', label: 'Fases', isOrange: false, type: 'text' },
-      { key: 'flaCurrent', label: 'FLA (Amps)', isOrange: false, type: 'text' },
-      { key: 'fla125Current', label: 'FLA * 1.25', isOrange: false, type: 'text' },
-      { key: 'temperatureFactor', label: 'Factor Temp', isOrange: false, type: 'text' },
-      { key: 'groupingFactor', label: 'Factor Agrup.', isOrange: false, type: 'text' },
-      { key: 'wiresPerPhase', label: 'Hilos/Fase', isOrange: false, type: 'text' },
-      { key: 'voltageLossFactor', label: 'Factor Caída', isOrange: false, type: 'text' },
-      { key: 'cableLengthMts', label: 'Longitud (m)', isOrange: false, type: 'text' },
-      { key: 'voltageLossPct', label: '% Caída Tensión', isOrange: false, type: 'text' },
-      { key: 'wireGauge', label: 'Calibre Cable', isOrange: false, type: 'text' },
-      { key: 'groundWireGauge', label: 'Calibre Tierra', isOrange: false, type: 'text' },
       { key: 'ubicacion', label: 'Ubicación', isOrange: false, type: 'text' },
       { key: 'tamanoCable', label: 'Tamaño Cable', isOrange: false, type: 'text' },
       // Supervisor
@@ -1120,7 +1108,7 @@ export const SpecializedAvanceTab: React.FC<Props> = ({
                           setCreateForm({ ...createForm, [col.key]: e.target.value })
                         }
                         className="w-full h-8 px-2.5 bg-white border border-[#C9C7BD] rounded-lg font-medium text-xs focus:outline-hidden focus:border-[#1C1C1A]"
-                        placeholder={col.key === 'cant' ? '1' : '0'}
+                        placeholder="0"
                       />
                     ) : (
                       <input

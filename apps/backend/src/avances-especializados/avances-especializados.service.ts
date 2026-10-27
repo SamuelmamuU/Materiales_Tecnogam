@@ -130,10 +130,8 @@ export class AvancesEspecializadosService {
           tipoVariable: String(data.tipoVariable || 'NIVEL').trim(),
           equipoAsoc: String(data.equipoAsoc || '').trim(),
           tag: String(data.tag || `TAG-${item}`).trim(),
-          cant: parseInt(data.cant, 10) || 1,
           servicioSuple: String(data.servicioSuple || '').trim(),
           ubicacion: String(data.ubicacion || 'NIVEL 0').trim(),
-          evk: String(data.evk || '1').trim(),
           instaladoPlanta: '0',
           cableado: '0',
           cantidadCable: 0,
@@ -193,16 +191,6 @@ export class AvancesEspecializadosService {
           voltage: String(data.voltage || '440').trim(),
           hp: String(data.hp || '1').trim(),
           phases: String(data.phases || '3').trim(),
-          flaCurrent: String(data.flaCurrent || '0').trim(),
-          fla125Current: String(data.fla125Current || '0').trim(),
-          temperatureFactor: String(data.temperatureFactor || '0.82').trim(),
-          groupingFactor: String(data.groupingFactor || '1').trim(),
-          wiresPerPhase: String(data.wiresPerPhase || '1').trim(),
-          voltageLossFactor: String(data.voltageLossFactor || '-').trim(),
-          cableLengthMts: String(data.cableLengthMts || '-').trim(),
-          voltageLossPct: String(data.voltageLossPct || '-').trim(),
-          wireGauge: String(data.wireGauge || '-').trim(),
-          groundWireGauge: String(data.groundWireGauge || '-').trim(),
           ubicacion: String(data.ubicacion || 'Nivel 0').trim(),
           tamanoCable: String(data.tamanoCable || '3X10AWG').trim(),
           cableado: '0',
@@ -280,10 +268,8 @@ export class AvancesEspecializadosService {
           tipoVariable: getColVal(row, /variable|tipo/i) || 'NIVEL',
           equipoAsoc: getColVal(row, /equipo/i) || '',
           tag,
-          cant: parseInt(getColVal(row, /cant/i) || '1', 10) || 1,
           servicioSuple: getColVal(row, /servicio/i) || '',
           ubicacion: getColVal(row, /ubicacion/i) || 'NIVEL 0',
-          evk: getColVal(row, /evk/i) || '1',
           instaladoPlanta: '0',
           cableado: '0',
           cantidadCable: 0,
@@ -373,18 +359,6 @@ export class AvancesEspecializadosService {
           voltage: getColVal(row, /volt/i) || '440',
           hp: getColVal(row, /^hp$/i) || '1',
           phases: getColVal(row, /phase|fase/i) || '3',
-          flaCurrent: getColVal(row, /fla(?!.*1\.25)/i) || '0',
-          fla125Current: getColVal(row, /1\.25/i) || '0',
-          temperatureFactor: getColVal(row, /temp/i) || '0.82',
-          groupingFactor: getColVal(row, /group|agrup/i) || '1',
-          wiresPerPhase: getColVal(row, /wire.*phase|hilo.*fase/i) || '1',
-          voltageLossFactor:
-            getColVal(row, /loss.*factor|caida.*factor/i) || '-',
-          cableLengthMts: getColVal(row, /length|longitud|mts/i) || '-',
-          voltageLossPct: getColVal(row, /loss.*pct|caida.*%/i) || '-',
-          wireGauge:
-            getColVal(row, /wire.*gauge(?!.*ground)|calibre.*cable/i) || '-',
-          groundWireGauge: getColVal(row, /ground|tierra/i) || '-',
           ubicacion: getColVal(row, /ubicacion/i) || 'Nivel 0',
           tamanoCable: getColVal(row, /tamano/i) || '3X10AWG',
           cableado: '0',
@@ -421,10 +395,8 @@ export class AvancesEspecializadosService {
         'Tipo de Variable',
         'Equipo Asociado',
         'Tag',
-        'Cant',
         'Servicio que Suple',
         'Ubicacion',
-        'EVK',
         'Nota',
       ];
       const sample = [
@@ -432,10 +404,8 @@ export class AvancesEspecializadosService {
         'NIVEL',
         'RA01',
         'LI001',
-        '1',
         'Sensor Radar de nivel continuo',
         'NIVEL 1',
-        '1',
         'Opcional',
       ];
       return {
@@ -476,16 +446,6 @@ export class AvancesEspecializadosService {
         'Voltage',
         'HP',
         'Phases',
-        'FLA Current',
-        'FLA 1.25 Current',
-        'Temperature Factor',
-        'Grouping Factor',
-        'Wires Per Phase',
-        'Voltage Loss Factor',
-        'Cable Length Mts',
-        'Voltage Loss Pct',
-        'Wire Gauge',
-        'Ground Wire Gauge',
         'Ubicacion',
         'Tamano Cable',
       ];
@@ -497,16 +457,6 @@ export class AvancesEspecializadosService {
         '440',
         '5',
         '3',
-        '7.6',
-        '9.5',
-        '0.82',
-        '1',
-        '1',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
         'Nivel 0',
         '3X10AWG',
       ];
@@ -829,7 +779,7 @@ export class AvancesEspecializadosService {
     isAdmin: boolean,
   ) {
     // Encabezado Fila 1: Grupos
-    const adminColCount = 8;
+    const adminColCount = 6;
     const supervisorColCount = 8;
 
     // Fila 1: Super Headers
@@ -858,10 +808,8 @@ export class AvancesEspecializadosService {
         isOrange: false,
       },
       { key: 'tag', label: 'Tag', isOrange: false },
-      { key: 'cant', label: 'Cant.', isOrange: false },
       { key: 'servicioSuple', label: 'Servicio que suple', isOrange: false },
       { key: 'ubicacion', label: 'Ubicación', isOrange: false },
-      { key: 'evk', label: 'EVK', isOrange: false },
       { key: 'instaladoPlanta', label: 'instalado en Planta', isOrange: true },
       { key: 'cableado', label: 'CABLEADO', isOrange: true },
       { key: 'cantidadCable', label: 'Cantidad de Cable [m]', isOrange: true },
@@ -1049,15 +997,15 @@ export class AvancesEspecializadosService {
     rows: any[],
     isAdmin: boolean,
   ) {
-    ws.mergeCells(1, 1, 1, 19);
+    ws.mergeCells(1, 1, 1, 9);
     const superAdmin = ws.getCell(1, 1);
     superAdmin.value =
       'DATOS QUE DEBE CONTENER LA TABLA QUE VA A SUBIR EL ADMINISTRADOR';
     this.applyHeaderStyle(superAdmin, '1C1C1A', 'FFFFFF');
 
     const totalSupCols = isAdmin ? 9 * 2 : 9;
-    ws.mergeCells(1, 20, 1, 19 + totalSupCols);
-    const superSup = ws.getCell(1, 20);
+    ws.mergeCells(1, 10, 1, 9 + totalSupCols);
+    const superSup = ws.getCell(1, 10);
     superSup.value = 'Información que debe ir llenando el supervisor en planta';
     this.applyHeaderStyle(superSup, 'C55A11', 'FFFFFF');
 
@@ -1069,32 +1017,6 @@ export class AvancesEspecializadosService {
       { key: 'voltage', label: 'VOLTAGE', isOrange: false },
       { key: 'hp', label: 'HP', isOrange: false },
       { key: 'phases', label: 'PHASES', isOrange: false },
-      { key: 'flaCurrent', label: 'FULL LOAD CURRENT (FLA)', isOrange: false },
-      {
-        key: 'fla125Current',
-        label: 'FULL LOAD CURRENT (FLA) *1.25',
-        isOrange: false,
-      },
-      {
-        key: 'temperatureFactor',
-        label: 'TEMPERATURE FACTOR',
-        isOrange: false,
-      },
-      { key: 'groupingFactor', label: 'GROUPING FACTOR', isOrange: false },
-      { key: 'wiresPerPhase', label: 'WIRES PER PHASE', isOrange: false },
-      {
-        key: 'voltageLossFactor',
-        label: 'VOLTAGE LOSS FACTOR',
-        isOrange: false,
-      },
-      { key: 'cableLengthMts', label: 'CABLE LENGTH (MTS)', isOrange: false },
-      {
-        key: 'voltageLossPct',
-        label: 'VOLTAGE LOSS PERCENTAGE',
-        isOrange: false,
-      },
-      { key: 'wireGauge', label: 'WIRE GAUGE', isOrange: false },
-      { key: 'groundWireGauge', label: 'GROUND WIRE GAUGE', isOrange: false },
       { key: 'ubicacion', label: 'Ubicación', isOrange: false },
       { key: 'tamanoCable', label: 'TAMAÑ. CABLE', isOrange: false },
       { key: 'cableado', label: 'CABLEADO', isOrange: true },
@@ -1294,10 +1216,8 @@ export class AvancesEspecializadosService {
               tipoVariable,
               equipoAsoc,
               tag,
-              cant,
               servicioSuple,
               ubicacion,
-              evk,
               instaladoPlanta,
               cableado,
               cantidadCable,
@@ -1445,16 +1365,6 @@ export class AvancesEspecializadosService {
               voltage,
               hp,
               phases,
-              flaCurrent,
-              fla125Current,
-              temperatureFactor,
-              groupingFactor,
-              wiresPerPhase,
-              voltageLossFactor,
-              cableLengthMts,
-              voltageLossPct,
-              wireGauge,
-              groundWireGauge,
               ubicacion,
               tamanoCable,
               cableado,
